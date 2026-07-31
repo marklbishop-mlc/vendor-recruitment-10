@@ -30,9 +30,10 @@ service cloud.firestore {
 
     // Users Collection
     match /users/{userId} {
-      allow read: if isAuthed() && (request.auth.uid == userId || isAdmin());
-      allow write: if isAdmin();
-      // Allow user creation of self profile document on first Google login
+      allow read: if isAuthed() && request.auth.uid == userId;
+      allow read: if isAuthed() && getUserData().role == 'admin';
+      allow write: if isAuthed() && request.auth.uid == userId;
+      allow write: if isAuthed() && getUserData().role == 'admin';
       allow create: if isAuthed() && request.auth.uid == userId;
     }
 
