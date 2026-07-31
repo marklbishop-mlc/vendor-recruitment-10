@@ -10,7 +10,7 @@
     "dev": "npm run dev --prefix app",
     "check:all": "npm run check --prefix app && npm run check --prefix functions",
     "deploy:all": "npm run build && firebase deploy --only hosting:mlc-vendor-recruitment,functions:mlc-vendor-recruitment",
-    "git:start": "git checkout master && git pull origin master",
+    "git:start": "git checkout main && git pull origin main",
     "git:sync": "git add . && git commit -m \"chore: auto-sync\" && git push"
   },
   "devDependencies": {
