@@ -79,6 +79,10 @@ export const checkRecruitmentStatus = onRequest(
  * Helper to evaluate a custom workflow condition on a candidate's data object.
  */
 function evaluateCondition(candidateData: any, field: string, operator: string, value: string): boolean {
+  if (operator === 'always' || field === 'always') {
+    return true;
+  }
+
   const actualValue = candidateData[field];
   
   // Format target value for comparison

@@ -107,6 +107,7 @@ export const Templates: React.FC = () => {
   // Workflow Actions states
   const [workflowActions, setWorkflowActions] = useState<WorkflowAction[]>(INITIAL_ACTIONS);
   const [editingAction, setEditingAction] = useState<WorkflowAction | null>(null);
+  const [activeTab, setActiveTab] = useState<'templates' | 'triggers'>('templates');
   
   // Modals state
   const [isAddTemplateOpen, setIsAddTemplateOpen] = useState(false);
@@ -397,233 +398,279 @@ export const Templates: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
-        {/* Email Templates Sidebar */}
-        <aside className="space-y-4">
-          <div className="flex items-center justify-between pl-2">
-            <h4 className="font-extrabold text-xs text-slate-400 uppercase tracking-wider">Email Templates</h4>
-            <button
-              onClick={() => setIsAddTemplateOpen(true)}
-              className="py-1 px-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[10px] font-bold rounded-lg flex items-center gap-1 cursor-pointer"
+      {/* Tabs Selector Navigation */}
+      <div className="flex border-b border-slate-200 dark:border-border-dark mb-6">
+        <button
+          onClick={() => setActiveTab('templates')}
+          className={`py-3 px-6 text-sm font-bold border-b-2 transition-all cursor-pointer ${
+            activeTab === 'templates'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-slate-400 hover:text-slate-650'
+          }`}
+        >
+          Email Templates
+        </button>
+        <button
+          onClick={() => setActiveTab('triggers')}
+          className={`py-3 px-6 text-sm font-bold border-b-2 transition-all cursor-pointer ${
+            activeTab === 'triggers'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-slate-400 hover:text-slate-650'
+          }`}
+        >
+          Workflow Trigger Rules
+        </button>
+      </div>
+
+      {activeTab === 'templates' ? (
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Email Templates Sidebar */}
+            <aside className="space-y-4">
+              <div className="flex items-center justify-between pl-2">
+                <h4 className="font-extrabold text-xs text-slate-400 uppercase tracking-wider">Email Templates</h4>
+                <button
+                  onClick={() => setIsAddTemplateOpen(true)}
+                  className="py-1 px-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-[10px] font-bold rounded-lg flex items-center gap-1 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Add New
+                </button>
+              </div>
+
+              <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1">
+                {templates.map((tmpl) => {
+                  const isSelected = selectedTemplate.id === tmpl.id;
+                  return (
+                    <button
+                      key={tmpl.id}
+                      onClick={() => handleTemplateSelect(tmpl)}
+                      className={`w-full p-4 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                        isSelected 
+                          ? 'bg-slate-900 border-slate-900 text-white dark:bg-slate-800 dark:border-slate-700 shadow-sm'
+                          : 'bg-white dark:bg-card-dark border-slate-200/50 dark:border-border-dark text-slate-700 dark:text-slate-350 hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="space-y-1">
+                        <span className="block font-bold text-xs">{tmpl.name}</span>
+                        <span className={`inline-block px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${
+                          isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                        }`}>
+                          {STAGE_LABELS[tmpl.stage]}
+                        </span>
+                      </div>
+                      <Mail className={`w-4 h-4 ${isSelected ? 'text-white' : 'text-slate-400'}`} />
+                    </button>
+                  );
+                })}
+              </div>
+            </aside>
+
+            {/* Email Templates Editor Workspace */}
+            <main className="lg:col-span-2 space-y-6">
+              <div className="bg-white dark:bg-card-dark rounded-3xl border border-slate-200/50 dark:border-border-dark p-6 shadow-sm space-y-6">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-4">
+                  <div>
+                    <h3 className="text-lg font-extrabold text-slate-900 dark:text-white">Email Editor</h3>
+                    <p className="text-xs text-slate-500 mt-1">Configuring subject headers and template HTML contents.</p>
+                  </div>
+                  
+                  <button
+                    onClick={handleSaveTemplate}
+                    className="py-2.5 px-4 bg-primary hover:bg-primary-dark text-white rounded-xl font-bold text-xs flex items-center gap-1.5 btn-animate cursor-pointer"
+                  >
+                    <Save className="w-4 h-4" />
+                    Save Template Copy
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Merge Tags */}
+                  <div className="space-y-2">
+                    <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-bold">Dynamic Merge Values</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {mergeTags.map((tag) => (
+                        <button
+                          key={tag}
+                          onClick={() => insertTag(tag)}
+                          className="py-1.5 px-2.5 bg-slate-50 hover:bg-slate-100 dark:bg-bg-dark border border-slate-200/50 dark:border-white/5 rounded-lg text-[10px] font-bold text-slate-600 dark:text-slate-350 cursor-pointer flex items-center gap-1"
+                        >
+                          <Sparkles className="w-3.5 h-3.5 text-primary" />
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Form fields */}
+                  <div className="space-y-3 font-bold text-xs text-slate-650 dark:text-slate-300">
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Subject Header</label>
+                      <input
+                        type="text"
+                        value={subject}
+                        onChange={(e) => setSubject(e.target.value)}
+                        className="w-full p-3 bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary transition-all dark:text-white"
+                      />
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-slate-400 uppercase tracking-wider block font-bold">Email Body</label>
+                      <textarea
+                        value={body}
+                        onChange={(e) => setBody(e.target.value)}
+                        rows={6}
+                        className="w-full p-3 text-sm bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary transition-all dark:text-white font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </main>
+          </div>
+
+          {/* Outgoing Notification Logs Queue */}
+          <section className="bg-white dark:bg-card-dark rounded-3xl border border-slate-200/50 dark:border-border-dark shadow-sm p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3">
+              <h4 className="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2">
+                <Mail className="w-5 h-5 text-primary" />
+                Notification Queue Logs
+              </h4>
+              <span className="text-[10px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                outbox outbox logs
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-100 dark:border-white/5 text-slate-500 font-bold uppercase tracking-wider">
+                    <th className="py-3 pl-2">Recipient Address</th>
+                    <th className="py-3">Email Subject Line</th>
+                    <th className="py-3">Status Status</th>
+                    <th className="py-3">Dispatch Timestamp</th>
+                    <th className="py-3 pr-2 text-right">Actions Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-150 dark:divide-white/5 font-semibold text-slate-650 dark:text-slate-350">
+                  {queue.map((log) => (
+                    <tr key={log.id} className="hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors">
+                      <td className="py-3 pl-2 font-bold text-slate-900 dark:text-white">{log.email}</td>
+                      <td className="py-3 text-slate-600 dark:text-slate-400">{log.subject}</td>
+                      <td className="py-3">
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${
+                          log.status === 'sent' 
+                            ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20'
+                            : log.status === 'queued'
+                            ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20'
+                            : 'bg-red-500/10 text-red-600 border border-red-500/20'
+                        }`}>
+                          {log.status}
+                        </span>
+                      </td>
+                      <td className="py-3 text-slate-400">
+                        {log.sentAt ? new Date(log.sentAt).toLocaleString() : 'Pending Queue'}
+                      </td>
+                      <td className="py-3 pr-2 text-right space-x-2">
+                        <button
+                          onClick={() => handleTriggerPreview(log)}
+                          className="py-1 px-2.5 border border-slate-200 dark:border-border-dark rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 font-semibold text-[10px] btn-animate flex inline-flex items-center gap-1 cursor-pointer dark:text-white"
+                        >
+                          <Eye className="w-3 h-3 text-slate-400" />
+                          Preview
+                        </button>
+                        {log.status === 'queued' && (
+                          <button
+                            onClick={() => handleResend(log.id)}
+                            className="py-1 px-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-semibold text-[10px] btn-animate flex inline-flex items-center gap-1 cursor-pointer border border-white/5"
+                          >
+                            <Play className="w-3 h-3 text-primary animate-pulse" />
+                            Trigger Mail
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </>
+      ) : (
+        /* Conditional Workflow Actions Section triggers tab */
+        <section className="bg-white dark:bg-card-dark rounded-3xl border border-slate-200/50 dark:border-border-dark shadow-sm p-6 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3">
+            <h4 className="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2">
+              <Zap className="w-5 h-5 text-coral" />
+              Conditional Workflow Trigger Actions
+            </h4>
+            <button 
+              onClick={handleOpenAddAction}
+              className="py-2 px-3 bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white rounded-xl font-bold text-[11px] flex items-center gap-1.5 btn-animate cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
-              Create
+              Add Action Rule
             </button>
           </div>
 
-          <div className="space-y-2">
-            {templates.map((tmpl) => {
-              const isSelected = tmpl.id === selectedTemplate.id;
-              return (
-                <button
-                  key={tmpl.id}
-                  onClick={() => handleTemplateSelect(tmpl)}
-                  className={`w-full text-left p-4 rounded-2xl border transition-all flex items-center justify-between group cursor-pointer ${
-                    isSelected
-                      ? 'bg-primary text-white border-primary/20 shadow-md shadow-primary/25'
-                      : 'bg-white dark:bg-card-dark text-slate-700 dark:text-slate-300 border-slate-200/50 dark:border-white/5 hover:bg-slate-50 dark:hover:bg-white/5'
-                  }`}
-                >
-                  <div>
-                    <span className={`text-[10px] uppercase font-bold tracking-wider block ${isSelected ? 'text-white/80' : 'text-primary'}`}>
-                      {tmpl.stage.replace('_', ' ')}
-                    </span>
-                    <span className="font-bold text-sm leading-tight block mt-0.5">{tmpl.name}</span>
-                  </div>
-                  <Mail className={`w-4 h-4 opacity-50 group-hover:scale-110 transition-transform ${isSelected ? 'text-white' : 'text-slate-400'}`} />
-                </button>
-              );
-            })}
-          </div>
-        </aside>
-
-        {/* Editor panel */}
-        <main className="lg:col-span-2 space-y-6">
-          <div className="bg-white dark:bg-card-dark rounded-3xl border border-slate-200/50 dark:border-border-dark p-6 space-y-6 shadow-sm">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-4">
-              <div>
-                <h4 className="font-extrabold text-base text-slate-900 dark:text-white">Email Editor</h4>
-                <p className="text-xs text-slate-400 mt-1">Configure email template markdown details</p>
-              </div>
-              <button
-                onClick={handleSaveTemplate}
-                className="py-2 px-4 bg-primary hover:bg-primary-dark text-white font-bold text-xs rounded-xl flex items-center gap-1.5 btn-animate shadow-md shadow-primary/25 cursor-pointer"
-              >
-                <Save className="w-3.5 h-3.5" />
-                Save Changes
-              </button>
-            </div>
-
-            {/* Merge fields selector */}
-            <div className="space-y-2">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Merge tags copy helper</span>
-              <div className="flex flex-wrap gap-1.5">
-                {mergeTags.map((tag) => (
-                  <button
-                    key={tag}
-                    onClick={() => insertTag(tag)}
-                    className="py-1.5 px-3 bg-slate-100 hover:bg-primary hover:text-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 dark:hover:bg-primary font-bold text-xs rounded-lg transition-all flex items-center gap-1 cursor-pointer"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    {"{{" + tag + "}}"}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Subject / Copy body */}
-            <div className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Email Subject</label>
-                <input
-                  type="text"
-                  value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
-                  className="w-full p-3 text-sm bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary transition-all dark:text-white font-semibold"
-                />
-              </div>
-              
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Message Body</label>
-                <textarea
-                  value={body}
-                  onChange={(e) => setBody(e.target.value)}
-                  rows={6}
-                  className="w-full p-3 text-sm bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary transition-all dark:text-white font-mono"
-                />
-              </div>
-            </div>
-          </div>
-        </main>
-      </div>
-
-      {/* Conditional Workflow Actions Section */}
-      <section className="bg-white dark:bg-card-dark rounded-3xl border border-slate-200/50 dark:border-border-dark shadow-sm p-6 space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3">
-          <h4 className="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2">
-            <Zap className="w-5 h-5 text-coral" />
-            Conditional Workflow Trigger Actions
-          </h4>
-          <button 
-            onClick={handleOpenAddAction}
-            className="py-2 px-3 bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white rounded-xl font-bold text-[11px] flex items-center gap-1.5 btn-animate cursor-pointer"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Add Action Rule
-          </button>
-        </div>
-
-        <div className="space-y-3">
-          {workflowActions.map((act) => (
-            <div key={act.id} className="p-4 bg-slate-50 dark:bg-bg-dark rounded-2xl border border-slate-200/20 dark:border-border-dark flex flex-col md:flex-row md:items-center justify-between gap-4 text-xs font-semibold">
-              <div className="space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <span className="font-extrabold text-slate-900 dark:text-white text-sm">{act.name}</span>
-                  <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
-                    act.isActive 
-                      ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' 
-                      : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
-                  }`}>
-                    {act.isActive ? 'Active' : 'Disabled'}
-                  </span>
-                </div>
-                
-                <div className="text-slate-500 dark:text-slate-400 font-normal leading-relaxed">
-                  Trigger stage: <span className="font-bold text-primary">{STAGE_LABELS[act.triggerStage]}</span>.
-                  Evaluation: <span className="font-mono text-[10px] bg-slate-200/50 dark:bg-slate-800 px-1.5 py-0.5 rounded">{act.field} {act.operator} {act.value}</span>.
-                  Action: <span className="font-bold text-secondary capitalize">{act.actionType.replace('_', ' ')}</span> 
-                  {act.templateId && ` (Template ID: ${act.templateId}, Recipient: ${act.recipientType})`}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => handleToggleAction(act.id)}
-                  className={`py-1.5 px-3 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer ${
-                    act.isActive 
-                      ? 'bg-amber-500/10 text-amber-600 border-amber-500/20' 
-                      : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
-                  }`}
-                >
-                  {act.isActive ? 'Disable' : 'Enable'}
-                </button>
-                <button
-                  onClick={() => handleOpenEditAction(act)}
-                  className="py-1.5 px-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg text-[10px] font-bold dark:text-white transition-colors cursor-pointer"
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={() => handleRemoveAction(act.id)}
-                  className="p-1.5 text-slate-400 hover:text-red-500 rounded hover:bg-red-500/5 transition-colors cursor-pointer"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Outgoing Notification Logs Queue */}
-      <section className="bg-white dark:bg-card-dark rounded-3xl border border-slate-200/50 dark:border-border-dark shadow-sm p-6 space-y-4">
-        <h4 className="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2 border-b border-slate-100 dark:border-white/5 pb-3">
-          <Mail className="w-5 h-5 text-primary" />
-          Notification Queue Logs
-        </h4>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="text-slate-400 font-bold uppercase tracking-wider border-b border-slate-100 dark:border-white/5 pb-2">
-                <th className="py-2 pl-2">Recipient candidate</th>
-                <th className="py-2">Subject Header</th>
-                <th className="py-2 text-center">Status</th>
-                <th className="py-2">Processed Date</th>
-                <th className="py-2 pr-2 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-              {queue.map((log) => (
-                <tr key={log.id} className="hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors">
-                  <td className="py-3 pl-2 font-bold text-slate-900 dark:text-white">{log.email}</td>
-                  <td className="py-3 text-slate-500 dark:text-slate-400 font-medium">{log.subject}</td>
-                  <td className="py-3 text-center">
-                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-bold uppercase text-[9px] ${
-                      log.status === 'sent' 
-                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' 
-                        : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+          <div className="space-y-3">
+            {workflowActions.map((act) => (
+              <div key={act.id} className="p-4 bg-slate-50 dark:bg-bg-dark rounded-2xl border border-slate-200/20 dark:border-border-dark flex flex-col md:flex-row md:items-center justify-between gap-4 text-xs font-semibold">
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="font-extrabold text-slate-900 dark:text-white text-sm">{act.name}</span>
+                    <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
+                      act.isActive 
+                        ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' 
+                        : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
                     }`}>
-                      {log.status}
+                      {act.isActive ? 'Active' : 'Disabled'}
                     </span>
-                  </td>
-                  <td className="py-3 text-slate-400">
-                    {log.sentAt ? new Date(log.sentAt).toLocaleString() : 'Pending Queue'}
-                  </td>
-                  <td className="py-3 pr-2 text-right space-x-2">
-                    <button
-                      onClick={() => handleTriggerPreview(log)}
-                      className="py-1 px-2.5 border border-slate-200 dark:border-border-dark rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 font-semibold text-[10px] btn-animate flex inline-flex items-center gap-1 cursor-pointer dark:text-white"
-                    >
-                      <Eye className="w-3 h-3 text-slate-400" />
-                      Preview
-                    </button>
-                    {log.status === 'queued' && (
-                      <button
-                        onClick={() => handleResend(log.id)}
-                        className="py-1 px-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-semibold text-[10px] btn-animate flex inline-flex items-center gap-1 cursor-pointer border border-white/5"
-                      >
-                        <Play className="w-3 h-3 text-primary animate-pulse" />
-                        Trigger Mail
-                      </button>
+                  </div>
+                  
+                  <div className="text-slate-500 dark:text-slate-400 font-normal leading-relaxed">
+                    Trigger stage: <span className="font-bold text-primary">{STAGE_LABELS[act.triggerStage]}</span>.
+                    {act.field === 'always' || act.operator === 'always' ? (
+                      <span className="text-[10px] font-bold text-emerald-600 bg-emerald-500/10 px-1.5 py-0.5 rounded ml-1">Always Trigger (On Stage Change)</span>
+                    ) : (
+                      <span>
+                        Evaluation: <span className="font-mono text-[10px] bg-slate-200/50 dark:bg-slate-800 px-1.5 py-0.5 rounded">{act.field} {act.operator} {act.value}</span>.
+                      </span>
                     )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
+                    Action: <span className="font-bold text-secondary capitalize">{act.actionType.replace('_', ' ')}</span> 
+                    {act.templateId && ` (Template ID: ${act.templateId}, Recipient: ${act.recipientType})`}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => handleToggleAction(act.id)}
+                    className={`py-1.5 px-3 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer ${
+                      act.isActive 
+                        ? 'bg-amber-500/10 text-amber-600 border-amber-500/20' 
+                        : 'bg-slate-200 dark:bg-slate-800 text-slate-500'
+                    }`}
+                  >
+                    {act.isActive ? 'Disable' : 'Enable'}
+                  </button>
+                  <button
+                    onClick={() => handleOpenEditAction(act)}
+                    className="py-1.5 px-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg text-[10px] font-bold dark:text-white transition-colors cursor-pointer"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => handleRemoveAction(act.id)}
+                    className="p-1.5 text-slate-400 hover:text-red-500 rounded hover:bg-red-500/5 transition-colors cursor-pointer"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Modal: Add Email Template */}
       <AnimatePresence>
@@ -769,33 +816,52 @@ export const Templates: React.FC = () => {
 
                   {/* Conditions check */}
                   <div className="p-3 bg-slate-50 dark:bg-bg-dark border border-slate-200/20 dark:border-white/5 rounded-2xl space-y-2">
-                    <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Condition check settings</span>
-                    <div className="grid grid-cols-3 gap-2">
+                    <span className="text-[10px] text-slate-400 uppercase tracking-wider block font-bold">Condition check settings</span>
+                    <div className="space-y-2">
                       <select
                         value={newActField}
-                        onChange={(e) => setNewActField(e.target.value)}
-                        className="p-1.5 text-[10px] bg-white dark:bg-card-dark border rounded text-slate-900 dark:text-white"
+                        onChange={(e) => {
+                          setNewActField(e.target.value);
+                          if (e.target.value === 'always') {
+                            setNewActOperator('always');
+                            setNewActVal('always');
+                          } else if (newActOperator === 'always') {
+                            setNewActOperator('==');
+                            setNewActVal('true');
+                          }
+                        }}
+                        className="w-full p-2 text-[10px] bg-white dark:bg-card-dark border rounded text-slate-900 dark:text-white cursor-pointer"
                       >
+                        <option value="always">Always Trigger (Stage Change Only)</option>
                         <option value="isGmail">isGmail</option>
                         <option value="hasSignedNda">hasSignedNda</option>
                         <option value="classificationTier">classificationTier</option>
                       </select>
-                      <select
-                        value={newActOperator}
-                        onChange={(e) => setNewActOperator(e.target.value as any)}
-                        className="p-1.5 text-[10px] bg-white dark:bg-card-dark border rounded text-slate-900 dark:text-white"
-                      >
-                        <option value="==">==</option>
-                        <option value="!=">!=</option>
-                      </select>
-                      <input
-                        type="text"
-                        required
-                        value={newActVal}
-                        onChange={(e) => setNewActVal(e.target.value)}
-                        placeholder="value (true/false)"
-                        className="p-1.5 text-[10px] bg-white dark:bg-card-dark border rounded text-slate-900 dark:text-white"
-                      />
+                      
+                      {newActField !== 'always' && (
+                        <div className="grid grid-cols-2 gap-2">
+                          <select
+                            value={newActOperator}
+                            onChange={(e) => setNewActOperator(e.target.value as any)}
+                            className="p-1.5 text-[10px] bg-white dark:bg-card-dark border rounded text-slate-900 dark:text-white cursor-pointer"
+                          >
+                            <option value="==">==</option>
+                            <option value="!=">!=</option>
+                            <option value="empty">is empty</option>
+                            <option value="not_empty">is not empty</option>
+                          </select>
+                          {newActOperator !== 'empty' && newActOperator !== 'not_empty' && (
+                            <input
+                              type="text"
+                              required
+                              value={newActVal}
+                              onChange={(e) => setNewActVal(e.target.value)}
+                              placeholder="value (true/false)"
+                              className="p-1.5 text-[10px] bg-white dark:bg-card-dark border rounded text-slate-900 dark:text-white"
+                            />
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
 
