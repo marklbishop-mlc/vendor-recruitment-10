@@ -34,3 +34,7 @@ Thumbs.db
 
 # Husky files
 .husky/_/
+
+# Secrets / Credentials
+functions/src/email-service-account.json
+email-service-account.json

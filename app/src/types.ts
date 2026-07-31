@@ -85,9 +85,15 @@ export interface StatusConfig {
   color: string; // e.g. "blue" | "red" | "yellow" | "green" | "purple" | "indigo" | "pink"
 }
 
+export interface TestingModeConfig {
+  enabled: boolean;
+  recipientEmail: string;
+}
+
 export interface SystemConfig {
   languages: string[];
   statuses: StatusConfig[];
+  testingMode: TestingModeConfig;
 }
 
 export interface NotificationLog {
