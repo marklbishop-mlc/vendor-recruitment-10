@@ -1,0 +1,19 @@
+{
+  "name": "vendor-recruitment-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Monorepo for MLC Vendor Recruitment application",
+  "scripts": {
+    "prepare": "husky",
+    "install:all": "npm install --prefix app && npm install --prefix functions",
+    "build": "npm run build --prefix app && npm run build --prefix functions",
+    "dev": "npm run dev --prefix app",
+    "check:all": "npm run check --prefix app && npm run check --prefix functions",
+    "deploy:all": "npm run build && firebase deploy --only hosting:mlc-vendor-recruitment,functions:mlc-vendor-recruitment",
+    "git:start": "git checkout master && git pull origin master",
+    "git:sync": "git add . && git commit -m \"chore: auto-sync\" && git push"
+  },
+  "devDependencies": {
+    "husky": "^9.1.4"
+  }
+}

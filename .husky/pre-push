@@ -1,0 +1,12 @@
+#!/bin/sh
+
+# Get the name of the current branch
+current_branch=$(git symbolic-ref --short HEAD)
+
+if [ "$current_branch" = "master" ] || [ "$current_branch" = "main" ]; then
+  echo "❌ CRITICAL: Pushing directly to '$current_branch' is blocked!"
+  echo "Please sync master, create a feature branch, and open a Pull Request."
+  exit 1
+fi
+
+npm run check:all && npm audit --audit-level=high
