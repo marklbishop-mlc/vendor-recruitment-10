@@ -161,6 +161,7 @@ export const Settings: React.FC = () => {
     saveFirestoreConfig();
     
     setShowToast(true);
+    window.dispatchEvent(new Event('mlc-settings-saved'));
     setTimeout(() => setShowToast(false), 2500);
   };
 
