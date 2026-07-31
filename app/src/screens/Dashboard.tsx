@@ -1,14 +1,13 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { useAuth } from '../AuthContext';
-import type { VendorProfile, WorkflowStage, WorkingLanguage } from '../types';
+import type { VendorProfile, WorkflowStage, WorkingLanguage, StatusConfig, WorkflowAction } from '../types';
 import { 
-  Plus, Search, Filter, ShieldAlert, CheckCircle2, Clock, X, 
+  Plus, Search, Filter, ShieldAlert, X, 
   FileText, Check, UploadCloud, Grid, List, ArrowUpDown,
-  FileCheck, Info, ExternalLink
+  FileCheck, Info, ExternalLink, Edit2, AlertTriangle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// Mock candidates list matching expanded profile attributes
+// Mock candidates list matching expanded profile attributes with new 7 stages
 const INITIAL_VENDORS_MOCK: VendorProfile[] = [
   {
     id: 'v-1',
@@ -18,7 +17,7 @@ const INITIAL_VENDORS_MOCK: VendorProfile[] = [
     phone: '+1 (555) 123-4567',
     status: 'approved',
     category: 'active',
-    stage: 'approved',
+    stage: 'ready_for_pm',
     services: ['Translation', 'Localization'],
     workingLanguages: [
       { language: 'Spanish', proficiency: 'native' },
@@ -36,6 +35,7 @@ const INITIAL_VENDORS_MOCK: VendorProfile[] = [
     linkedInProfile: 'https://linkedin.com/in/carlos-santillan',
     hoursAvailable: 35,
     hasSignedNda: true,
+    ndaUrl: 'https://mlconnections.com/nda/verify-cs-987.pdf',
     resumeName: 'carlos_resume_2026.pdf',
     submittedAt: '2026-07-20T10:00:00Z',
     updatedAt: '2026-07-20T10:00:00Z'
@@ -48,7 +48,7 @@ const INITIAL_VENDORS_MOCK: VendorProfile[] = [
     phone: '+81 3 1234 5678',
     status: 'pending',
     category: 'unassigned',
-    stage: 'testing_assigned',
+    stage: 'in_testing',
     services: ['Interpretation', 'Subtitling'],
     workingLanguages: [
       { language: 'Japanese', proficiency: 'native' },
@@ -63,6 +63,7 @@ const INITIAL_VENDORS_MOCK: VendorProfile[] = [
     mtPeExperience: '3-5',
     hoursAvailable: 20,
     hasSignedNda: true,
+    ndaUrl: 'https://mlconnections.com/nda/verify-ht-554.pdf',
     resumeName: 'hana_tanaka_cv.docx',
     submittedAt: '2026-07-28T14:30:00Z',
     updatedAt: '2026-07-28T14:30:00Z'
@@ -75,7 +76,7 @@ const INITIAL_VENDORS_MOCK: VendorProfile[] = [
     phone: '+46 8 123 45 67',
     status: 'pending',
     category: 'outreach',
-    stage: 'sourced',
+    stage: 'outreach',
     services: ['Translation', 'Proofreading'],
     workingLanguages: [
       { language: 'Swedish', proficiency: 'native' },
@@ -101,7 +102,7 @@ const INITIAL_VENDORS_MOCK: VendorProfile[] = [
     phone: '+221 33 123 45 67',
     status: 'pending',
     category: 'network',
-    stage: 'nda_verified',
+    stage: 'nda',
     services: ['Transcription'],
     workingLanguages: [
       { language: 'Wolof', proficiency: 'native' },
@@ -118,46 +119,53 @@ const INITIAL_VENDORS_MOCK: VendorProfile[] = [
     prozProfile: 'https://proz.com/profile/amara-diop',
     hoursAvailable: 40,
     hasSignedNda: true,
+    ndaUrl: 'https://mlconnections.com/nda/verify-ad-122.pdf',
     resumeName: 'amara_diop_resume.pdf',
     submittedAt: '2026-07-15T08:00:00Z',
     updatedAt: '2026-07-18T16:00:00Z'
   }
 ];
 
-const STAGE_LABELS: Record<WorkflowStage, string> = {
-  sourced: 'Sourced / Intake',
-  nda_pending: 'NDA Pending',
-  nda_verified: 'NDA Verified',
-  outreach_sent: 'Outreach Sent',
-  intake_complete: 'Intake Complete',
-  testing_assigned: 'Testing Assigned',
-  grading: 'Grading / Results',
-  xtrf_sync: 'System Onboarding',
-  approved: 'Approved / Ready'
+export const STAGE_LABELS: Record<WorkflowStage, string> = {
+  outreach: 'Outreach',
+  nda: 'NDA',
+  ready_for_testing: 'Ready for Testing',
+  in_testing: 'In Testing',
+  xtrf_onboarding: 'XTRF Onboarding',
+  ready_for_pm: 'Ready for PM',
+  dnu: 'DNU'
 };
 
-const CATEGORY_LABELS: Record<string, string> = {
-  outreach: 'New Outreach',
-  network: 'Existing Network',
-  unassigned: 'Tested & Unassigned',
-  active: 'Active Vendor'
+
+
+const STATUS_COLORS_MAP: Record<string, string> = {
+  blue: 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/20',
+  red: 'bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/20',
+  yellow: 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/20',
+  green: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
+  purple: 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/20',
+  indigo: 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/20',
+  pink: 'bg-pink-500/15 text-pink-600 dark:text-pink-400 border-pink-500/20',
+  gray: 'bg-slate-500/15 text-slate-600 dark:text-slate-400 border-slate-500/20'
 };
 
 export const Dashboard: React.FC = () => {
-  const { user } = useAuth();
   
-  // Normalized configurations from Settings (localStorage)
+  // Settings configurations
   const [activeLanguages, setActiveLanguages] = useState<string[]>([]);
-  const [activeStatuses, setActiveStatuses] = useState<string[]>([]);
+  const [activeStatuses, setActiveStatuses] = useState<StatusConfig[]>([]);
 
   // Pipeline lists
   const [vendors, setVendors] = useState<VendorProfile[]>(INITIAL_VENDORS_MOCK);
   const [search, setSearch] = useState('');
   const [stageFilter, setStageFilter] = useState<string>('all');
+  
+  // Slide-out drawers
   const [selectedVendor, setSelectedVendor] = useState<VendorProfile | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
 
-  // View toggle: 'cards' or 'table'
-  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
+  // Default view is now table view
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('table');
   
   // Table sorting states
   const [sortField, setSortField] = useState<keyof VendorProfile>('contactName');
@@ -165,9 +173,11 @@ export const Dashboard: React.FC = () => {
   
   // Side Drawers / Modals
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [isXtrfOpen, setIsXtrfOpen] = useState(false);
 
-  // Form Field States
+  // XTRF import click banner alert
+  const [showXtrfAlert, setShowXtrfAlert] = useState(false);
+
+  // Form Field States for New Intake
   const [formContactName, setFormContactName] = useState('');
   const [formCompanyName, setFormCompanyName] = useState('');
   const [formEmail, setFormEmail] = useState('');
@@ -182,6 +192,7 @@ export const Dashboard: React.FC = () => {
   const [formMlcRate, setFormMlcRate] = useState('45');
   const [formTier, setFormTier] = useState<'1' | '2' | '3'>('2');
   const [formStatus, setFormStatus] = useState('pending');
+  const [formNdaUrl, setFormNdaUrl] = useState('');
   
   // Selected multiple languages in form
   const [formLanguages, setFormLanguages] = useState<{ language: string; proficiency: WorkingLanguage['proficiency'] }[]>([]);
@@ -193,10 +204,39 @@ export const Dashboard: React.FC = () => {
   const [uploadingName, setUploadingName] = useState('');
   const [uploadedResumeName, setUploadedResumeName] = useState('');
 
-  // Load configuration lists on boot
+  // Editing Candidate Profile state
+  const [editContactName, setEditContactName] = useState('');
+  const [editCompanyName, setEditCompanyName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editSecondaryEmail, setEditSecondaryEmail] = useState('');
+  const [editIsGmail, setEditIsGmail] = useState(true);
+  const [editPhone, setEditPhone] = useState('');
+  const [editHours, setEditHours] = useState('');
+  const [editExperience, setEditExperience] = useState<'1-3' | '3-5' | '5+'>('1-3');
+  const [editProz, setEditProz] = useState('');
+  const [editLinkedin, setEditLinkedin] = useState('');
+  const [editServices, setEditServices] = useState('');
+  const [editMlcRate, setEditMlcRate] = useState('');
+  const [editTier, setEditTier] = useState<1 | 2 | 3>(2);
+  const [editStatus, setEditStatus] = useState('');
+  const [editNdaUrl, setEditNdaUrl] = useState('');
+  const [editHasSignedNda, setEditHasSignedNda] = useState(false);
+  const [editLanguages, setEditLanguages] = useState<{ language: string; proficiency: WorkingLanguage['proficiency'] }[]>([]);
+  const [editConfirmedRate, setEditConfirmedRate] = useState('');
+
+  // Validation transition modal states
+  const [pendingTransition, setPendingTransition] = useState<{
+    vendorId: string;
+    targetStage: WorkflowStage;
+    actionName: string;
+    templateName: string;
+    recipientType: string;
+  } | null>(null);
+
+  // Load configurations
   useEffect(() => {
     const savedLangs = localStorage.getItem('mlc_settings_languages');
-    const savedStatuses = localStorage.getItem('mlc_settings_statuses');
+    const savedStatuses = localStorage.getItem('mlc_settings_statuses_v2');
     
     if (savedLangs) {
       setActiveLanguages(JSON.parse(savedLangs));
@@ -207,11 +247,17 @@ export const Dashboard: React.FC = () => {
     if (savedStatuses) {
       setActiveStatuses(JSON.parse(savedStatuses));
     } else {
-      setActiveStatuses(['pending', 'approved', 'rejected', 'on_hold', 'blacklisted', 'active']);
+      setActiveStatuses([
+        { key: 'pending', color: 'yellow' },
+        { key: 'approved', color: 'green' },
+        { key: 'rejected', color: 'red' },
+        { key: 'on_hold', color: 'blue' },
+        { key: 'blacklisted', color: 'purple' },
+        { key: 'active', color: 'indigo' }
+      ]);
     }
   }, []);
 
-  // Set default added language from active list
   useEffect(() => {
     if (activeLanguages.length > 0 && !selectedLangToAdd) {
       setSelectedLangToAdd(activeLanguages[0]);
@@ -230,6 +276,15 @@ export const Dashboard: React.FC = () => {
 
   const handleRemoveLanguageFromForm = (langName: string) => {
     setFormLanguages((prev) => prev.filter((l) => l.language !== langName));
+  };
+
+  const handleAddLanguageToEdit = (lang: string, prof: WorkingLanguage['proficiency']) => {
+    if (editLanguages.some((l) => l.language === lang)) return;
+    setEditLanguages((prev) => [...prev, { language: lang, proficiency: prof }]);
+  };
+
+  const handleRemoveLanguageFromEdit = (langName: string) => {
+    setEditLanguages((prev) => prev.filter((l) => l.language !== langName));
   };
 
   const simulateResumeUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -252,13 +307,66 @@ export const Dashboard: React.FC = () => {
     }, 200);
   };
 
-  const handleStageChange = (vendorId: string, nextStage: WorkflowStage) => {
+  // Mock list of registered email actions to check validation triggers
+  const mockActionsList: WorkflowAction[] = [
+    {
+      id: 'act-1',
+      name: 'Send NDA on Outreach Stage',
+      triggerStage: 'nda',
+      field: 'hasSignedNda',
+      operator: '==',
+      value: 'false',
+      actionType: 'send_email',
+      templateId: 't-2',
+      recipientType: 'vendor',
+      isActive: true
+    },
+    {
+      id: 'act-2',
+      name: 'Auto-Invite Gmail Users to Test',
+      triggerStage: 'ready_for_testing',
+      field: 'isGmail',
+      operator: '==',
+      value: 'true',
+      actionType: 'send_email',
+      templateId: 't-3',
+      recipientType: 'both',
+      isActive: true
+    }
+  ];
+
+  // Stage change trigger with validation check
+  const handleStageChangeRequest = (vendorId: string, nextStage: WorkflowStage) => {
+    const candidate = vendors.find((v) => v.id === vendorId);
+    if (!candidate) return;
+
+    // Look for matching action rule triggered on nextStage
+    const matchingAction = mockActionsList.find(
+      (act) => act.triggerStage === nextStage && act.isActive
+    );
+
+    if (matchingAction && matchingAction.actionType === 'send_email') {
+      const templateName = matchingAction.templateId === 't-2' ? 'NDA Signature Request' : 'Testing Invitation';
+      setPendingTransition({
+        vendorId,
+        targetStage: nextStage,
+        actionName: matchingAction.name,
+        templateName,
+        recipientType: matchingAction.recipientType === 'both' ? 'Vendor & MLC Copy' : matchingAction.recipientType.toUpperCase()
+      });
+    } else {
+      // Direct commit
+      commitStageChange(vendorId, nextStage);
+    }
+  };
+
+  const commitStageChange = (vendorId: string, nextStage: WorkflowStage) => {
     setVendors((prev) => 
       prev.map((v) => {
         if (v.id !== vendorId) return v;
         
         let newStatus = v.status;
-        if (nextStage === 'approved') {
+        if (nextStage === 'ready_for_pm') {
           newStatus = 'approved';
         }
         
@@ -274,54 +382,71 @@ export const Dashboard: React.FC = () => {
     setSelectedVendor((prev) => {
       if (!prev || prev.id !== vendorId) return prev;
       let newStatus = prev.status;
-      if (nextStage === 'approved') newStatus = 'approved';
+      if (nextStage === 'ready_for_pm') newStatus = 'approved';
       return { ...prev, stage: nextStage, status: newStatus, updatedAt: new Date().toISOString() };
     });
+
+    setPendingTransition(null);
   };
 
-  const handleCustomStatusChange = (vendorId: string, newStatus: string) => {
-    setVendors((prev) => 
-      prev.map((v) => 
-        v.id === vendorId 
-          ? { ...v, status: newStatus, updatedAt: new Date().toISOString() } 
-          : v
-      )
-    );
-
-    setSelectedVendor((prev) => {
-      if (!prev || prev.id !== vendorId) return prev;
-      return { ...prev, status: newStatus, updatedAt: new Date().toISOString() };
-    });
+  const startEditingVendor = (vendor: VendorProfile) => {
+    setEditContactName(vendor.contactName);
+    setEditCompanyName(vendor.companyName);
+    setEditEmail(vendor.email);
+    setEditSecondaryEmail(vendor.secondaryEmail || '');
+    setEditIsGmail(vendor.isGmail);
+    setEditPhone(vendor.phone || '');
+    setEditHours(vendor.hoursAvailable?.toString() || '');
+    setEditExperience(vendor.mtPeExperience || '1-3');
+    setEditProz(vendor.prozProfile || '');
+    setEditLinkedin(vendor.linkedInProfile || '');
+    setEditServices(vendor.services.join(', '));
+    setEditMlcRate(vendor.mlcHourlyRate.toString());
+    setEditTier(vendor.classificationTier);
+    setEditStatus(vendor.status);
+    setEditNdaUrl(vendor.ndaUrl || '');
+    setEditHasSignedNda(vendor.hasSignedNda);
+    setEditLanguages([...vendor.workingLanguages]);
+    setEditConfirmedRate(vendor.confirmedRate.toString());
+    setIsEditing(true);
   };
 
-  const handleNdaToggle = (vendorId: string) => {
-    setVendors((prev) => 
-      prev.map((v) => 
-        v.id === vendorId 
-          ? { ...v, hasSignedNda: !v.hasSignedNda, updatedAt: new Date().toISOString() } 
-          : v
-      )
-    );
+  const handleSaveEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedVendor) return;
 
-    setSelectedVendor((prev) => {
-      if (!prev || prev.id !== vendorId) return prev;
-      return { ...prev, hasSignedNda: !prev.hasSignedNda, updatedAt: new Date().toISOString() };
-    });
-  };
+    if (!editIsGmail && !editSecondaryEmail.trim()) {
+      alert("A secondary Google Account (Gmail/Workspace) email is required when the primary account is an external domain.");
+      return;
+    }
 
-  const handleRateOverride = (vendorId: string, confirmedRate: number) => {
-    setVendors((prev) => 
-      prev.map((v) => 
-        v.id === vendorId 
-          ? { ...v, confirmedRate, updatedAt: new Date().toISOString() } 
-          : v
-      )
-    );
-    
-    setSelectedVendor((prev) => {
-      if (!prev || prev.id !== vendorId) return prev;
-      return { ...prev, confirmedRate, updatedAt: new Date().toISOString() };
-    });
+    const updatedProfile: VendorProfile = {
+      ...selectedVendor,
+      contactName: editContactName.trim(),
+      companyName: editCompanyName.trim(),
+      email: editEmail.trim(),
+      secondaryEmail: editIsGmail ? undefined : editSecondaryEmail.trim(),
+      isGmail: editIsGmail,
+      phone: editPhone.trim() || undefined,
+      hoursAvailable: parseInt(editHours) || undefined,
+      mtPeExperience: editExperience,
+      prozProfile: editProz.trim() || undefined,
+      linkedInProfile: editLinkedin.trim() || undefined,
+      services: editServices.split(',').map((s) => s.trim()).filter(Boolean),
+      classificationTier: editTier,
+      mlcHourlyRate: parseFloat(editMlcRate) || 0,
+      adjustedRate: Math.round((parseFloat(editMlcRate) || 0) * 0.9),
+      confirmedRate: parseFloat(editConfirmedRate) || 0,
+      status: editStatus,
+      ndaUrl: editNdaUrl.trim() || undefined,
+      hasSignedNda: editHasSignedNda,
+      workingLanguages: editLanguages.length > 0 ? editLanguages : [{ language: 'English', proficiency: 'working' }],
+      updatedAt: new Date().toISOString()
+    };
+
+    setVendors((prev) => prev.map((v) => v.id === selectedVendor.id ? updatedProfile : v));
+    setSelectedVendor(updatedProfile);
+    setIsEditing(false);
   };
 
   const handleDirectSubmit = (e: React.FormEvent) => {
@@ -346,7 +471,7 @@ export const Dashboard: React.FC = () => {
       classificationTier: parseInt(formTier) as 1 | 2 | 3,
       source: 'external',
       category: 'outreach',
-      stage: 'sourced',
+      stage: 'outreach',
       mlcHourlyRate: parseFloat(formMlcRate) || 0,
       adjustedRate: Math.round((parseFloat(formMlcRate) || 0) * 0.9),
       confirmedRate: 0,
@@ -355,6 +480,7 @@ export const Dashboard: React.FC = () => {
       mtPeExperience: formExperience,
       prozProfile: formProz.trim() || undefined,
       linkedInProfile: formLinkedin.trim() || undefined,
+      ndaUrl: formNdaUrl.trim() || undefined,
       resumeName: uploadedResumeName || undefined,
       hasSignedNda: false,
       submittedAt: new Date().toISOString(),
@@ -375,39 +501,9 @@ export const Dashboard: React.FC = () => {
     setFormServices('');
     setFormMlcRate('45');
     setFormTier('2');
+    setFormNdaUrl('');
     setUploadedResumeName('');
     setUploadProgress(0);
-  };
-
-  const triggerXtrfImport = () => {
-    const xtrfLead: VendorProfile = {
-      id: `xtrf-${Date.now()}`,
-      companyName: '',
-      contactName: 'Zheng Wei',
-      email: 'zheng.wei@lingoex.cn',
-      phone: '+86 10 9999 8888',
-      isGmail: false,
-      secondaryEmail: 'zheng.wei.google@gmail.com',
-      workingLanguages: [{ language: 'Mandarin', proficiency: 'native' }],
-      services: ['Translation', 'Interpretation'],
-      classificationTier: 1,
-      source: 'xtrf',
-      category: 'network',
-      stage: 'intake_complete',
-      mlcHourlyRate: 50,
-      adjustedRate: 45,
-      confirmedRate: 0,
-      status: 'pending',
-      mtPeExperience: '5+',
-      hoursAvailable: 30,
-      hasSignedNda: false,
-      submittedAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-
-    setVendors((prev) => [xtrfLead, ...prev]);
-    setIsXtrfOpen(true);
-    setTimeout(() => setIsXtrfOpen(false), 2500);
   };
 
   // Toggle sorting logic
@@ -461,15 +557,13 @@ export const Dashboard: React.FC = () => {
   // Stage aggregates (funnel count)
   const funnelStats = useMemo(() => {
     const aggregates: Record<WorkflowStage, number> = {
-      sourced: 0,
-      nda_pending: 0,
-      nda_verified: 0,
-      outreach_sent: 0,
-      intake_complete: 0,
-      testing_assigned: 0,
-      grading: 0,
-      xtrf_sync: 0,
-      approved: 0
+      outreach: 0,
+      nda: 0,
+      ready_for_testing: 0,
+      in_testing: 0,
+      xtrf_onboarding: 0,
+      ready_for_pm: 0,
+      dnu: 0
     };
 
     vendors.forEach((v) => {
@@ -491,7 +585,7 @@ export const Dashboard: React.FC = () => {
             <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">Pipeline Dashboard</h2>
           </div>
           <p className="text-slate-500 dark:text-slate-400 mt-1 text-sm pl-1.5">
-            Evaluate, test, and sync language specialists through verification stages.
+            Evaluate, transition, and onboard language specialists across active workflows.
           </p>
         </div>
 
@@ -524,18 +618,21 @@ export const Dashboard: React.FC = () => {
 
           <button
             onClick={() => setIsAddOpen(true)}
-            className="py-2.5 px-4 bg-primary hover:bg-primary-dark text-white font-bold text-xs rounded-xl flex items-center gap-2 btn-animate shadow-md shadow-primary/20 cursor-pointer animate-fade-in"
+            className="py-2.5 px-4 bg-primary hover:bg-primary-dark text-white font-bold text-xs rounded-xl flex items-center gap-2 btn-animate shadow-md shadow-primary/20 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             Add Sourced Lead
           </button>
           
           <button
-            onClick={triggerXtrfImport}
-            className="py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl flex items-center gap-2 btn-animate border border-white/5 cursor-pointer"
+            onClick={() => {
+              setShowXtrfAlert(true);
+              setTimeout(() => setShowXtrfAlert(false), 3000);
+            }}
+            className="py-2.5 px-4 bg-rose-800 hover:bg-rose-700 text-white font-bold text-xs rounded-xl flex items-center gap-2 btn-animate border border-white/5 cursor-pointer"
           >
-            <UploadCloud className="w-4 h-4 text-slate-400" />
-            XTRF Import
+            <UploadCloud className="w-4 h-4 text-rose-300" />
+            XTRF Import: NOT ACTIVE
           </button>
         </div>
       </div>
@@ -546,7 +643,7 @@ export const Dashboard: React.FC = () => {
           <FileText className="w-4 h-4 text-primary" />
           Workflow Stage Gates
         </h4>
-        <div className="grid grid-cols-3 md:grid-cols-9 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
           {(Object.keys(STAGE_LABELS) as WorkflowStage[]).map((stage) => {
             const count = funnelStats[stage];
             return (
@@ -565,9 +662,6 @@ export const Dashboard: React.FC = () => {
                   {count}
                 </div>
                 <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 tracking-tight line-clamp-1">
-                  {STAGE_LABELS[stage].split(' ')[0]}
-                </span>
-                <span className="absolute bottom-full mb-2 bg-slate-900 text-white text-[9px] font-semibold py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl">
                   {STAGE_LABELS[stage]}
                 </span>
               </div>
@@ -613,77 +707,112 @@ export const Dashboard: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <AnimatePresence mode="popLayout">
               {sortedVendors.length > 0 ? (
-                sortedVendors.map((candidate) => (
-                  <motion.div
-                    key={candidate.id}
-                    layout
-                    initial={{ opacity: 0, scale: 0.98 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    onClick={() => setSelectedVendor(candidate)}
-                    className="glass dark:dark-glass p-6 rounded-3xl border border-slate-200/50 dark:border-white/10 flex flex-col justify-between shadow-sm hover:shadow-md transition-all cursor-pointer relative overflow-hidden"
-                  >
-                    <div className="space-y-4">
-                      <div className="flex items-start justify-between">
+                sortedVendors.map((candidate) => {
+                  const statusConf = activeStatuses.find(s => s.key === candidate.status);
+                  const statusColorClass = statusConf 
+                    ? STATUS_COLORS_MAP[statusConf.color] || STATUS_COLORS_MAP.gray
+                    : STATUS_COLORS_MAP.gray;
+                    
+                  return (
+                    <motion.div
+                      key={candidate.id}
+                      layout
+                      initial={{ opacity: 0, scale: 0.98 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      className="glass dark:dark-glass p-6 rounded-3xl border border-slate-200/50 dark:border-white/10 flex flex-col justify-between shadow-sm hover:shadow-md transition-all relative overflow-hidden"
+                    >
+                      <div className="space-y-4">
+                        <div className="flex items-start justify-between">
+                          <div className="cursor-pointer flex-1" onClick={() => setSelectedVendor(candidate)}>
+                            {/* Candidate Custom Status badge connected to System Settings color tags */}
+                            <span className={`inline-flex px-2 py-0.5 border text-[9px] font-bold rounded-lg uppercase tracking-wider mb-2 ${statusColorClass}`}>
+                              {candidate.status.replace('_', ' ')}
+                            </span>
+                            {/* Name Priority (Primary Bold title) */}
+                            <h4 className="font-extrabold text-lg text-slate-900 dark:text-white mt-0.5">{candidate.contactName}</h4>
+                            {/* Secondary Company Label */}
+                            {candidate.companyName ? (
+                              <p className="text-xs text-slate-500 font-medium">Company: {candidate.companyName}</p>
+                            ) : (
+                              <p className="text-xs text-slate-400 italic">Individual Vendor</p>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            {candidate.hasSignedNda ? (
+                              candidate.ndaUrl ? (
+                                <a 
+                                  href={candidate.ndaUrl} 
+                                  target="_blank" 
+                                  rel="noreferrer" 
+                                  className="p-1 rounded bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 hover:bg-emerald-500/20" 
+                                  title="View NDA Link"
+                                >
+                                  <FileCheck className="w-4 h-4" />
+                                </a>
+                              ) : (
+                                <span className="p-1 rounded bg-emerald-500/10 text-emerald-600 border border-emerald-500/20" title="NDA Checked/Signed">
+                                  <Check className="w-4 h-4" />
+                                </span>
+                              )
+                            ) : (
+                              <span className="p-1 rounded bg-rose-500/10 text-rose-600 border border-rose-500/20" title="NDA Required">
+                                <ShieldAlert className="w-4 h-4" />
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Working Languages & Proficiencies */}
+                        <div className="flex flex-wrap gap-1.5 cursor-pointer" onClick={() => setSelectedVendor(candidate)}>
+                          {candidate.workingLanguages.map((l, i) => (
+                            <span key={i} className="text-[10px] bg-primary/10 text-primary py-0.5 px-2.5 rounded-md font-semibold">
+                              {l.language} ({l.proficiency})
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Quick-Stage selector directly in Card View */}
+                      <div className="mt-4 pt-3 border-t border-slate-100 dark:border-white/5 flex flex-col gap-2">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-[10px] text-slate-400 font-bold uppercase">Workflow stage:</span>
+                          <select
+                            value={candidate.stage}
+                            onChange={(e) => handleStageChangeRequest(candidate.id, e.target.value as WorkflowStage)}
+                            className="p-1 text-[11px] font-bold bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-lg dark:text-white cursor-pointer focus:outline-none focus:border-primary"
+                          >
+                            {Object.entries(STAGE_LABELS).map(([k, label]) => (
+                              <option key={k} value={k}>{label}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Stats summary block */}
+                      <div 
+                        onClick={() => setSelectedVendor(candidate)}
+                        className="mt-4 pt-3 border-t border-slate-200/50 dark:border-white/5 flex items-center justify-between text-xs text-slate-500 cursor-pointer"
+                      >
                         <div>
-                          <span className="text-[10px] text-primary font-bold uppercase tracking-wider block">
-                            {CATEGORY_LABELS[candidate.category] || 'Specialist'}
-                          </span>
-                          {/* Name Priority (Primary Bold title) */}
-                          <h4 className="font-extrabold text-lg text-slate-900 dark:text-white mt-0.5">{candidate.contactName}</h4>
-                          {/* Secondary Company Label */}
-                          {candidate.companyName ? (
-                            <p className="text-xs text-slate-500 font-medium">Company: {candidate.companyName}</p>
-                          ) : (
-                            <p className="text-xs text-slate-400 italic">Individual Vendor</p>
-                          )}
+                          <span className="text-[9px] block uppercase font-medium">Weekly Hours</span>
+                          <span className="font-bold text-slate-800 dark:text-white">{candidate.hoursAvailable ? `${candidate.hoursAvailable}h` : 'N/A'}</span>
                         </div>
-
-                        <div className="flex items-center gap-1.5">
-                          {candidate.hasSignedNda ? (
-                            <span className="p-1 rounded bg-emerald-500/10 text-emerald-600 border border-emerald-500/20" title="Signed NDA Active">
-                              <FileCheck className="w-4 h-4" />
-                            </span>
-                          ) : (
-                            <span className="p-1 rounded bg-rose-500/10 text-rose-600 border border-rose-500/20" title="NDA Required">
-                              <ShieldAlert className="w-4 h-4" />
-                            </span>
-                          )}
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 border border-slate-200/30">
-                            {candidate.source.toUpperCase()}
+                        <div>
+                          <span className="text-[9px] block uppercase font-medium">MT PE Exp</span>
+                          <span className="font-bold text-slate-800 dark:text-white">{candidate.mtPeExperience ? `${candidate.mtPeExperience} yrs` : 'None'}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[9px] block uppercase font-medium">Agreed Rate</span>
+                          <span className="font-extrabold text-slate-900 dark:text-white">
+                            {candidate.confirmedRate > 0 ? `$${candidate.confirmedRate}/hr` : 'Negotiating'}
                           </span>
                         </div>
                       </div>
-
-                      {/* Working Languages & Proficiencies */}
-                      <div className="flex flex-wrap gap-1.5">
-                        {candidate.workingLanguages.map((l, i) => (
-                          <span key={i} className="text-[10px] bg-primary/10 text-primary py-0.5 px-2.5 rounded-md font-semibold">
-                            {l.language} ({l.proficiency})
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Stats summary block */}
-                    <div className="mt-6 pt-4 border-t border-slate-200/50 dark:border-white/5 flex items-center justify-between text-xs text-slate-500">
-                      <div>
-                        <span className="text-[9px] block uppercase font-medium">Weekly Hours</span>
-                        <span className="font-bold text-slate-800 dark:text-white">{candidate.hoursAvailable ? `${candidate.hoursAvailable}h` : 'N/A'}</span>
-                      </div>
-                      <div>
-                        <span className="text-[9px] block uppercase font-medium">MT PE Experience</span>
-                        <span className="font-bold text-slate-800 dark:text-white">{candidate.mtPeExperience ? `${candidate.mtPeExperience} yrs` : 'None'}</span>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-[9px] block uppercase font-medium">Agreed Rate</span>
-                        <span className="font-extrabold text-slate-900 dark:text-white">
-                          {candidate.confirmedRate > 0 ? `$${candidate.confirmedRate}/hr` : 'Negotiating'}
-                        </span>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))
+                    </motion.div>
+                  );
+                })
               ) : (
                 <div className="col-span-full py-16 text-center text-slate-400 bg-white dark:bg-card-dark rounded-3xl border border-slate-200/50 dark:border-border-dark">
                   <ShieldAlert className="w-12 h-12 mx-auto text-slate-300 mb-4" />
@@ -694,7 +823,7 @@ export const Dashboard: React.FC = () => {
             </AnimatePresence>
           </div>
         ) : (
-          /* Table View */
+          /* Default: Table View */
           <div className="bg-white dark:bg-card-dark rounded-3xl border border-slate-200/50 dark:border-border-dark shadow-sm overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm border-collapse">
@@ -713,9 +842,16 @@ export const Dashboard: React.FC = () => {
                       </div>
                     </th>
                     <th className="p-4">Languages</th>
+                    <th className="p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors" onClick={() => toggleSort('status')}>
+                      <div className="flex items-center gap-1.5">
+                        Linguist Status
+                        <ArrowUpDown className="w-3.5 h-3.5" />
+                      </div>
+                    </th>
+                    {/* Quick stage transition column inside Pipeline View table */}
                     <th className="p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors" onClick={() => toggleSort('stage')}>
                       <div className="flex items-center gap-1.5">
-                        Stage Gate
+                        Workflow Stage Gate
                         <ArrowUpDown className="w-3.5 h-3.5" />
                       </div>
                     </th>
@@ -725,7 +861,7 @@ export const Dashboard: React.FC = () => {
                         <ArrowUpDown className="w-3.5 h-3.5" />
                       </div>
                     </th>
-                    <th className="p-4">Experience</th>
+                    <th className="p-4">NDA</th>
                     <th className="p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors text-right pr-6" onClick={() => toggleSort('confirmedRate')}>
                       <div className="flex items-center gap-1.5 justify-end">
                         Agreed Rate
@@ -735,49 +871,79 @@ export const Dashboard: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-white/5">
-                  {sortedVendors.map((candidate) => (
-                    <tr 
-                      key={candidate.id} 
-                      onClick={() => setSelectedVendor(candidate)}
-                      className="hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors cursor-pointer"
-                    >
-                      <td className="p-4 pl-6 font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        {candidate.contactName}
-                        {candidate.hasSignedNda && (
-                          <span className="p-0.5 rounded bg-emerald-500/10 text-emerald-600 border border-emerald-500/20" title="NDA Active">
-                            <Check className="w-3 h-3" />
+                  {sortedVendors.map((candidate) => {
+                    const statusConf = activeStatuses.find(s => s.key === candidate.status);
+                    const statusColorClass = statusConf 
+                      ? STATUS_COLORS_MAP[statusConf.color] || STATUS_COLORS_MAP.gray
+                      : STATUS_COLORS_MAP.gray;
+                      
+                    return (
+                      <tr 
+                        key={candidate.id}
+                        className="hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                      >
+                        <td className="p-4 pl-6 font-bold text-slate-900 dark:text-white" onClick={() => setSelectedVendor(candidate)}>
+                          {candidate.contactName}
+                        </td>
+                        <td className="p-4 text-slate-500 dark:text-slate-400 font-medium" onClick={() => setSelectedVendor(candidate)}>
+                          {candidate.companyName || <span className="text-slate-400 italic">Individual</span>}
+                        </td>
+                        <td className="p-4" onClick={() => setSelectedVendor(candidate)}>
+                          <div className="flex flex-wrap gap-1 max-w-[200px]">
+                            {candidate.workingLanguages.map((l, i) => (
+                              <span key={i} className="text-[10px] bg-primary/10 text-primary py-0.5 px-2 rounded-md font-semibold">
+                                {l.language}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="p-4" onClick={() => setSelectedVendor(candidate)}>
+                          <span className={`inline-flex px-2 py-0.5 border text-[9px] font-bold rounded-lg uppercase tracking-wider ${statusColorClass}`}>
+                            {candidate.status.replace('_', ' ')}
                           </span>
-                        )}
-                      </td>
-                      <td className="p-4 text-slate-500 dark:text-slate-400 font-medium">
-                        {candidate.companyName || <span className="text-slate-400 italic">Individual</span>}
-                      </td>
-                      <td className="p-4">
-                        <div className="flex flex-wrap gap-1 max-w-[200px]">
-                          {candidate.workingLanguages.map((l, i) => (
-                            <span key={i} className="text-[10px] bg-primary/10 text-primary py-0.5 px-2 rounded-md font-semibold">
-                              {l.language}
-                            </span>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-900 dark:text-white">
-                          <Clock className="w-3.5 h-3.5 text-primary" />
-                          {STAGE_LABELS[candidate.stage]}
-                        </span>
-                      </td>
-                      <td className="p-4 text-center font-bold text-slate-700 dark:text-slate-300">
-                        {candidate.hoursAvailable ? `${candidate.hoursAvailable}h/wk` : 'N/A'}
-                      </td>
-                      <td className="p-4 text-xs font-semibold text-slate-600 dark:text-slate-300">
-                        {candidate.mtPeExperience ? `${candidate.mtPeExperience} yrs` : 'N/A'}
-                      </td>
-                      <td className="p-4 text-right pr-6 font-extrabold text-slate-950 dark:text-white">
-                        {candidate.confirmedRate > 0 ? `$${candidate.confirmedRate}/hr` : 'Negotiating'}
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        {/* Interactive dropdown stage selector in table row */}
+                        <td className="p-4">
+                          <select
+                            value={candidate.stage}
+                            onChange={(e) => handleStageChangeRequest(candidate.id, e.target.value as WorkflowStage)}
+                            onClick={(e) => e.stopPropagation()} // Stop drawer triggers
+                            className="p-1.5 text-xs font-bold bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl dark:text-white cursor-pointer focus:outline-none"
+                          >
+                            {Object.entries(STAGE_LABELS).map(([k, label]) => (
+                              <option key={k} value={k}>{label}</option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="p-4 text-center font-bold text-slate-700 dark:text-slate-300" onClick={() => setSelectedVendor(candidate)}>
+                          {candidate.hoursAvailable ? `${candidate.hoursAvailable}h/wk` : 'N/A'}
+                        </td>
+                        {/* Direct NDA link support */}
+                        <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                          {candidate.hasSignedNda ? (
+                            candidate.ndaUrl ? (
+                              <a 
+                                href={candidate.ndaUrl} 
+                                target="_blank" 
+                                rel="noreferrer" 
+                                className="inline-flex items-center gap-1 text-emerald-600 hover:text-emerald-500 font-bold text-xs"
+                              >
+                                <FileCheck className="w-4 h-4" />
+                                Link
+                              </a>
+                            ) : (
+                              <span className="text-emerald-600 font-semibold text-xs">Signed</span>
+                            )
+                          ) : (
+                            <span className="text-rose-600 text-xs font-semibold">Missing</span>
+                          )}
+                        </td>
+                        <td className="p-4 text-right pr-6 font-extrabold text-slate-950 dark:text-white" onClick={() => setSelectedVendor(candidate)}>
+                          {candidate.confirmedRate > 0 ? `$${candidate.confirmedRate}/hr` : 'Negotiating'}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -785,7 +951,7 @@ export const Dashboard: React.FC = () => {
         )}
       </section>
 
-      {/* Drawer: Detailed pipeline candidate viewer & manual stage-gate overrides */}
+      {/* Drawer: Detailed Candidate Viewer & Full Edit Mode */}
       <AnimatePresence>
         {selectedVendor && (
           <>
@@ -793,7 +959,10 @@ export const Dashboard: React.FC = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 0.5 }}
               exit={{ opacity: 0 }}
-              onClick={() => setSelectedVendor(null)}
+              onClick={() => {
+                setSelectedVendor(null);
+                setIsEditing(false);
+              }}
               className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm"
             ></motion.div>
 
@@ -805,191 +974,485 @@ export const Dashboard: React.FC = () => {
               className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-md bg-white dark:bg-card-dark border-l border-slate-200 dark:border-border-dark p-6 overflow-y-auto flex flex-col justify-between"
             >
               <div className="space-y-6">
+                
+                {/* Drawer Header */}
                 <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-4">
                   <div>
-                    <span className="text-[10px] text-slate-500 block uppercase font-bold tracking-wider">Candidate evaluation</span>
-                    {/* Name Priority */}
-                    <h3 className="text-xl font-bold text-slate-900 dark:text-white mt-0.5">{selectedVendor.contactName}</h3>
-                    {selectedVendor.companyName && (
-                      <p className="text-xs text-slate-500 font-medium mt-0.5">Company: {selectedVendor.companyName}</p>
-                    )}
+                    <span className="text-[10px] text-slate-500 block uppercase font-bold tracking-wider">Candidate Profile Drawer</span>
+                    <h3 className="text-xl font-bold text-slate-900 dark:text-white mt-0.5">
+                      {isEditing ? `Editing ${selectedVendor.contactName}` : selectedVendor.contactName}
+                    </h3>
                   </div>
-                  <button onClick={() => setSelectedVendor(null)} className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-slate-500 cursor-pointer">
-                    <X className="w-5 h-5" />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {!isEditing && (
+                      <button
+                        onClick={() => startEditingVendor(selectedVendor)}
+                        className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 cursor-pointer flex items-center gap-1.5 text-xs font-bold"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                        Edit Profile
+                      </button>
+                    )}
+                    <button 
+                      onClick={() => {
+                        setSelectedVendor(null);
+                        setIsEditing(false);
+                      }} 
+                      className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-slate-500 cursor-pointer"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
                 </div>
 
-                <div className="space-y-6 text-sm">
-                  {/* Signed NDA verified status */}
-                  <div className="flex items-center justify-between p-3.5 bg-slate-50 dark:bg-bg-dark border border-slate-200/20 dark:border-white/5 rounded-2xl">
-                    <div className="flex items-center gap-2">
-                      <FileCheck className={`w-5 h-5 ${selectedVendor.hasSignedNda ? 'text-emerald-500' : 'text-slate-400'}`} />
-                      <div>
-                        <span className="text-xs font-bold text-slate-900 dark:text-white">Non-Disclosure Agreement</span>
-                        <span className="text-[10px] text-slate-500 block">{selectedVendor.hasSignedNda ? 'Signed NDA Verified' : 'NDA Missing / Pending'}</span>
+                {isEditing ? (
+                  /* Form: EDIT ALL CANDIDATE FIELDS */
+                  <form id="edit-vendor-form" onSubmit={handleSaveEdit} className="space-y-4 text-xs font-semibold">
+                    
+                    {/* Full Name */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Specialist Full Name</label>
+                      <input
+                        type="text"
+                        required
+                        value={editContactName}
+                        onChange={(e) => setEditContactName(e.target.value)}
+                        className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary dark:text-white"
+                      />
+                    </div>
+
+                    {/* Company Name */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Company Name (Optional)</label>
+                      <input
+                        type="text"
+                        value={editCompanyName}
+                        onChange={(e) => setEditCompanyName(e.target.value)}
+                        className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary dark:text-white"
+                      />
+                    </div>
+
+                    {/* Email and Google Workspace Verification */}
+                    <div className="space-y-2 p-3.5 bg-slate-50 dark:bg-bg-dark rounded-2xl border border-slate-200/20 dark:border-white/5">
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Primary Contact Email</label>
+                        <input
+                          type="email"
+                          required
+                          value={editEmail}
+                          onChange={(e) => setEditEmail(e.target.value)}
+                          className="w-full p-2.5 text-xs bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary dark:text-white"
+                        />
+                      </div>
+                      
+                      <div className="flex items-center gap-2 py-1 select-none">
+                        <input
+                          type="checkbox"
+                          id="edit-is-gmail"
+                          checked={editIsGmail}
+                          onChange={(e) => setEditIsGmail(e.target.checked)}
+                          className="w-4 h-4 rounded text-primary focus:ring-primary bg-slate-50 cursor-pointer"
+                        />
+                        <label htmlFor="edit-is-gmail" className="text-slate-700 dark:text-slate-300 cursor-pointer font-bold">
+                          This is a Gmail or Google Workspace Account
+                        </label>
+                      </div>
+
+                      {!editIsGmail && (
+                        <div className="space-y-1.5 pt-1.5 border-t border-slate-200/40">
+                          <label className="text-[10px] text-primary uppercase tracking-wider block">Secondary Google Account Email</label>
+                          <input
+                            type="email"
+                            required
+                            value={editSecondaryEmail}
+                            onChange={(e) => setEditSecondaryEmail(e.target.value)}
+                            placeholder="e.g. user.auth@gmail.com"
+                            className="w-full p-2.5 text-xs bg-white dark:bg-card-dark border border-primary/20 rounded-xl focus:outline-none dark:text-white"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Phone & Hours */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Phone Number</label>
+                        <input
+                          type="text"
+                          value={editPhone}
+                          onChange={(e) => setEditPhone(e.target.value)}
+                          className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none dark:text-white"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Hours Available/wk</label>
+                        <input
+                          type="number"
+                          value={editHours}
+                          onChange={(e) => setEditHours(e.target.value)}
+                          className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none dark:text-white"
+                        />
                       </div>
                     </div>
 
-                    {(user?.role === 'admin' || user?.role === 'manager') && (
-                      <button
-                        onClick={() => handleNdaToggle(selectedVendor.id)}
-                        className={`py-1.5 px-3 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer ${
-                          selectedVendor.hasSignedNda 
-                            ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 hover:bg-emerald-500/20' 
-                            : 'bg-rose-500/10 text-rose-600 border-rose-500/20 hover:bg-rose-500/20'
-                        }`}
-                      >
-                        {selectedVendor.hasSignedNda ? 'NDA Verified' : 'Set Signed'}
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Stage Dropdown override for admins/managers (move between any workflow stage) */}
-                  {(user?.role === 'admin' || user?.role === 'manager') ? (
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Workflow Stage Gate</label>
-                      <div className="relative">
+                    {/* MT PE Experience & Custom Status dropdown connected to settings statuses */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-slate-400 uppercase tracking-wider block">MT PE Experience</label>
                         <select
-                          value={selectedVendor.stage}
-                          onChange={(e) => handleStageChange(selectedVendor.id, e.target.value as WorkflowStage)}
-                          className="w-full pl-3 pr-8 py-2.5 text-xs font-bold bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary transition-all dark:text-white cursor-pointer"
+                          value={editExperience}
+                          onChange={(e) => setEditExperience(e.target.value as any)}
+                          className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none dark:text-white cursor-pointer"
                         >
-                          {Object.entries(STAGE_LABELS).map(([key, label]) => (
-                            <option key={key} value={key}>{label}</option>
+                          <option value="1-3">1-3 years</option>
+                          <option value="3-5">3-5 years</option>
+                          <option value="5+">5+ years</option>
+                        </select>
+                      </div>
+                      
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Candidate Status</label>
+                        {/* Dynamic statuses list fetched from settings configuration */}
+                        <select
+                          value={editStatus}
+                          onChange={(e) => setEditStatus(e.target.value)}
+                          className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none dark:text-white cursor-pointer capitalize font-bold"
+                        >
+                          {activeStatuses.map((s) => (
+                            <option key={s.key} value={s.key}>{s.key.replace('_', ' ')}</option>
                           ))}
                         </select>
                       </div>
                     </div>
-                  ) : (
-                    <div className="p-4 bg-slate-50 dark:bg-bg-dark border border-slate-200/20 dark:border-white/5 rounded-2xl">
-                      <span className="text-[10px] text-slate-500 block uppercase font-medium">Status Stage-Gate</span>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Clock className="w-4 h-4 text-primary" />
-                        <span className="font-extrabold text-slate-900 dark:text-white">{STAGE_LABELS[selectedVendor.stage]}</span>
+
+                    {/* ProZ & LinkedIn Links */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-slate-400 uppercase tracking-wider block">ProZ Profile URL</label>
+                        <input
+                          type="text"
+                          value={editProz}
+                          onChange={(e) => setEditProz(e.target.value)}
+                          placeholder="proz.com/profile/username"
+                          className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-slate-400 uppercase tracking-wider block">LinkedIn Profile URL</label>
+                        <input
+                          type="text"
+                          value={editLinkedin}
+                          onChange={(e) => setEditLinkedin(e.target.value)}
+                          placeholder="linkedin.com/in/username"
+                          className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none"
+                        />
                       </div>
                     </div>
-                  )}
 
-                  {/* Custom Status selector dropdown */}
-                  {(user?.role === 'admin' || user?.role === 'manager') && (
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Candidate Custom Status</label>
-                      <select
-                        value={selectedVendor.status}
-                        onChange={(e) => handleCustomStatusChange(selectedVendor.id, e.target.value)}
-                        className="w-full pl-3 pr-8 py-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary transition-all dark:text-white cursor-pointer capitalize font-bold"
-                      >
-                        {activeStatuses.map((stat) => (
-                          <option key={stat} value={stat}>{stat.replace('_', ' ')}</option>
+                    {/* NDA links url & checkbox */}
+                    <div className="space-y-2 p-3 bg-slate-50 dark:bg-bg-dark rounded-2xl border border-slate-200/20 dark:border-white/5">
+                      <span className="text-[10px] text-slate-400 uppercase tracking-wider block">NDA Compliance Link</span>
+                      <div className="flex items-center gap-2 select-none mb-1">
+                        <input
+                          type="checkbox"
+                          id="edit-has-signed-nda"
+                          checked={editHasSignedNda}
+                          onChange={(e) => setEditHasSignedNda(e.target.checked)}
+                          className="w-4 h-4 rounded text-primary bg-slate-50 cursor-pointer"
+                        />
+                        <label htmlFor="edit-has-signed-nda" className="text-slate-700 dark:text-slate-300 font-bold cursor-pointer">
+                          Signed NDA Verified
+                        </label>
+                      </div>
+                      
+                      <div className="space-y-1">
+                        <label className="text-[9px] text-slate-400 uppercase block">Signed NDA PDF Contract URL</label>
+                        <input
+                          type="text"
+                          value={editNdaUrl}
+                          onChange={(e) => setEditNdaUrl(e.target.value)}
+                          placeholder="https://docusign.com/..."
+                          className="w-full p-2 bg-white dark:bg-card-dark border rounded-lg text-xs"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Services and Working Languages list */}
+                    <div className="space-y-2 p-3 bg-slate-50 dark:bg-bg-dark rounded-2xl border border-slate-200/20 dark:border-white/5">
+                      <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Working Languages</span>
+                      
+                      <div className="flex gap-2">
+                        <select
+                          id="edit-lang-select"
+                          className="flex-1 p-2 text-xs bg-white dark:bg-card-dark border rounded text-slate-900 dark:text-white"
+                        >
+                          {activeLanguages.map((l) => (
+                            <option key={l} value={l}>{l}</option>
+                          ))}
+                        </select>
+                        <select
+                          id="edit-prof-select"
+                          className="p-2 text-xs bg-white dark:bg-card-dark border rounded text-slate-900 dark:text-white"
+                        >
+                          <option value="native">Native</option>
+                          <option value="bilingual">Bilingual</option>
+                          <option value="professional">Professional</option>
+                          <option value="working">Working</option>
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const lSelect = document.getElementById('edit-lang-select') as HTMLSelectElement;
+                            const pSelect = document.getElementById('edit-prof-select') as HTMLSelectElement;
+                            if (lSelect && pSelect) {
+                              handleAddLanguageToEdit(lSelect.value, pSelect.value as any);
+                            }
+                          }}
+                          className="py-1 px-3 bg-slate-800 text-white rounded font-bold text-[10px]"
+                        >
+                          Add
+                        </button>
+                      </div>
+
+                      <div className="flex flex-wrap gap-1.5 pt-1.5">
+                        {editLanguages.map((l) => (
+                          <span key={l.language} className="inline-flex items-center gap-1 bg-primary/10 text-primary py-0.5 px-2.5 rounded font-bold">
+                            {l.language} ({l.proficiency})
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveLanguageFromEdit(l.language)}
+                              className="text-primary hover:text-red-500 font-extrabold pl-1 cursor-pointer"
+                            >
+                              ×
+                            </button>
+                          </span>
                         ))}
-                      </select>
+                      </div>
                     </div>
-                  )}
 
-                  {/* Manual Rate Negotiator (Managers/Admin only) */}
-                  {(user?.role === 'admin' || user?.role === 'manager') && (
-                    <div className="space-y-3">
-                      <h5 className="font-bold text-xs text-slate-400 uppercase tracking-wider">Negotiate Contract Rates</h5>
-                      <div className="bg-slate-50 dark:bg-bg-dark rounded-2xl p-4 border border-slate-100 dark:border-white/5 space-y-3">
-                        <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Services Offered (Comma Separated)</label>
+                        <input
+                          type="text"
+                          value={editServices}
+                          onChange={(e) => setEditServices(e.target.value)}
+                          placeholder="e.g. Translation, Localization"
+                          className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Classification Tier</label>
+                        <select
+                          value={editTier}
+                          onChange={(e) => setEditTier(parseInt(e.target.value) as 1 | 2 | 3)}
+                          className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none cursor-pointer"
+                        >
+                          <option value={1}>Tier 1 (Highest Quality)</option>
+                          <option value={2}>Tier 2 (Standard)</option>
+                          <option value={3}>Tier 3 (Budget/Emerging)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Rates Edit fields */}
+                    <div className="grid grid-cols-3 gap-2 p-3 bg-slate-50 dark:bg-bg-dark border border-slate-200/20 rounded-2xl">
+                      <div className="space-y-1">
+                        <label className="text-[9px] text-slate-400 uppercase block">Client Charge ($/hr)</label>
+                        <input
+                          type="number"
+                          value={editMlcRate}
+                          onChange={(e) => setEditMlcRate(e.target.value)}
+                          className="w-full p-2 bg-white dark:bg-card-dark border rounded-lg text-xs"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] text-slate-400 uppercase block">Target Offer ($/hr)</label>
+                        <span className="w-full p-2 bg-slate-200/40 dark:bg-slate-800 rounded-lg text-xs font-bold block text-center leading-normal">
+                          {Math.round((parseFloat(editMlcRate) || 0) * 0.9)}
+                        </span>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] text-slate-400 uppercase block">Confirmed Rate ($/hr)</label>
+                        <input
+                          type="number"
+                          value={editConfirmedRate}
+                          onChange={(e) => setEditConfirmedRate(e.target.value)}
+                          className="w-full p-2 bg-white dark:bg-card-dark border border-primary/20 rounded-lg text-xs font-bold text-primary"
+                        />
+                      </div>
+                    </div>
+
+                  </form>
+                ) : (
+                  /* Display details drawer view */
+                  <div className="space-y-6 text-sm">
+                    {/* Status Badge mapping config colors */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Candidate Current Status</span>
+                      {(() => {
+                        const statusConf = activeStatuses.find(s => s.key === selectedVendor.status);
+                        const statusColorClass = statusConf 
+                          ? STATUS_COLORS_MAP[statusConf.color] || STATUS_COLORS_MAP.gray
+                          : STATUS_COLORS_MAP.gray;
+                        return (
+                          <span className={`px-2.5 py-0.5 border text-xs font-bold rounded-lg uppercase tracking-wider ${statusColorClass}`}>
+                            {selectedVendor.status.replace('_', ' ')}
+                          </span>
+                        );
+                      })()}
+                    </div>
+
+                    {/* Signed NDA verified status and Direct link */}
+                    <div className="flex flex-col gap-2 p-3.5 bg-slate-50 dark:bg-bg-dark border border-slate-200/20 dark:border-white/5 rounded-2xl">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <FileCheck className={`w-5 h-5 ${selectedVendor.hasSignedNda ? 'text-emerald-500' : 'text-slate-400'}`} />
                           <div>
-                            <span className="text-[10px] text-slate-500 block font-medium">MLC Charge Rate</span>
-                            <span className="font-bold text-slate-800 dark:text-white">${selectedVendor.mlcHourlyRate}/hr</span>
-                          </div>
-                          <div>
-                            <span className="text-[10px] text-slate-500 block font-medium">Offer Target Rate</span>
-                            <span className="font-bold text-slate-800 dark:text-white">${selectedVendor.adjustedRate}/hr</span>
+                            <span className="text-xs font-bold text-slate-900 dark:text-white">Non-Disclosure Agreement</span>
+                            <span className="text-[10px] text-slate-500 block">{selectedVendor.hasSignedNda ? 'Signed NDA Verified' : 'NDA Missing / Required'}</span>
                           </div>
                         </div>
-                        
-                        <div className="pt-2 border-t border-slate-200/40 dark:border-white/5 flex items-center gap-3">
-                          <input
-                            type="number"
-                            id="override-rate-val"
-                            defaultValue={selectedVendor.confirmedRate || selectedVendor.adjustedRate}
-                            className="w-24 p-2 text-xs bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-lg text-slate-900 dark:text-white focus:outline-none"
-                            placeholder="Agreed Rate"
-                          />
-                          <button
-                            onClick={() => {
-                              const input = document.getElementById('override-rate-val') as HTMLInputElement;
-                              const rate = parseFloat(input?.value) || 0;
-                              handleRateOverride(selectedVendor.id, rate);
-                            }}
-                            className="py-2 px-4 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-lg btn-animate cursor-pointer border border-white/5"
+                      </div>
+                      
+                      {selectedVendor.ndaUrl && (
+                        <div className="pt-2 border-t border-slate-200/40">
+                          <a 
+                            href={selectedVendor.ndaUrl} 
+                            target="_blank" 
+                            rel="noreferrer" 
+                            className="inline-flex items-center gap-1.5 text-primary font-bold hover:underline text-xs"
                           >
-                            Set Rate
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Candidate Details & Resume link */}
-                  <div className="space-y-3">
-                    <h5 className="font-bold text-xs text-slate-400 uppercase tracking-wider font-semibold">Specialist Attributes</h5>
-                    <div className="bg-slate-50 dark:bg-bg-dark rounded-2xl p-4 border border-slate-100 dark:border-white/5 space-y-2.5 text-xs text-slate-600 dark:text-slate-300">
-                      <div className="flex justify-between">
-                        <span>Email address:</span>
-                        <span className="font-bold">{selectedVendor.email}</span>
-                      </div>
-                      
-                      {/* Secondary Google account if external domain */}
-                      {selectedVendor.secondaryEmail && (
-                        <div className="flex justify-between">
-                          <span>Secondary Google Acc:</span>
-                          <span className="font-bold text-primary">{selectedVendor.secondaryEmail}</span>
-                        </div>
-                      )}
-
-                      <div className="flex justify-between">
-                        <span>Weekly Available Hours:</span>
-                        <span className="font-bold">{selectedVendor.hoursAvailable ? `${selectedVendor.hoursAvailable} hrs` : 'Unspecified'}</span>
-                      </div>
-                      
-                      <div className="flex justify-between">
-                        <span>MT Post-Editing Exp:</span>
-                        <span className="font-bold">{selectedVendor.mtPeExperience ? `${selectedVendor.mtPeExperience} years` : 'Unspecified'}</span>
-                      </div>
-
-                      {selectedVendor.prozProfile && (
-                        <div className="flex justify-between">
-                          <span>ProZ Profile:</span>
-                          <a href={selectedVendor.prozProfile} target="_blank" rel="noreferrer" className="text-primary font-bold hover:underline">View ProZ Portfolio</a>
-                        </div>
-                      )}
-
-                      {selectedVendor.linkedInProfile && (
-                        <div className="flex justify-between">
-                          <span>LinkedIn Profile:</span>
-                          <a href={selectedVendor.linkedInProfile} target="_blank" rel="noreferrer" className="text-primary font-bold hover:underline flex items-center gap-1">
-                            <ExternalLink className="w-3.5 h-3.5" />
-                            View LinkedIn
+                            <ExternalLink className="w-4 h-4 text-primary" />
+                            Open Signed NDA PDF Document
                           </a>
                         </div>
                       )}
+                    </div>
 
-                      {selectedVendor.resumeName && (
-                        <div className="flex justify-between items-center pt-1.5 border-t border-slate-200/40 dark:border-white/5">
-                          <span>Resume File:</span>
-                          <span className="inline-flex items-center gap-1.5 text-primary font-bold bg-primary/5 py-1 px-2.5 rounded-lg border border-primary/10">
-                            <UploadCloud className="w-3.5 h-3.5" />
-                            {selectedVendor.resumeName}
-                          </span>
+                    {/* Stage selector dropdown inside sidebar details */}
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Workflow Stage Gate</label>
+                      <select
+                        value={selectedVendor.stage}
+                        onChange={(e) => handleStageChangeRequest(selectedVendor.id, e.target.value as WorkflowStage)}
+                        className="w-full pl-3 pr-8 py-2.5 text-xs font-bold bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl dark:text-white cursor-pointer focus:outline-none"
+                      >
+                        {Object.entries(STAGE_LABELS).map(([key, label]) => (
+                          <option key={key} value={key}>{label}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Rates negotiation values */}
+                    <div className="space-y-3">
+                      <h5 className="font-bold text-xs text-slate-400 uppercase tracking-wider">Negotiated Rates</h5>
+                      <div className="bg-slate-50 dark:bg-bg-dark rounded-2xl p-4 border border-slate-100 dark:border-white/5 space-y-3">
+                        <div className="grid grid-cols-3 gap-4 text-center">
+                          <div>
+                            <span className="text-[9px] text-slate-500 block font-medium">Charge Rate</span>
+                            <span className="font-bold text-slate-800 dark:text-white">${selectedVendor.mlcHourlyRate}/hr</span>
+                          </div>
+                          <div>
+                            <span className="text-[9px] text-slate-500 block font-medium">Target Rate</span>
+                            <span className="font-bold text-slate-800 dark:text-white">${selectedVendor.adjustedRate}/hr</span>
+                          </div>
+                          <div className="bg-primary/10 border border-primary/20 rounded-xl p-1">
+                            <span className="text-[9px] text-primary block font-extrabold">Agreed Rate</span>
+                            <span className="font-extrabold text-primary">${selectedVendor.confirmedRate}/hr</span>
+                          </div>
                         </div>
-                      )}
+                      </div>
+                    </div>
+
+                    {/* Specialist Attributes */}
+                    <div className="space-y-3">
+                      <h5 className="font-bold text-xs text-slate-400 uppercase tracking-wider font-semibold">Specialist Attributes</h5>
+                      <div className="bg-slate-50 dark:bg-bg-dark rounded-2xl p-4 border border-slate-100 dark:border-white/5 space-y-2.5 text-xs text-slate-600 dark:text-slate-300">
+                        <div className="flex justify-between">
+                          <span>Primary Email:</span>
+                          <span className="font-bold">{selectedVendor.email}</span>
+                        </div>
+                        
+                        {selectedVendor.secondaryEmail && (
+                          <div className="flex justify-between">
+                            <span>Secondary Google Acc:</span>
+                            <span className="font-bold text-primary">{selectedVendor.secondaryEmail}</span>
+                          </div>
+                        )}
+
+                        <div className="flex justify-between">
+                          <span>Weekly Available Hours:</span>
+                          <span className="font-bold">{selectedVendor.hoursAvailable ? `${selectedVendor.hoursAvailable} hrs` : 'Unspecified'}</span>
+                        </div>
+                        
+                        <div className="flex justify-between">
+                          <span>MT Post-Editing Exp:</span>
+                          <span className="font-bold">{selectedVendor.mtPeExperience ? `${selectedVendor.mtPeExperience} years` : 'Unspecified'}</span>
+                        </div>
+
+                        {selectedVendor.prozProfile && (
+                          <div className="flex justify-between">
+                            <span>ProZ Profile:</span>
+                            <a href={selectedVendor.prozProfile} target="_blank" rel="noreferrer" className="text-primary font-bold hover:underline">View ProZ Portfolio</a>
+                          </div>
+                        )}
+
+                        {selectedVendor.linkedInProfile && (
+                          <div className="flex justify-between">
+                            <span>LinkedIn Profile:</span>
+                            <a href={selectedVendor.linkedInProfile} target="_blank" rel="noreferrer" className="text-primary font-bold hover:underline flex items-center gap-1">
+                              <ExternalLink className="w-3.5 h-3.5" />
+                              View LinkedIn
+                            </a>
+                          </div>
+                        )}
+
+                        {selectedVendor.resumeName && (
+                          <div className="flex justify-between items-center pt-1.5 border-t border-slate-200/40 dark:border-white/5">
+                            <span>Resume File:</span>
+                            <span className="inline-flex items-center gap-1.5 text-primary font-bold bg-primary/5 py-1 px-2.5 rounded-lg border border-primary/10">
+                              <UploadCloud className="w-3.5 h-3.5" />
+                              {selectedVendor.resumeName}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
               </div>
 
-              <div className="pt-6 border-t border-slate-100 dark:border-white/5">
-                <button
-                  onClick={() => setSelectedVendor(null)}
-                  className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-sm font-bold rounded-xl btn-animate cursor-pointer"
-                >
-                  Close Pipeline Details
-                </button>
+              {/* Drawer footer actions */}
+              <div className="pt-6 border-t border-slate-100 dark:border-white/5 flex gap-3">
+                {isEditing ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditing(false)}
+                      className="flex-1 py-2.5 border border-slate-200 dark:border-border-dark text-slate-500 text-xs font-bold rounded-xl hover:bg-slate-50 btn-animate cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      form="edit-vendor-form"
+                      className="flex-1 py-2.5 bg-primary hover:bg-primary-dark text-white text-xs font-bold rounded-xl btn-animate cursor-pointer"
+                    >
+                      Save Profile Updates
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setSelectedVendor(null);
+                      setIsEditing(false);
+                    }}
+                    className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-xl btn-animate cursor-pointer"
+                  >
+                    Close Candidate Details
+                  </button>
+                )}
               </div>
             </motion.div>
           </>
@@ -1049,7 +1512,7 @@ export const Dashboard: React.FC = () => {
                       value={formCompanyName}
                       onChange={(e) => setFormCompanyName(e.target.value)}
                       placeholder="e.g. JD Translations"
-                      className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary transition-all dark:text-white"
+                      className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none"
                     />
                   </div>
 
@@ -1063,7 +1526,7 @@ export const Dashboard: React.FC = () => {
                         value={formEmail}
                         onChange={(e) => setFormEmail(e.target.value)}
                         placeholder="john@example.com"
-                        className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary transition-all dark:text-white"
+                        className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none dark:text-white"
                       />
                     </div>
                     
@@ -1073,16 +1536,15 @@ export const Dashboard: React.FC = () => {
                         id="form-is-gmail"
                         checked={formIsGmail}
                         onChange={(e) => setFormIsGmail(e.target.checked)}
-                        className="w-4 h-4 rounded text-primary focus:ring-primary bg-slate-50 dark:bg-bg-dark border-slate-200 cursor-pointer"
+                        className="w-4 h-4 rounded text-primary bg-slate-50 border-slate-200 cursor-pointer"
                       />
                       <label htmlFor="form-is-gmail" className="text-slate-600 dark:text-slate-300 cursor-pointer font-bold flex items-center gap-1">
                         This is a Gmail or Google Workspace Account
                       </label>
                     </div>
 
-                    {/* Conditional Secondary Google account field */}
                     {!formIsGmail && (
-                      <div className="space-y-1.5 p-3.5 bg-primary/5 rounded-2xl border border-primary/10 animate-fade-in">
+                      <div className="space-y-1.5 p-3.5 bg-primary/5 rounded-2xl border border-primary/10">
                         <label className="text-[10px] text-primary uppercase tracking-wider block flex items-center gap-1">
                           <Info className="w-3.5 h-3.5" />
                           Secondary Google Account Email
@@ -1093,16 +1555,13 @@ export const Dashboard: React.FC = () => {
                           value={formSecondaryEmail}
                           onChange={(e) => setFormSecondaryEmail(e.target.value)}
                           placeholder="e.g. john.doe.auth@gmail.com"
-                          className="w-full p-2.5 text-xs bg-white dark:bg-bg-dark border border-primary/20 rounded-xl focus:outline-none focus:border-primary transition-all dark:text-white"
+                          className="w-full p-2.5 text-xs bg-white dark:bg-bg-dark border border-primary/20 rounded-xl focus:outline-none dark:text-white"
                         />
-                        <span className="text-[9px] text-slate-400 font-normal leading-normal block mt-1">
-                          Required for secure portal access and file collaboration since primary email is not hosted on Google.
-                        </span>
                       </div>
                     )}
                   </div>
 
-                  {/* Multi-language selector from normalized Settings list */}
+                  {/* Multi-language selector */}
                   <div className="space-y-2 p-3 bg-slate-50 dark:bg-bg-dark rounded-2xl border border-slate-200/20 dark:border-white/5">
                     <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Languages and Proficiency</span>
                     
@@ -1110,7 +1569,7 @@ export const Dashboard: React.FC = () => {
                       <select
                         value={selectedLangToAdd}
                         onChange={(e) => setSelectedLangToAdd(e.target.value)}
-                        className="flex-1 p-2 text-xs bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-lg text-slate-900 dark:text-white"
+                        className="flex-1 p-2 text-xs bg-white dark:bg-card-dark border rounded text-slate-900 dark:text-white"
                       >
                         {activeLanguages.map((l) => (
                           <option key={l} value={l}>{l}</option>
@@ -1120,7 +1579,7 @@ export const Dashboard: React.FC = () => {
                       <select
                         value={selectedProfToAdd}
                         onChange={(e) => setSelectedProfToAdd(e.target.value as any)}
-                        className="p-2 text-xs bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-lg text-slate-900 dark:text-white"
+                        className="p-2 text-xs bg-white dark:bg-card-dark border rounded text-slate-900 dark:text-white"
                       >
                         <option value="native">Native</option>
                         <option value="bilingual">Bilingual</option>
@@ -1153,8 +1612,8 @@ export const Dashboard: React.FC = () => {
                     </div>
                   </div>
 
+                  {/* Hours and Experience */}
                   <div className="grid grid-cols-2 gap-4">
-                    {/* Hours available */}
                     <div className="space-y-1">
                       <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Weekly Hours Available</label>
                       <input
@@ -1163,17 +1622,16 @@ export const Dashboard: React.FC = () => {
                         value={formHours}
                         onChange={(e) => setFormHours(e.target.value)}
                         placeholder="e.g. 20"
-                        className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary transition-all dark:text-white"
+                        className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none dark:text-white"
                       />
                     </div>
                     
-                    {/* Experience MT PE years */}
                     <div className="space-y-1">
                       <label className="text-[10px] text-slate-400 uppercase tracking-wider block">MT PE Experience</label>
                       <select
                         value={formExperience}
                         onChange={(e) => setFormExperience(e.target.value as any)}
-                        className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary transition-all dark:text-white cursor-pointer"
+                        className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none cursor-pointer"
                       >
                         <option value="1-3">1 - 3 years</option>
                         <option value="3-5">3 - 5 years</option>
@@ -1182,28 +1640,34 @@ export const Dashboard: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Portfolio Profiles links */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-slate-400 uppercase tracking-wider block">ProZ Profile URL</label>
+                  {/* ProZ, LinkedIn, and NDA link url */}
+                  <div className="space-y-2 p-3 bg-slate-50 dark:bg-bg-dark rounded-2xl border border-slate-200/20 dark:border-white/5">
+                    <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Portfolio and NDA urls</span>
+                    
+                    <div className="grid grid-cols-2 gap-2 mb-2">
                       <input
                         type="text"
                         value={formProz}
                         onChange={(e) => setFormProz(e.target.value)}
-                        placeholder="proz.com/profile/username"
-                        className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none"
+                        placeholder="ProZ Link"
+                        className="p-2 border rounded-lg text-xs bg-white dark:bg-card-dark"
                       />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-slate-400 uppercase tracking-wider block">LinkedIn Profile URL</label>
                       <input
                         type="text"
                         value={formLinkedin}
                         onChange={(e) => setFormLinkedin(e.target.value)}
-                        placeholder="linkedin.com/in/username"
-                        className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none"
+                        placeholder="LinkedIn Link"
+                        className="p-2 border rounded-lg text-xs bg-white dark:bg-card-dark"
                       />
                     </div>
+                    
+                    <input
+                      type="text"
+                      value={formNdaUrl}
+                      onChange={(e) => setFormNdaUrl(e.target.value)}
+                      placeholder="Signed NDA document URL (e.g. DocuSign)"
+                      className="w-full p-2 border rounded-lg text-xs bg-white dark:bg-card-dark"
+                    />
                   </div>
 
                   {/* Resume Upload simulation */}
@@ -1223,7 +1687,6 @@ export const Dashboard: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Upload progress indicator */}
                     {uploadingName && (
                       <div className="space-y-1.5 pt-1.5">
                         <span className="text-[9px] text-slate-500 block truncate font-bold">Uploading {uploadingName}...</span>
@@ -1239,15 +1702,15 @@ export const Dashboard: React.FC = () => {
                     )}
 
                     {uploadedResumeName && (
-                      <div className="flex items-center justify-between p-2 bg-primary/5 border border-primary/20 rounded-lg text-primary font-bold pt-1.5">
+                      <div className="flex items-center justify-between p-2 bg-primary/5 border border-primary/20 rounded-lg text-primary font-bold">
                         <span className="truncate max-w-[200px]">{uploadedResumeName}</span>
                         <button type="button" onClick={() => setUploadedResumeName('')} className="text-primary hover:text-red-500 font-extrabold cursor-pointer">×</button>
                       </div>
                     )}
                   </div>
 
+                  {/* Hourly rate and Status */}
                   <div className="grid grid-cols-2 gap-4">
-                    {/* Hourly rate and Status */}
                     <div className="space-y-1">
                       <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Hourly MLC Rate ($)</label>
                       <input
@@ -1255,18 +1718,19 @@ export const Dashboard: React.FC = () => {
                         required
                         value={formMlcRate}
                         onChange={(e) => setFormMlcRate(e.target.value)}
-                        className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary transition-all dark:text-white"
+                        className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none dark:text-white"
                       />
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Initial Status</label>
+                      {/* Dynamically connected to System Settings custom statuses */}
                       <select
                         value={formStatus}
                         onChange={(e) => setFormStatus(e.target.value)}
-                        className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary transition-all dark:text-white cursor-pointer capitalize"
+                        className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none dark:text-white cursor-pointer capitalize"
                       >
-                        {activeStatuses.map((stat) => (
-                          <option key={stat} value={stat}>{stat.replace('_', ' ')}</option>
+                        {activeStatuses.map((s) => (
+                          <option key={s.key} value={s.key}>{s.key.replace('_', ' ')}</option>
                         ))}
                       </select>
                     </div>
@@ -1278,14 +1742,14 @@ export const Dashboard: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsAddOpen(false)}
-                  className="flex-1 py-2.5 border border-slate-200 dark:border-border-dark text-slate-500 text-sm font-bold rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 btn-animate cursor-pointer"
+                  className="flex-1 py-2.5 border border-slate-200 dark:border-border-dark text-slate-500 text-sm font-bold rounded-xl hover:bg-slate-50 dark:hover:bg-white/5 btn-animate"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   form="sourced-intake-form"
-                  className="flex-1 py-2.5 bg-primary hover:bg-primary-dark text-white text-sm font-bold rounded-xl btn-animate cursor-pointer"
+                  className="flex-1 py-2.5 bg-primary hover:bg-primary-dark text-white text-sm font-bold rounded-xl btn-animate"
                 >
                   Add Lead
                 </button>
@@ -1295,17 +1759,79 @@ export const Dashboard: React.FC = () => {
         )}
       </AnimatePresence>
 
+      {/* Validation modal for stage transitions triggered by workflow rules */}
+      <AnimatePresence>
+        {pendingTransition && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.5 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setPendingTransition(null)}
+              className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm"
+            ></motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-white dark:bg-card-dark rounded-3xl p-6 border border-slate-200 dark:border-border-dark shadow-2xl z-50 overflow-hidden flex flex-col justify-between"
+            >
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-white/5">
+                  <AlertTriangle className="w-5 h-5 text-amber-500" />
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">Confirm Workflow Action Trigger</h3>
+                </div>
+
+                <div className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed space-y-3">
+                  <p>
+                    Transitioning this candidate to <span className="font-bold text-primary">{STAGE_LABELS[pendingTransition.targetStage]}</span> triggers the following automated email rule:
+                  </p>
+                  
+                  <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl space-y-1 text-slate-700 dark:text-slate-200 font-bold">
+                    <div>Rule Name: <span className="text-slate-900 dark:text-white font-extrabold">{pendingTransition.actionName}</span></div>
+                    <div>Email Template: <span className="font-normal font-mono">{pendingTransition.templateName}</span></div>
+                    <div>Recipient Group: <span className="text-primary">{pendingTransition.recipientType}</span></div>
+                  </div>
+
+                  <p className="text-[10px] text-slate-400 font-medium italic">
+                    If you confirm, the stage updates and the email dispatch is placed in the notification queue log.
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-6 border-t border-slate-100 dark:border-white/5 flex gap-3 mt-4">
+                <button
+                  type="button"
+                  onClick={() => setPendingTransition(null)}
+                  className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-lg text-xs btn-animate cursor-pointer"
+                >
+                  Cancel transition
+                </button>
+                <button
+                  type="button"
+                  onClick={() => commitStageChange(pendingTransition.vendorId, pendingTransition.targetStage)}
+                  className="flex-1 py-2 bg-primary hover:bg-primary-dark text-white font-bold rounded-lg text-xs btn-animate cursor-pointer"
+                >
+                  Confirm & Trigger
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
       {/* Sync Status Banner */}
       <AnimatePresence>
-        {isXtrfOpen && (
+        {showXtrfAlert && (
           <motion.div
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 50 }}
-            className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 dark:dark-glass bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 px-6 py-3 rounded-2xl border border-emerald-500/20 shadow-2xl font-bold flex items-center gap-2"
+            className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 dark:dark-glass bg-rose-500/20 text-rose-600 dark:text-rose-400 px-6 py-3 rounded-2xl border border-rose-500/20 shadow-2xl font-bold flex items-center gap-2"
           >
-            <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-            <span>XTRF candidate successfully synced to intake_complete!</span>
+            <ShieldAlert className="w-5 h-5 text-rose-500 animate-pulse" />
+            <span>XTRF Import Integration is currently NOT ACTIVE on this client setup.</span>
           </motion.div>
         )}
       </AnimatePresence>

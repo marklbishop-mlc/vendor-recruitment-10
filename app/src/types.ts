@@ -12,19 +12,15 @@ export interface UserProfile {
 export type VendorCategory = 'outreach' | 'network' | 'unassigned' | 'active';
 
 export type WorkflowStage = 
-  | 'sourced' 
-  | 'nda_pending' 
-  | 'nda_verified' 
-  | 'outreach_sent' 
-  | 'intake_complete' 
-  | 'testing_assigned' 
-  | 'grading' 
-  | 'xtrf_sync' 
-  | 'approved';
+  | 'outreach' 
+  | 'nda' 
+  | 'ready_for_testing' 
+  | 'in_testing' 
+  | 'xtrf_onboarding' 
+  | 'ready_for_pm' 
+  | 'dnu';
 
 export type TestGrade = 'pass' | 'fail' | 'pass_caution';
-
-export type VendorStatus = 'pending' | 'approved' | 'rejected';
 
 export interface WorkingLanguage {
   language: string;
@@ -58,6 +54,7 @@ export interface VendorProfile {
   resumeUrl?: string;
   hoursAvailable?: number;
   hasSignedNda: boolean;
+  ndaUrl?: string; // Link to the signed NDA
 }
 
 export interface EmailTemplate {
@@ -79,12 +76,18 @@ export interface WorkflowAction {
   actionType: 'send_email' | 'update_status';
   templateId?: string; // If send_email
   updateValue?: string; // If update_status
+  recipientType: 'vendor' | 'mlc' | 'both'; // Target of the email
   isActive: boolean;
+}
+
+export interface StatusConfig {
+  key: string;
+  color: string; // e.g. "blue" | "red" | "yellow" | "green" | "purple" | "indigo" | "pink"
 }
 
 export interface SystemConfig {
   languages: string[];
-  statuses: string[];
+  statuses: StatusConfig[];
 }
 
 export interface NotificationLog {

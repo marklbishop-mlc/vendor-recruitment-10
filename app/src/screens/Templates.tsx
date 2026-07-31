@@ -9,10 +9,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 const INITIAL_TEMPLATES: EmailTemplate[] = [
   {
     id: 't-1',
-    name: 'Sourced Lead Welcome',
+    name: 'Outreach Welcome',
     subject: 'MLC Localization Partnership Opportunity',
     body: 'Hi {{Vendor_Name}},\n\nWe have reviewed your profile and are interested in exploring a localization partnership with you for {{Language}} projects.\n\nOur initial project hourly offer rate is {{Adjusted_Rate}}/hr.\n\nPlease confirm if you are interested!\n\nBest,\nMLC Recruiting Team',
-    stage: 'sourced',
+    stage: 'outreach',
     lastUpdated: '2026-07-25T10:00:00Z'
   },
   {
@@ -20,7 +20,7 @@ const INITIAL_TEMPLATES: EmailTemplate[] = [
     name: 'NDA Signature Request',
     subject: 'Action Required: Sign NDA for MLC Projects',
     body: 'Hi {{Vendor_Name}},\n\nBefore we can assign translation testing or share project materials, we require a signed Non-Disclosure Agreement (NDA).\n\nPlease review and sign the agreement here: {{Project_Link}}\n\nYour NDA Status is currently: {{NDA_Status}}\n\nThank you,\nMLC Compliance Office',
-    stage: 'nda_pending',
+    stage: 'nda',
     lastUpdated: '2026-07-28T14:30:00Z'
   },
   {
@@ -28,7 +28,7 @@ const INITIAL_TEMPLATES: EmailTemplate[] = [
     name: 'Testing Invitation',
     subject: 'MLC Language Testing Assignment - {{Language}}',
     body: 'Hi {{Vendor_Name}},\n\nThank you for signing the NDA. The next step is to complete our language assessment.\n\nYou have been assigned a test translation project. You can access it using the link below:\nLink: {{Project_Link}}\n\nPlease submit the translation before the scheduled deadline.\n\nRegards,\nMLC Quality Managers',
-    stage: 'testing_assigned',
+    stage: 'ready_for_testing',
     lastUpdated: '2026-07-30T09:15:00Z'
   }
 ];
@@ -37,24 +37,26 @@ const INITIAL_TEMPLATES: EmailTemplate[] = [
 const INITIAL_ACTIONS: WorkflowAction[] = [
   {
     id: 'act-1',
-    name: 'Send NDA on Sourced Stage',
-    triggerStage: 'sourced',
+    name: 'Send NDA on Outreach Stage',
+    triggerStage: 'outreach',
     field: 'hasSignedNda',
     operator: '==',
     value: 'false',
     actionType: 'send_email',
     templateId: 't-2',
+    recipientType: 'vendor',
     isActive: true
   },
   {
     id: 'act-2',
     name: 'Auto-Invite Gmail Users to Test',
-    triggerStage: 'nda_verified',
+    triggerStage: 'nda',
     field: 'isGmail',
     operator: '==',
     value: 'true',
     actionType: 'send_email',
     templateId: 't-3',
+    recipientType: 'both',
     isActive: true
   }
 ];
@@ -64,7 +66,7 @@ const INITIAL_QUEUE: NotificationLog[] = [
     id: 'n-1',
     vendorId: 'v-2',
     email: 'hana@lingoglobe.jp',
-    subject: 'MLC Language Testing Assignment - Japanese -> English',
+    subject: 'MLC Language Testing Assignment - Japanese (Native)',
     status: 'sent',
     sentAt: '2026-07-28T15:00:00Z'
   },
@@ -78,15 +80,13 @@ const INITIAL_QUEUE: NotificationLog[] = [
 ];
 
 const STAGE_LABELS: Record<WorkflowStage, string> = {
-  sourced: 'Sourced / Intake',
-  nda_pending: 'NDA Pending',
-  nda_verified: 'NDA Verified',
-  outreach_sent: 'Outreach Sent',
-  intake_complete: 'Intake Complete',
-  testing_assigned: 'Testing Assigned',
-  grading: 'Grading / Results',
-  xtrf_sync: 'System Onboarding',
-  approved: 'Approved / Ready'
+  outreach: 'Outreach',
+  nda: 'NDA',
+  ready_for_testing: 'Ready for Testing',
+  in_testing: 'In Testing',
+  xtrf_onboarding: 'XTRF Onboarding',
+  ready_for_pm: 'Ready for PM',
+  dnu: 'DNU'
 };
 
 const MOCK_MERGE_VALUES = {
@@ -112,16 +112,17 @@ export const Templates: React.FC = () => {
   // Add Template fields
   const [newTmplName, setNewTmplName] = useState('');
   const [newTmplSubject, setNewTmplSubject] = useState('');
-  const [newTmplStage, setNewTmplStage] = useState<WorkflowStage>('sourced');
+  const [newTmplStage, setNewTmplStage] = useState<WorkflowStage>('outreach');
 
   // Add Action fields
   const [newActName, setNewActName] = useState('');
-  const [newActStage, setNewActStage] = useState<WorkflowStage>('sourced');
+  const [newActStage, setNewActStage] = useState<WorkflowStage>('outreach');
   const [newActField, setNewActField] = useState('isGmail');
   const [newActOperator, setNewActOperator] = useState<WorkflowAction['operator']>('==');
   const [newActVal, setNewActVal] = useState('true');
   const [newActType, setNewActType] = useState<WorkflowAction['actionType']>('send_email');
   const [newActTemplate, setNewActTemplate] = useState(INITIAL_TEMPLATES[0].id);
+  const [newActRecipient, setNewActRecipient] = useState<WorkflowAction['recipientType']>('vendor');
 
   // Editor states
   const [subject, setSubject] = useState(selectedTemplate.subject);
@@ -189,6 +190,7 @@ export const Templates: React.FC = () => {
       value: newActVal.trim(),
       actionType: newActType,
       templateId: newActType === 'send_email' ? newActTemplate : undefined,
+      recipientType: newActRecipient,
       isActive: true
     };
 
@@ -398,7 +400,7 @@ export const Templates: React.FC = () => {
                   Trigger stage: <span className="font-bold text-primary">{STAGE_LABELS[act.triggerStage]}</span>.
                   Evaluation: <span className="font-mono text-[10px] bg-slate-200/50 dark:bg-slate-800 px-1.5 py-0.5 rounded">{act.field} {act.operator} {act.value}</span>.
                   Action: <span className="font-bold text-secondary capitalize">{act.actionType.replace('_', ' ')}</span> 
-                  {act.templateId && ` (Template ID: ${act.templateId})`}
+                  {act.templateId && ` (Template ID: ${act.templateId}, Recipient: ${act.recipientType})`}
                 </div>
               </div>
 
@@ -673,17 +675,32 @@ export const Templates: React.FC = () => {
 
                   {/* Action Target field (e.g. template list) */}
                   {newActType === 'send_email' ? (
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Target Template</label>
-                      <select
-                        value={newActTemplate}
-                        onChange={(e) => setNewActTemplate(e.target.value)}
-                        className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none dark:text-white cursor-pointer"
-                      >
-                        {templates.map((t) => (
-                          <option key={t.id} value={t.id}>{t.name}</option>
-                        ))}
-                      </select>
+                    <div className="space-y-3">
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Target Template</label>
+                        <select
+                          value={newActTemplate}
+                          onChange={(e) => setNewActTemplate(e.target.value)}
+                          className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none dark:text-white cursor-pointer"
+                        >
+                          {templates.map((t) => (
+                            <option key={t.id} value={t.id}>{t.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Recipient Email Target</label>
+                        <select
+                          value={newActRecipient}
+                          onChange={(e) => setNewActRecipient(e.target.value as any)}
+                          className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none dark:text-white cursor-pointer"
+                        >
+                          <option value="vendor">Vendor (Primary / Secondary)</option>
+                          <option value="mlc">MLC Office (vm@mlconnections.com)</option>
+                          <option value="both">Both Recipients</option>
+                        </select>
+                      </div>
                     </div>
                   ) : (
                     <div className="space-y-1">
