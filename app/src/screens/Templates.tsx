@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { EmailTemplate, NotificationLog, WorkflowStage, WorkflowAction } from '../types';
 import { 
   Mail, Save, Sparkles, Eye, Play, CheckCircle, X, Plus, Trash2, Zap
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { collection, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 
 // Mock templates mapping workflow stages
 const INITIAL_TEMPLATES: EmailTemplate[] = [
@@ -104,6 +106,7 @@ export const Templates: React.FC = () => {
 
   // Workflow Actions states
   const [workflowActions, setWorkflowActions] = useState<WorkflowAction[]>(INITIAL_ACTIONS);
+  const [editingAction, setEditingAction] = useState<WorkflowAction | null>(null);
   
   // Modals state
   const [isAddTemplateOpen, setIsAddTemplateOpen] = useState(false);
@@ -132,21 +135,92 @@ export const Templates: React.FC = () => {
 
   const mergeTags = ['Vendor_Name', 'Language', 'Adjusted_Rate', 'Project_Link', 'NDA_Status'];
 
+  // Load from Firestore with local seed fallbacks
+  useEffect(() => {
+    const loadFirestoreData = async () => {
+      try {
+        // 1. Fetch Templates
+        const tmplSnap = await getDocs(collection(db, 'templates'));
+        const tmplList: EmailTemplate[] = [];
+        tmplSnap.forEach((doc) => {
+          tmplList.push(doc.data() as EmailTemplate);
+        });
+        
+        if (tmplList.length > 0) {
+          setTemplates(tmplList);
+          setSelectedTemplate(tmplList[0]);
+          setSubject(tmplList[0].subject);
+          setBody(tmplList[0].body);
+        } else {
+          for (const tmpl of INITIAL_TEMPLATES) {
+            await setDoc(doc(db, 'templates', tmpl.id), tmpl);
+          }
+          setTemplates(INITIAL_TEMPLATES);
+          setSelectedTemplate(INITIAL_TEMPLATES[0]);
+          setSubject(INITIAL_TEMPLATES[0].subject);
+          setBody(INITIAL_TEMPLATES[0].body);
+        }
+
+        // 2. Fetch Actions
+        const actSnap = await getDocs(collection(db, 'workflow_actions'));
+        const actList: WorkflowAction[] = [];
+        actSnap.forEach((doc) => {
+          actList.push(doc.data() as WorkflowAction);
+        });
+
+        if (actList.length > 0) {
+          setWorkflowActions(actList);
+        } else {
+          for (const act of INITIAL_ACTIONS) {
+            await setDoc(doc(db, 'workflow_actions', act.id), act);
+          }
+          setWorkflowActions(INITIAL_ACTIONS);
+        }
+
+        // 3. Fetch Notification Logs
+        const noteSnap = await getDocs(collection(db, 'notifications'));
+        const noteList: NotificationLog[] = [];
+        noteSnap.forEach((doc) => {
+          noteList.push(doc.data() as NotificationLog);
+        });
+
+        if (noteList.length > 0) {
+          noteList.sort((a, b) => new Date(b.sentAt || '').getTime() - new Date(a.sentAt || '').getTime());
+          setQueue(noteList);
+        } else {
+          setQueue(INITIAL_QUEUE);
+        }
+      } catch (err) {
+        console.error("Failed to load Templates database collections", err);
+      }
+    };
+    loadFirestoreData();
+  }, []);
+
   const handleTemplateSelect = (tmpl: EmailTemplate) => {
     setSelectedTemplate(tmpl);
     setSubject(tmpl.subject);
     setBody(tmpl.body);
   };
 
-  const handleSaveTemplate = () => {
-    setTemplates((prev) => 
-      prev.map((t) => 
-        t.id === selectedTemplate.id 
-          ? { ...t, subject, body, lastUpdated: new Date().toISOString() } 
-          : t
-      )
-    );
-    triggerAlertToast();
+  const handleSaveTemplate = async () => {
+    const updated = { 
+      ...selectedTemplate, 
+      subject, 
+      body, 
+      lastUpdated: new Date().toISOString() 
+    };
+
+    try {
+      await setDoc(doc(db, 'templates', selectedTemplate.id), updated);
+      setTemplates((prev) => 
+        prev.map((t) => t.id === selectedTemplate.id ? updated : t)
+      );
+      setSelectedTemplate(updated);
+      triggerAlertToast();
+    } catch (err) {
+      console.error("Failed to save template to Firestore", err);
+    }
   };
 
   const triggerAlertToast = () => {
@@ -157,32 +231,64 @@ export const Templates: React.FC = () => {
     }
   };
 
-  const handleAddTemplateSubmit = (e: React.FormEvent) => {
+  const handleAddTemplateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTmplName.trim()) return;
 
     const tmpl: EmailTemplate = {
       id: `t-${Date.now()}`,
       name: newTmplName.trim(),
-      subject: newTmplSubject.trim() || 'Localization Notification',
-      body: 'Hi {{Vendor_Name}},\n\nEnter email copy...',
+      subject: newTmplSubject.trim() || 'Localization Partnership Notice',
+      body: 'Hi {{Vendor_Name}},\n\nEnter email copy here...',
       stage: newTmplStage,
       lastUpdated: new Date().toISOString()
     };
 
-    setTemplates((prev) => [...prev, tmpl]);
-    setIsAddTemplateOpen(false);
-    setNewTmplName('');
-    setNewTmplSubject('');
-    handleTemplateSelect(tmpl);
+    try {
+      await setDoc(doc(db, 'templates', tmpl.id), tmpl);
+      setTemplates((prev) => [...prev, tmpl]);
+      setIsAddTemplateOpen(false);
+      setNewTmplName('');
+      setNewTmplSubject('');
+      handleTemplateSelect(tmpl);
+    } catch (err) {
+      console.error("Failed to create template document", err);
+    }
   };
 
-  const handleAddActionSubmit = (e: React.FormEvent) => {
+  const handleOpenAddAction = () => {
+    setEditingAction(null);
+    setNewActName('');
+    setNewActStage('outreach');
+    setNewActField('isGmail');
+    setNewActOperator('==');
+    setNewActVal('true');
+    setNewActType('send_email');
+    setNewActTemplate(templates[0]?.id || '');
+    setNewActRecipient('vendor');
+    setIsAddActionOpen(true);
+  };
+
+  const handleOpenEditAction = (act: WorkflowAction) => {
+    setEditingAction(act);
+    setNewActName(act.name);
+    setNewActStage(act.triggerStage);
+    setNewActField(act.field);
+    setNewActOperator(act.operator);
+    setNewActVal(act.value);
+    setNewActType(act.actionType);
+    setNewActTemplate(act.templateId || (templates[0]?.id || ''));
+    setNewActRecipient(act.recipientType);
+    setIsAddActionOpen(true);
+  };
+
+  const handleAddActionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newActName.trim()) return;
 
+    const actionId = editingAction ? editingAction.id : `act-${Date.now()}`;
     const act: WorkflowAction = {
-      id: `act-${Date.now()}`,
+      id: actionId,
       name: newActName.trim(),
       triggerStage: newActStage,
       field: newActField,
@@ -191,22 +297,49 @@ export const Templates: React.FC = () => {
       actionType: newActType,
       templateId: newActType === 'send_email' ? newActTemplate : undefined,
       recipientType: newActRecipient,
-      isActive: true
+      isActive: editingAction ? editingAction.isActive : true
     };
 
-    setWorkflowActions((prev) => [...prev, act]);
-    setIsAddActionOpen(false);
-    setNewActName('');
+    try {
+      await setDoc(doc(db, 'workflow_actions', actionId), act);
+      
+      setWorkflowActions((prev) => {
+        if (editingAction) {
+          return prev.map((a) => a.id === actionId ? act : a);
+        } else {
+          return [...prev, act];
+        }
+      });
+      setIsAddActionOpen(false);
+      setEditingAction(null);
+      setNewActName('');
+    } catch (err) {
+      console.error("Failed to save workflow action rule", err);
+    }
   };
 
-  const handleToggleAction = (id: string) => {
-    setWorkflowActions((prev) => 
-      prev.map((a) => a.id === id ? { ...a, isActive: !a.isActive } : a)
-    );
+  const handleToggleAction = async (id: string) => {
+    const target = workflowActions.find((a) => a.id === id);
+    if (!target) return;
+    const updated = { ...target, isActive: !target.isActive };
+
+    try {
+      await setDoc(doc(db, 'workflow_actions', id), updated);
+      setWorkflowActions((prev) => 
+        prev.map((a) => a.id === id ? updated : a)
+      );
+    } catch (err) {
+      console.error("Failed to toggle action status", err);
+    }
   };
 
-  const handleRemoveAction = (id: string) => {
-    setWorkflowActions((prev) => prev.filter((a) => a.id !== id));
+  const handleRemoveAction = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'workflow_actions', id));
+      setWorkflowActions((prev) => prev.filter((a) => a.id !== id));
+    } catch (err) {
+      console.error("Failed to delete action document", err);
+    }
   };
 
   const insertTag = (tag: string) => {
@@ -372,9 +505,9 @@ export const Templates: React.FC = () => {
             <Zap className="w-5 h-5 text-coral" />
             Conditional Workflow Trigger Actions
           </h4>
-          <button
-            onClick={() => setIsAddActionOpen(true)}
-            className="py-1.5 px-3.5 bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 btn-animate"
+          <button 
+            onClick={handleOpenAddAction}
+            className="py-2 px-3 bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white rounded-xl font-bold text-[11px] flex items-center gap-1.5 btn-animate cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
             Add Action Rule
@@ -414,6 +547,12 @@ export const Templates: React.FC = () => {
                   }`}
                 >
                   {act.isActive ? 'Disable' : 'Enable'}
+                </button>
+                <button
+                  onClick={() => handleOpenEditAction(act)}
+                  className="py-1.5 px-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-lg text-[10px] font-bold dark:text-white transition-colors cursor-pointer"
+                >
+                  Edit
                 </button>
                 <button
                   onClick={() => handleRemoveAction(act.id)}
@@ -595,7 +734,7 @@ export const Templates: React.FC = () => {
                 <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-3">
                   <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
                     <Zap className="w-5 h-5 text-coral" />
-                    Configure Action Rule
+                    {editingAction ? 'Edit Workflow Action Rule' : 'Configure Action Rule'}
                   </h3>
                   <button onClick={() => setIsAddActionOpen(false)} className="p-1 rounded-lg text-slate-500 cursor-pointer">
                     <X className="w-5 h-5" />
@@ -727,9 +866,9 @@ export const Templates: React.FC = () => {
                 <button
                   type="submit"
                   form="add-action-form"
-                  className="flex-1 py-2.5 bg-primary hover:bg-primary-dark text-white text-sm font-bold rounded-xl btn-animate"
+                  className="flex-1 py-2.5 bg-primary hover:bg-primary-dark text-white text-sm font-bold rounded-xl btn-animate cursor-pointer"
                 >
-                  Add Action Rule
+                  {editingAction ? 'Save Changes' : 'Create Action'}
                 </button>
               </div>
             </motion.div>
