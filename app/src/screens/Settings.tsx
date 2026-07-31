@@ -4,7 +4,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { StatusConfig } from '../types';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 
 // Default configuration settings to fallback on
@@ -29,9 +29,9 @@ export const STATUS_COLORS_MAP: Record<string, string> = {
   gray: 'bg-slate-500/15 text-slate-600 dark:text-slate-400 border-slate-500/20'
 };
 
-const ADMINS_LIST = [
+const DEFAULT_ADMINS_LIST = [
   { name: 'Mark Bishop (Admin)', email: 'mark@mlconnections.com' },
-  { name: 'Sarah Conners (Manager)', email: 'sarah@mlconnections.com' },
+  { name: 'Sarah Jenkins (Manager)', email: 'sarah.recruiter@mlconnections.com' },
   { name: 'IT Support (Operations)', email: 'support@mlconnections.com' }
 ];
 
@@ -41,7 +41,8 @@ export const Settings: React.FC = () => {
   
   // Testing Mode states
   const [testingEnabled, setTestingEnabled] = useState(false);
-  const [testingRecipient, setTestingRecipient] = useState('mark@mlconnections.com');
+  const [testingRecipients, setTestingRecipients] = useState<string[]>(['mark@mlconnections.com']);
+  const [adminsList, setAdminsList] = useState<{name: string, email: string}[]>(DEFAULT_ADMINS_LIST);
 
   // New input states
   const [newLang, setNewLang] = useState('');
@@ -67,10 +68,17 @@ export const Settings: React.FC = () => {
     if (savedTesting) {
       const parsed = JSON.parse(savedTesting);
       setTestingEnabled(parsed.enabled);
-      setTestingRecipient(parsed.recipientEmail);
+      // Fallback if older structure had recipientEmail instead of recipientEmails
+      if (parsed.recipientEmails) {
+        setTestingRecipients(parsed.recipientEmails);
+      } else if (parsed.recipientEmail) {
+        setTestingRecipients([parsed.recipientEmail]);
+      } else {
+        setTestingRecipients(['mark@mlconnections.com']);
+      }
     } else {
       setTestingEnabled(false);
-      setTestingRecipient('mark@mlconnections.com');
+      setTestingRecipients(['mark@mlconnections.com']);
     }
 
     // 2. Async Cloud Load
@@ -84,14 +92,45 @@ export const Settings: React.FC = () => {
           if (data.statuses) setStatuses(data.statuses);
           if (data.testingMode) {
             setTestingEnabled(data.testingMode.enabled);
-            setTestingRecipient(data.testingMode.recipientEmail);
+            if (data.testingMode.recipientEmails) {
+              setTestingRecipients(data.testingMode.recipientEmails);
+            } else if (data.testingMode.recipientEmail) {
+              setTestingRecipients([data.testingMode.recipientEmail]);
+            }
           }
         }
       } catch (err) {
         console.error("Failed to load settings from Firestore", err);
       }
     };
+
+    // 3. Query Admins from Firestore
+    const fetchAdmins = async () => {
+      try {
+        const snap = await getDocs(collection(db, 'users'));
+        const list: {name: string, email: string}[] = [];
+        snap.forEach((doc) => {
+          const u = doc.data();
+          if (u.role === 'admin' || u.role === 'manager') {
+            list.push({ 
+              name: `${u.displayName} (${u.role === 'admin' ? 'Admin' : 'Manager'})`, 
+              email: u.email 
+            });
+          }
+        });
+        if (list.length > 0) {
+          setAdminsList(list);
+        } else {
+          setAdminsList(DEFAULT_ADMINS_LIST);
+        }
+      } catch (err) {
+        console.error("Failed to load staff list from database, using defaults", err);
+        setAdminsList(DEFAULT_ADMINS_LIST);
+      }
+    };
+
     loadFirestoreConfig();
+    fetchAdmins();
   }, []);
 
   const handleSaveAll = () => {
@@ -100,7 +139,7 @@ export const Settings: React.FC = () => {
     localStorage.setItem('mlc_settings_statuses_v2', JSON.stringify(statuses));
     localStorage.setItem('mlc_settings_testing_mode', JSON.stringify({
       enabled: testingEnabled,
-      recipientEmail: testingRecipient
+      recipientEmails: testingRecipients
     }));
 
     // 2. Save Cloud
@@ -112,7 +151,7 @@ export const Settings: React.FC = () => {
           statuses,
           testingMode: {
             enabled: testingEnabled,
-            recipientEmail: testingRecipient
+            recipientEmails: testingRecipients
           }
         });
       } catch (err) {
@@ -410,15 +449,21 @@ export const Settings: React.FC = () => {
 
           {/* Admin Selector Radio Cards list */}
           <div className="flex-1 flex flex-col sm:flex-row gap-3 justify-end items-stretch sm:items-center">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Admin Recipient:</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Admins Intercept:</span>
             <div className="flex flex-wrap gap-2">
-              {ADMINS_LIST.map((admin) => {
-                const isSelected = testingRecipient === admin.email;
+              {adminsList.map((admin) => {
+                const isSelected = testingRecipients.includes(admin.email);
                 return (
                   <button
                     key={admin.email}
                     type="button"
-                    onClick={() => setTestingRecipient(admin.email)}
+                    onClick={() => {
+                      setTestingRecipients((prev) => 
+                        prev.includes(admin.email)
+                          ? prev.filter((e) => e !== admin.email)
+                          : [...prev, admin.email]
+                      );
+                    }}
                     disabled={!testingEnabled}
                     className={`py-2 px-3 rounded-xl border text-[11px] font-bold transition-all text-left flex items-center justify-between gap-3 cursor-pointer ${
                       !testingEnabled 

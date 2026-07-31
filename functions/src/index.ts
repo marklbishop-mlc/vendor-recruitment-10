@@ -11,8 +11,19 @@ initializeApp();
 // Explicitly target the named database in the admin SDK
 const db = getFirestore("mlc-vendor-recruitment-db");
 
-// Load service account file copied from sibling folder
-const serviceAccount = require("./email-service-account.json");
+// Load service account file with fail-safe fallback
+let serviceAccount: any;
+try {
+  serviceAccount = require("./email-service-account.json");
+} catch (e) {
+  try {
+    const path = require("path");
+    const fallbackPath = path.resolve(__dirname, "../src/email-service-account.json");
+    serviceAccount = require(fallbackPath);
+  } catch (err) {
+    logger.error("Failed to load service account credentials key from all standard locations.", err);
+  }
+}
 
 const IMPERSONATE_EMAIL = "vm@mlconnections.com";
 
@@ -256,7 +267,8 @@ export const processMailQueue = onDocumentCreated(
         const config = configSnap.data();
         if (config?.testingMode?.enabled) {
           isTestMode = true;
-          finalRecipient = config.testingMode.recipientEmail || "mark@mlconnections.com";
+          const emails = config.testingMode.recipientEmails || [];
+          finalRecipient = emails.length > 0 ? emails.join(", ") : "mark@mlconnections.com";
           finalSubject = `[TEST MODE] ${data.subject}`;
           
           // Format HTML with red testing warning banner

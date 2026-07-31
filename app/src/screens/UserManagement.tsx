@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../AuthContext';
 import type { UserProfile, UserRole, AuditLog } from '../types';
-import { Shield, Search, Clock } from 'lucide-react';
+import { Shield, Search, Clock, Plus, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { collection, getDocs, doc, setDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 
-// Mock users list matching roles
+// Mock users list matching roles to seed if DB is empty
 const INITIAL_USERS: UserProfile[] = [
   {
     uid: 'mock-admin-mark',
@@ -49,7 +51,63 @@ export const UserManagement: React.FC = () => {
   const [usersList, setUsersList] = useState<UserProfile[]>(INITIAL_USERS);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(INITIAL_AUDITS);
   const [search, setSearch] = useState('');
+  
+  // Drawer & Modal control states
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
+  
+  // Add/Edit Form states
+  const [targetUid, setTargetUid] = useState('');
+  const [displayName, setDisplayName] = useState('');
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState<UserRole>('user');
+
+  // Load staff registries and security logs from Firestore
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        // 1. Fetch Users
+        const usersSnap = await getDocs(collection(db, 'users'));
+        const uList: UserProfile[] = [];
+        usersSnap.forEach((d) => {
+          uList.push(d.data() as UserProfile);
+        });
+
+        if (uList.length > 0) {
+          setUsersList(uList);
+        } else {
+          // Seed initial users if empty
+          for (const u of INITIAL_USERS) {
+            await setDoc(doc(db, 'users', u.uid), u);
+          }
+          setUsersList(INITIAL_USERS);
+        }
+
+        // 2. Fetch Audit Logs
+        const auditsSnap = await getDocs(collection(db, 'audit_logs'));
+        const aList: AuditLog[] = [];
+        auditsSnap.forEach((d) => {
+          aList.push(d.data() as AuditLog);
+        });
+
+        if (aList.length > 0) {
+          // Sort audits newest first
+          aList.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+          setAuditLogs(aList);
+        } else {
+          // Seed default audit log
+          for (const a of INITIAL_AUDITS) {
+            await setDoc(doc(db, 'audit_logs', a.id), a);
+          }
+          setAuditLogs(INITIAL_AUDITS);
+        }
+      } catch (err) {
+        console.error("Failed to fetch staff directories from Firestore", err);
+      }
+    };
+    loadData();
+  }, []);
 
   // Filter list
   const filteredUsers = usersList.filter((u) => 
@@ -57,49 +115,139 @@ export const UserManagement: React.FC = () => {
     u.email.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleRoleChange = (targetUid: string, newRole: UserRole) => {
-    if (!user) return;
+  const handleOpenAddModal = () => {
+    setModalMode('add');
+    setTargetUid(`user-${Date.now()}`);
+    setDisplayName('');
+    setEmail('');
+    setRole('user');
+    setIsModalOpen(true);
+  };
 
-    setUsersList((prev) => 
-      prev.map((u) => {
-        if (u.uid !== targetUid) return u;
-        
-        // Log the change
-        const log: AuditLog = {
-          id: `log-${Date.now()}`,
-          actorId: user.uid,
-          actorName: user.displayName,
-          action: 'ROLE_UPDATE',
-          targetId: targetUid,
-          timestamp: new Date().toISOString(),
-          details: `Changed role of ${u.displayName} from ${u.role} to ${newRole}`
-        };
-        setAuditLogs((audits) => [log, ...audits]);
+  const handleOpenEditModal = (u: UserProfile) => {
+    setModalMode('edit');
+    setTargetUid(u.uid);
+    setDisplayName(u.displayName);
+    setEmail(u.email);
+    setRole(u.role);
+    setIsModalOpen(true);
+  };
 
-        return { ...u, role: newRole, updatedAt: new Date().toISOString() };
-      })
-    );
+  const handleFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!displayName.trim() || !email.trim()) return;
 
-    // Update detailed view modal if open
-    setSelectedUser((prev) => {
-      if (!prev || prev.uid !== targetUid) return prev;
-      return { ...prev, role: newRole, updatedAt: new Date().toISOString() };
-    });
+    const isEdit = modalMode === 'edit';
+    const timestamp = new Date().toISOString();
+    const currentActor = user || { uid: 'system', displayName: 'System Administrator' };
+
+    const originalUser = usersList.find((u) => u.uid === targetUid);
+    
+    const userProfile: UserProfile = {
+      uid: targetUid,
+      displayName: displayName.trim(),
+      email: email.trim().toLowerCase(),
+      role,
+      createdAt: originalUser ? originalUser.createdAt : timestamp,
+      updatedAt: timestamp
+    };
+
+    // Prepare details for audit trail
+    let details = `Created staff user account for ${displayName} with role ${role}`;
+    if (isEdit && originalUser) {
+      const changes: string[] = [];
+      if (originalUser.displayName !== displayName) changes.push(`name to "${displayName}"`);
+      if (originalUser.email !== email) changes.push(`email to "${email}"`);
+      if (originalUser.role !== role) changes.push(`role to "${role}"`);
+      details = `Updated staff user profile of ${originalUser.displayName}: ${changes.join(', ') || 'no changes'}`;
+    }
+
+    const log: AuditLog = {
+      id: `log-${Date.now()}`,
+      actorId: currentActor.uid,
+      actorName: currentActor.displayName,
+      action: isEdit ? 'ROLE_UPDATE' : 'USER_CREATE',
+      targetId: targetUid,
+      timestamp,
+      details
+    };
+
+    try {
+      // Write user to cloud db
+      await setDoc(doc(db, 'users', targetUid), userProfile);
+      
+      // Write audit log to cloud db
+      await setDoc(doc(db, 'audit_logs', log.id), log);
+
+      // Update state locally
+      setUsersList((prev) => {
+        if (isEdit) {
+          return prev.map((u) => u.uid === targetUid ? userProfile : u);
+        } else {
+          return [...prev, userProfile];
+        }
+      });
+
+      setAuditLogs((prev) => [log, ...prev]);
+      setIsModalOpen(false);
+    } catch (err) {
+      console.error("Failed to commit user profile write to Firestore", err);
+    }
+  };
+
+  const handleRoleChangeDirect = async (targetUid: string, newRole: UserRole) => {
+    const targetUser = usersList.find((u) => u.uid === targetUid);
+    if (!targetUser) return;
+
+    const timestamp = new Date().toISOString();
+    const currentActor = user || { uid: 'system', displayName: 'System Administrator' };
+
+    const updatedUser: UserProfile = {
+      ...targetUser,
+      role: newRole,
+      updatedAt: timestamp
+    };
+
+    const log: AuditLog = {
+      id: `log-${Date.now()}`,
+      actorId: currentActor.uid,
+      actorName: currentActor.displayName,
+      action: 'ROLE_UPDATE',
+      targetId: targetUid,
+      timestamp,
+      details: `Changed role of ${targetUser.displayName} from ${targetUser.role} to ${newRole}`
+    };
+
+    try {
+      await setDoc(doc(db, 'users', targetUid), updatedUser);
+      await setDoc(doc(db, 'audit_logs', log.id), log);
+
+      setUsersList((prev) => prev.map((u) => u.uid === targetUid ? updatedUser : u));
+      setAuditLogs((prev) => [log, ...prev]);
+      
+      // Update selected drawer view if active
+      setSelectedUser((prev) => {
+        if (!prev || prev.uid !== targetUid) return prev;
+        return updatedUser;
+      });
+    } catch (err) {
+      console.error("Failed to update user role", err);
+    }
   };
 
   return (
     <div className="space-y-8">
       {/* Header */}
       <div>
-        <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">User Role Management</h2>
+        <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">User Registry & Permissions</h2>
         <p className="text-slate-500 dark:text-slate-400 mt-1.5 text-sm">
-          Change staff role permissions, search user registry, and review security audit logs.
+          Add/edit staff details, change role permissions, and review security access audit logs.
         </p>
       </div>
 
       {/* Toolbar */}
-      <section className="bg-white dark:bg-card-dark p-4 rounded-2xl border border-slate-200/50 dark:border-border-dark shadow-sm">
-        <div className="relative max-w-md">
+      <section className="bg-white dark:bg-card-dark p-4 rounded-2xl border border-slate-200/50 dark:border-border-dark shadow-sm flex items-center justify-between gap-4">
+        <div className="relative max-w-md flex-1">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
@@ -109,6 +257,13 @@ export const UserManagement: React.FC = () => {
             className="w-full pl-10 pr-4 py-2 text-sm bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary transition-all dark:text-white"
           />
         </div>
+        <button
+          onClick={handleOpenAddModal}
+          className="py-2.5 px-4 bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 btn-animate cursor-pointer"
+        >
+          <Plus className="w-4 h-4" />
+          Add Staff User
+        </button>
       </section>
 
       {/* Users table */}
@@ -134,7 +289,7 @@ export const UserManagement: React.FC = () => {
                     <div className="relative inline-block">
                       <select
                         value={u.role}
-                        onChange={(e) => handleRoleChange(u.uid, e.target.value as UserRole)}
+                        onChange={(e) => handleRoleChangeDirect(u.uid, e.target.value as UserRole)}
                         disabled={u.email === 'mark@mlconnections.com'} // Lock seeded admin
                         className="pl-2 pr-8 py-1 bg-slate-100 dark:bg-slate-800 text-xs font-semibold rounded-lg focus:outline-none focus:ring-1 focus:ring-primary border border-transparent dark:text-white disabled:opacity-50 appearance-none cursor-pointer capitalize"
                       >
@@ -148,12 +303,18 @@ export const UserManagement: React.FC = () => {
                   <td className="p-4 text-xs text-slate-500 dark:text-slate-400">
                     {new Date(u.createdAt).toLocaleDateString()}
                   </td>
-                  <td className="p-4 pr-6 text-right">
+                  <td className="p-4 pr-6 text-right space-x-2">
+                    <button
+                      onClick={() => handleOpenEditModal(u)}
+                      className="py-1 px-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-bold rounded-lg btn-animate cursor-pointer dark:text-white"
+                    >
+                      Edit
+                    </button>
                     <button
                       onClick={() => setSelectedUser(u)}
                       className="py-1 px-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-bold rounded-lg btn-animate cursor-pointer dark:text-white"
                     >
-                      Audit Trail
+                      Logs
                     </button>
                   </td>
                 </tr>
@@ -190,6 +351,93 @@ export const UserManagement: React.FC = () => {
         </div>
       </section>
 
+      {/* Add / Edit User Modal */}
+      <AnimatePresence>
+        {isModalOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.5 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsModalOpen(false)}
+              className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm"
+            ></motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="fixed inset-0 m-auto z-50 w-full max-w-md h-fit bg-white dark:bg-card-dark rounded-3xl border border-slate-200 dark:border-border-dark p-6 shadow-2xl space-y-6 flex flex-col justify-between"
+            >
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-4">
+                <h3 className="text-lg font-extrabold text-slate-900 dark:text-white">
+                  {modalMode === 'edit' ? 'Edit Staff User Account' : 'Register New Staff User'}
+                </h3>
+                <button onClick={() => setIsModalOpen(false)} className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-slate-400 cursor-pointer">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleFormSubmit} className="space-y-4 text-xs font-bold text-slate-600 dark:text-slate-350">
+                <div className="space-y-1">
+                  <label className="block uppercase tracking-wider text-[10px]">Staff Full Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    placeholder="e.g. Sarah Jenkins"
+                    className="w-full p-2.5 bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary transition-all dark:text-white"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block uppercase tracking-wider text-[10px]">Staff Google Account Email</label>
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="e.g. sarah@mlconnections.com"
+                    className="w-full p-2.5 bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary transition-all dark:text-white disabled:opacity-50"
+                    disabled={modalMode === 'edit'} // Lock email on edit
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block uppercase tracking-wider text-[10px]">Security Permissions Role</label>
+                  <select
+                    value={role}
+                    onChange={(e) => setRole(e.target.value as UserRole)}
+                    className="w-full p-2.5 bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary transition-all dark:text-white cursor-pointer font-bold capitalize"
+                  >
+                    <option value="admin">Admin (Full System Controls)</option>
+                    <option value="manager">Manager (Recruiter Workspace)</option>
+                    <option value="user">User (Read-only Directory)</option>
+                  </select>
+                </div>
+
+                <div className="pt-4 flex gap-3 border-t border-slate-100 dark:border-white/5">
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-xl btn-animate cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white text-xs font-bold rounded-xl btn-animate cursor-pointer"
+                  >
+                    {modalMode === 'edit' ? 'Save Changes' : 'Create Account'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
       {/* Drawer: Detailed User Card */}
       <AnimatePresence>
         {selectedUser && (
@@ -216,7 +464,7 @@ export const UserManagement: React.FC = () => {
                     <p className="text-xs text-slate-500 mt-1">Staff Access Credentials Profile</p>
                   </div>
                   <button onClick={() => setSelectedUser(null)} className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-slate-500 cursor-pointer">
-                    <Clock className="w-5 h-5" />
+                    <X className="w-5 h-5 text-slate-400" />
                   </button>
                 </div>
 

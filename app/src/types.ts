@@ -87,7 +87,7 @@ export interface StatusConfig {
 
 export interface TestingModeConfig {
   enabled: boolean;
-  recipientEmail: string;
+  recipientEmails: string[];
 }
 
 export interface SystemConfig {
