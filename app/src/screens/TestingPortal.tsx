@@ -29,8 +29,8 @@ const INITIAL_TESTS: TestRecord[] = [
 
 // Mock mapping vendor ID to details for view
 const VENDOR_NAMES: Record<string, { name: string; languages: string }> = {
-  'v-2': { name: 'LingoGlobe', languages: 'Japanese -> English' },
-  'v-3': { name: 'Nordic Words', languages: 'Swedish -> English' }
+  'v-2': { name: 'Hana Tanaka', languages: 'Japanese (Native)' },
+  'v-3': { name: 'Freja Lindstrom', languages: 'Swedish (Native)' }
 };
 
 export const TestingPortal: React.FC = () => {

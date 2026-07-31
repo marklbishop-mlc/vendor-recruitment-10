@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../AuthContext';
 import type { UserRole } from '../types';
-import { Shield, Sparkles, LogIn } from 'lucide-react';
+import { Sparkles, LogIn } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export const Login: React.FC = () => {
@@ -22,11 +22,10 @@ export const Login: React.FC = () => {
       >
         <div className="dark-glass p-8 rounded-3xl border border-white/10 backdrop-blur-xl shadow-2xl space-y-8">
           <div className="text-center">
-            <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-primary/20">
-              <Shield className="w-8 h-8 text-primary" />
+            <div className="mx-auto mb-5 max-w-[280px]">
+              <img src="/logo_full.png" alt="Multilingual Connections" className="w-full object-contain filter brightness-0 invert" />
             </div>
-            <h1 className="text-3xl font-extrabold text-white tracking-tight">MLC Developments</h1>
-            <p className="text-slate-400 mt-2 text-sm font-light">Vendor Onboarding & Pipeline Manager</p>
+            <p className="text-slate-400 mt-1 text-sm font-light">Vendor Onboarding & Pipeline Manager</p>
           </div>
 
           <div className="space-y-6">

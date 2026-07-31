@@ -9,6 +9,7 @@ import { VendorDirectory } from './screens/VendorDirectory';
 import { TestingPortal } from './screens/TestingPortal';
 import { Templates } from './screens/Templates';
 import { UserManagement } from './screens/UserManagement';
+import { Settings } from './screens/Settings';
 import { Unauthorized } from './screens/Unauthorized';
 import { RefreshCw } from 'lucide-react';
 
@@ -98,6 +99,16 @@ const AppContent: React.FC = () => {
             element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <UserManagement />
+              </ProtectedRoute>
+            } 
+          />
+
+          {/* System Settings (Admin only) */}
+          <Route 
+            path="settings" 
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <Settings />
               </ProtectedRoute>
             } 
           />
