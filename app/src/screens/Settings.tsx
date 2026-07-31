@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Globe, Shield, Plus, Trash2, Save, CheckCircle2, RotateCcw
+  Globe, Shield, Plus, Trash2, Save, CheckCircle2, RotateCcw, Edit2, Check, X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { StatusConfig } from '../types';
@@ -51,6 +51,59 @@ export const Settings: React.FC = () => {
   
   // Save notification toast state
   const [showToast, setShowToast] = useState(false);
+
+  // Inline edit states
+  const [editingLanguage, setEditingLanguage] = useState<string | null>(null);
+  const [editLanguageValue, setEditLanguageValue] = useState<string>('');
+  
+  const [editingStatusKey, setEditingStatusKey] = useState<string | null>(null);
+  const [editStatusKeyInput, setEditStatusKeyInput] = useState<string>('');
+  const [editStatusColor, setEditStatusColor] = useState<string>('gray');
+
+  const handleStartEditLanguage = (lang: string) => {
+    setEditingLanguage(lang);
+    setEditLanguageValue(lang);
+  };
+
+  const handleSaveEditedLanguage = (oldLang: string) => {
+    const newVal = editLanguageValue.trim();
+    if (!newVal || newVal === oldLang) {
+      setEditingLanguage(null);
+      return;
+    }
+    if (languages.some(l => l.toLowerCase() === newVal.toLowerCase() && l !== oldLang)) {
+      alert("Language already exists!");
+      return;
+    }
+    setLanguages((prev) => prev.map((l) => l === oldLang ? newVal : l));
+    setEditingLanguage(null);
+  };
+
+  const handleStartEditStatus = (status: StatusConfig) => {
+    setEditingStatusKey(status.key);
+    setEditStatusKeyInput(status.key);
+    setEditStatusColor(status.color);
+  };
+
+  const handleSaveEditedStatus = (oldKey: string) => {
+    const newKey = editStatusKeyInput.trim().toLowerCase();
+    if (!newKey) {
+      setEditingStatusKey(null);
+      return;
+    }
+    const isLocked = ['pending', 'approved', 'rejected'].includes(oldKey);
+    const targetKey = isLocked ? oldKey : newKey;
+
+    if (targetKey !== oldKey && statuses.some(s => s.key === targetKey)) {
+      alert("Status key already exists!");
+      return;
+    }
+
+    setStatuses((prev) => 
+      prev.map((s) => s.key === oldKey ? { key: targetKey, color: editStatusColor } : s)
+    );
+    setEditingStatusKey(null);
+  };
 
   // Load configuration from local storage fallback or mock defaults
   useEffect(() => {
@@ -294,26 +347,68 @@ export const Settings: React.FC = () => {
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                   <AnimatePresence>
-                    {languages.map((lang) => (
-                      <motion.tr 
-                        key={lang}
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors"
-                      >
-                        <td className="p-3 pl-4 font-bold text-slate-800 dark:text-slate-200">{lang}</td>
-                        <td className="p-3 pr-4 text-right">
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveLanguage(lang)}
-                            className="p-1 text-slate-400 hover:text-red-500 rounded hover:bg-red-500/5 transition-colors cursor-pointer"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </motion.tr>
-                    ))}
+                    {languages.map((lang) => {
+                      const isEditing = editingLanguage === lang;
+                      return (
+                        <motion.tr 
+                          key={lang}
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors"
+                        >
+                          <td className="p-3 pl-4 font-bold text-slate-800 dark:text-slate-200">
+                            {isEditing ? (
+                              <input
+                                type="text"
+                                value={editLanguageValue}
+                                onChange={(e) => setEditLanguageValue(e.target.value)}
+                                className="p-1.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-lg focus:outline-none dark:text-white"
+                              />
+                            ) : (
+                              lang
+                            )}
+                          </td>
+                          <td className="p-3 pr-4 text-right space-x-1.5">
+                            {isEditing ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleSaveEditedLanguage(lang)}
+                                  className="p-1 text-emerald-500 hover:text-emerald-600 rounded hover:bg-emerald-500/5 transition-colors cursor-pointer"
+                                >
+                                  <Check className="w-4 h-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingLanguage(null)}
+                                  className="p-1 text-slate-400 hover:text-slate-500 rounded hover:bg-slate-500/5 transition-colors cursor-pointer"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartEditLanguage(lang)}
+                                  className="p-1 text-slate-400 hover:text-primary rounded hover:bg-primary/5 transition-colors cursor-pointer"
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveLanguage(lang)}
+                                  className="p-1 text-slate-400 hover:text-red-500 rounded hover:bg-red-500/5 transition-colors cursor-pointer"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </>
+                            )}
+                          </td>
+                        </motion.tr>
+                      );
+                    })}
                   </AnimatePresence>
                 </tbody>
               </table>
@@ -377,6 +472,7 @@ export const Settings: React.FC = () => {
                   <AnimatePresence>
                     {statuses.map((status) => {
                       const isLocked = ['pending', 'approved', 'rejected'].includes(status.key);
+                      const isEditing = editingStatusKey === status.key;
                       return (
                         <motion.tr 
                           key={status.key}
@@ -386,28 +482,77 @@ export const Settings: React.FC = () => {
                           className="hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors"
                         >
                           <td className="p-3 pl-4 font-mono font-bold text-slate-800 dark:text-slate-200">
-                            {status.key}
+                            {isEditing && !isLocked ? (
+                              <input
+                                type="text"
+                                value={editStatusKeyInput}
+                                onChange={(e) => setEditStatusKeyInput(e.target.value)}
+                                className="p-1.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-lg focus:outline-none dark:text-white font-mono"
+                              />
+                            ) : (
+                              status.key
+                            )}
                           </td>
                           <td className="p-3">
-                            <span className={`px-2 py-0.5 border text-[10px] font-bold rounded-lg uppercase ${
-                              STATUS_COLORS_MAP[status.color] || STATUS_COLORS_MAP.gray
-                            }`}>
-                              {status.color}
-                            </span>
+                            {isEditing ? (
+                              <select
+                                value={editStatusColor}
+                                onChange={(e) => setEditStatusColor(e.target.value)}
+                                className="p-1.5 text-[10px] bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-lg text-slate-900 dark:text-white cursor-pointer font-bold capitalize"
+                              >
+                                {Object.keys(STATUS_COLORS_MAP).map((color) => (
+                                  <option key={color} value={color}>{color}</option>
+                                ))}
+                              </select>
+                            ) : (
+                              <span className={`px-2 py-0.5 border text-[10px] font-bold rounded-lg uppercase ${
+                                STATUS_COLORS_MAP[status.color] || STATUS_COLORS_MAP.gray
+                              }`}>
+                                {status.color}
+                              </span>
+                            )}
                           </td>
-                          <td className="p-3 pr-4 text-right">
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveStatus(status.key)}
-                              disabled={isLocked}
-                              className={`p-1 rounded transition-colors ${
-                                isLocked 
-                                  ? 'text-slate-200 dark:text-slate-800 cursor-not-allowed'
-                                  : 'text-slate-400 hover:text-red-500 hover:bg-red-500/5 cursor-pointer'
-                              }`}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                          <td className="p-3 pr-4 text-right space-x-1.5">
+                            {isEditing ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleSaveEditedStatus(status.key)}
+                                  className="p-1 text-emerald-500 hover:text-emerald-600 rounded hover:bg-emerald-500/5 transition-colors cursor-pointer"
+                                >
+                                  <Check className="w-4 h-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingStatusKey(null)}
+                                  className="p-1 text-slate-400 hover:text-slate-500 rounded hover:bg-slate-500/5 transition-colors cursor-pointer"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartEditStatus(status)}
+                                  className="p-1 text-slate-400 hover:text-primary rounded hover:bg-primary/5 transition-colors cursor-pointer"
+                                >
+                                  <Edit2 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveStatus(status.key)}
+                                  disabled={isLocked}
+                                  className={`p-1 rounded transition-colors ${
+                                    isLocked 
+                                      ? 'text-slate-200 dark:text-slate-800 cursor-not-allowed'
+                                      : 'text-slate-400 hover:text-red-500 hover:bg-red-500/5 cursor-pointer'
+                                  }`}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </>
+                            )}
                           </td>
                         </motion.tr>
                       );
