@@ -6,10 +6,57 @@ service cloud.firestore {
     // Target Database: mlc-vendor-recruitment-db
     // =======================================================
 
-    // Default rule: lock down everything. Rules will be expanded 
-    // as collections are defined in development.
+    // Helper functions for Role-Based Access Control
+    function isAuthed() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isAuthed() && getUserData().role == 'admin';
+    }
+
+    function isManager() {
+      return isAuthed() && (getUserData().role == 'manager' || getUserData().role == 'admin');
+    }
+
+    // Default lockdown for undefined collections
     match /{document=**} {
       allow read, write: if false;
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      allow read: if isAuthed() && (request.auth.uid == userId || isAdmin());
+      allow write: if isAdmin();
+      // Allow user creation of self profile document on first Google login
+      allow create: if isAuthed() && request.auth.uid == userId;
+    }
+
+    // Vendors Collection
+    match /vendors/{vendorId} {
+      // Basic User (Read-Only) can only see approved vendors. Admin/Manager can see all.
+      allow read: if isAuthed() && (isManager() || resource.data.status == 'approved');
+      allow write: if isManager();
+    }
+
+    // Templates Collection (Admin manages, Manager can read to trigger)
+    match /templates/{templateId} {
+      allow read: if isManager();
+      allow write: if isAdmin();
+    }
+
+    // Tests Collection (Graders/Managers manage test assignments)
+    match /tests/{testId} {
+      allow read, write: if isManager();
+    }
+
+    // Notifications Collection (Communication logs & mail queue)
+    match /notifications/{notificationId} {
+      allow read, write: if isManager();
     }
   }
 }
