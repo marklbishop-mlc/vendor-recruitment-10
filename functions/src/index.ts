@@ -154,19 +154,37 @@ export const onVendorStageChange = onDocumentUpdated(
             emailSubject = emailSubject.replace(new RegExp(`{{${key}}}`, 'g'), val);
           });
 
-          // Write queued email notification
-          const notificationRef = db.collection("notifications").doc();
-          await notificationRef.set({
-            id: notificationRef.id,
-            vendorId,
-            email: afterData.email,
-            subject: emailSubject,
-            body: emailBody,
-            status: "queued",
-            createdAt: new Date().toISOString()
-          });
+          // Queue emails based on recipientType
+          const sendToVendor = action.recipientType === 'vendor' || action.recipientType === 'both';
+          const sendToMlc = action.recipientType === 'mlc' || action.recipientType === 'both';
 
-          logger.info(`Successfully queued notification for candidate ${vendorId} via rule "${action.name}"`);
+          if (sendToVendor) {
+            const notificationRef = db.collection("notifications").doc();
+            await notificationRef.set({
+              id: notificationRef.id,
+              vendorId,
+              email: afterData.email,
+              subject: emailSubject,
+              body: emailBody,
+              status: "queued",
+              createdAt: new Date().toISOString()
+            });
+            logger.info(`Queued email to Vendor: ${afterData.email}`);
+          }
+
+          if (sendToMlc) {
+            const notificationRef = db.collection("notifications").doc();
+            await notificationRef.set({
+              id: notificationRef.id,
+              vendorId,
+              email: "vm@mlconnections.com",
+              subject: `[MLC Copy] ${emailSubject}`,
+              body: `--- Copy of mail sent to Candidate: ${afterData.contactName} (${afterData.email}) ---\n\n` + emailBody,
+              status: "queued",
+              createdAt: new Date().toISOString()
+            });
+            logger.info(`Queued email to MLC Office: vm@mlconnections.com`);
+          }
         }
 
         if (action.actionType === 'update_status' && action.updateValue) {

@@ -16,7 +16,7 @@ const APPROVED_VENDORS_MOCK: VendorProfile[] = [
     phone: '+1 (555) 123-4567',
     status: 'approved',
     category: 'active',
-    stage: 'approved',
+    stage: 'ready_for_pm',
     services: ['Translation', 'Localization'],
     workingLanguages: [
       { language: 'Spanish', proficiency: 'native' },
@@ -46,7 +46,7 @@ const APPROVED_VENDORS_MOCK: VendorProfile[] = [
     phone: '+49 30 9876543',
     status: 'approved',
     category: 'active',
-    stage: 'approved',
+    stage: 'ready_for_pm',
     services: ['Translation', 'Subtitling', 'Interpretation'],
     workingLanguages: [
       { language: 'German', proficiency: 'native' },
@@ -74,7 +74,7 @@ const APPROVED_VENDORS_MOCK: VendorProfile[] = [
     phone: '+86 10 5551234',
     status: 'approved',
     category: 'active',
-    stage: 'approved',
+    stage: 'ready_for_pm',
     services: ['Translation', 'Proofreading'],
     workingLanguages: [
       { language: 'Mandarin', proficiency: 'native' },
@@ -120,9 +120,9 @@ export const VendorDirectory: React.FC = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">PM Approved Directory</h2>
+        <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Linguist Directory</h2>
         <p className="text-slate-500 dark:text-slate-400 mt-1.5 text-sm">
-          Browse vetted, compliance-ready localization partners and negotiated transaction rates.
+          Browse vetted, compliance-ready localization specialists and negotiated rates.
         </p>
       </div>
 
@@ -357,6 +357,12 @@ export const VendorDirectory: React.FC = () => {
                         <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300">
                           <ExternalLink className="w-4 h-4 text-slate-400" />
                           <a href={selectedVendor.linkedInProfile} target="_blank" rel="noreferrer" className="text-primary hover:underline">LinkedIn Profile</a>
+                        </div>
+                      )}
+                      {selectedVendor.ndaUrl && (
+                        <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300">
+                          <FileCheck className="w-4 h-4 text-emerald-500" />
+                          <a href={selectedVendor.ndaUrl} target="_blank" rel="noreferrer" className="text-primary font-bold hover:underline">View Signed NDA Contract</a>
                         </div>
                       )}
                     </div>

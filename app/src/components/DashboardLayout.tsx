@@ -14,7 +14,7 @@ export const DashboardLayout: React.FC = () => {
 
   const navigationItems = [
     { name: 'Funnel Dashboard', path: '/', icon: BarChart2, roles: ['admin', 'manager', 'user'] },
-    { name: 'PM Directory', path: '/directory', icon: Compass, roles: ['admin', 'manager', 'user'] },
+    { name: 'Linguist Directory', path: '/directory', icon: Compass, roles: ['admin', 'manager', 'user'] },
     { name: 'Grading Portal', path: '/testing', icon: BookOpen, roles: ['admin', 'manager'] },
     { name: 'Template Manager', path: '/templates', icon: Mail, roles: ['admin'] },
     { name: 'User Management', path: '/users', icon: Users, roles: ['admin'] },

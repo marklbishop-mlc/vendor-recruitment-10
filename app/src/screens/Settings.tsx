@@ -3,18 +3,38 @@ import {
   Globe, Shield, Plus, Trash2, Save, CheckCircle2, RotateCcw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import type { StatusConfig } from '../types';
 
 // Default configuration settings to fallback on
 const DEFAULT_LANGUAGES = ['English', 'Spanish', 'German', 'Japanese', 'Mandarin', 'Swedish', 'Wolof', 'French', 'Portuguese'];
-const DEFAULT_STATUSES = ['pending', 'approved', 'rejected', 'on_hold', 'blacklisted', 'active'];
+const DEFAULT_STATUSES: StatusConfig[] = [
+  { key: 'pending', color: 'yellow' },
+  { key: 'approved', color: 'green' },
+  { key: 'rejected', color: 'red' },
+  { key: 'on_hold', color: 'blue' },
+  { key: 'blacklisted', color: 'purple' },
+  { key: 'active', color: 'indigo' }
+];
+
+export const STATUS_COLORS_MAP: Record<string, string> = {
+  blue: 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/20',
+  red: 'bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/20',
+  yellow: 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/20',
+  green: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
+  purple: 'bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/20',
+  indigo: 'bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/20',
+  pink: 'bg-pink-500/15 text-pink-600 dark:text-pink-400 border-pink-500/20',
+  gray: 'bg-slate-500/15 text-slate-600 dark:text-slate-400 border-slate-500/20'
+};
 
 export const Settings: React.FC = () => {
   const [languages, setLanguages] = useState<string[]>([]);
-  const [statuses, setStatuses] = useState<string[]>([]);
+  const [statuses, setStatuses] = useState<StatusConfig[]>([]);
   
   // New input states
   const [newLang, setNewLang] = useState('');
-  const [newStatus, setNewStatus] = useState('');
+  const [newStatusKey, setNewStatusKey] = useState('');
+  const [newStatusColor, setNewStatusColor] = useState('blue');
   
   // Save notification toast state
   const [showToast, setShowToast] = useState(false);
@@ -22,7 +42,7 @@ export const Settings: React.FC = () => {
   // Load configuration from local storage fallback or mock defaults
   useEffect(() => {
     const savedLangs = localStorage.getItem('mlc_settings_languages');
-    const savedStatuses = localStorage.getItem('mlc_settings_statuses');
+    const savedStatuses = localStorage.getItem('mlc_settings_statuses_v2');
     
     if (savedLangs) {
       setLanguages(JSON.parse(savedLangs));
@@ -39,7 +59,7 @@ export const Settings: React.FC = () => {
 
   const handleSaveAll = () => {
     localStorage.setItem('mlc_settings_languages', JSON.stringify(languages));
-    localStorage.setItem('mlc_settings_statuses', JSON.stringify(statuses));
+    localStorage.setItem('mlc_settings_statuses_v2', JSON.stringify(statuses));
     
     setShowToast(true);
     setTimeout(() => setShowToast(false), 2500);
@@ -60,20 +80,21 @@ export const Settings: React.FC = () => {
 
   const handleAddStatus = (e: React.FormEvent) => {
     e.preventDefault();
-    const statusText = newStatus.trim().toLowerCase().replace(/\s+/g, '_');
-    if (!statusText) return;
-    if (statuses.includes(statusText)) return;
+    const statusKey = newStatusKey.trim().toLowerCase().replace(/\s+/g, '_');
+    if (!statusKey) return;
+    if (statuses.some((s) => s.key === statusKey)) return;
 
-    setStatuses((prev) => [...prev, statusText]);
-    setNewStatus('');
+    setStatuses((prev) => [...prev, { key: statusKey, color: newStatusColor }]);
+    setNewStatusKey('');
+    setNewStatusColor('blue');
   };
 
-  const handleRemoveStatus = (status: string) => {
-    if (['pending', 'approved', 'rejected'].includes(status)) {
+  const handleRemoveStatus = (statusKey: string) => {
+    if (['pending', 'approved', 'rejected'].includes(statusKey)) {
       alert("Core pipeline statuses ('pending', 'approved', 'rejected') are locked and cannot be deleted.");
       return;
     }
-    setStatuses((prev) => prev.filter((s) => s !== status));
+    setStatuses((prev) => prev.filter((s) => s.key !== statusKey));
   };
 
   const handleResetDefaults = () => {
@@ -81,7 +102,7 @@ export const Settings: React.FC = () => {
       setLanguages(DEFAULT_LANGUAGES);
       setStatuses(DEFAULT_STATUSES);
       localStorage.setItem('mlc_settings_languages', JSON.stringify(DEFAULT_LANGUAGES));
-      localStorage.setItem('mlc_settings_statuses', JSON.stringify(DEFAULT_STATUSES));
+      localStorage.setItem('mlc_settings_statuses_v2', JSON.stringify(DEFAULT_STATUSES));
     }
   };
 
@@ -94,7 +115,7 @@ export const Settings: React.FC = () => {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="fixed top-24 right-8 z-50 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 py-3 px-5 rounded-2xl border border-emerald-500/20 text-xs font-bold flex items-center gap-2 shadow-xl"
+            className="fixed top-24 right-8 z-50 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 py-3 px-5 rounded-2xl border border-emerald-500/20 text-xs font-bold flex items-center gap-2 shadow-xl animate-fade-in"
           >
             <CheckCircle2 className="w-4 h-4 text-emerald-500" />
             <span>Settings successfully committed to configuration!</span>
@@ -107,7 +128,7 @@ export const Settings: React.FC = () => {
         <div>
           <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">System Settings</h2>
           <p className="text-slate-500 dark:text-slate-400 mt-1.5 text-sm">
-            Configure normalized working languages and customize candidate statuses.
+            Configure normalized working languages and customize status label colors.
           </p>
         </div>
 
@@ -150,7 +171,7 @@ export const Settings: React.FC = () => {
                 required
                 value={newLang}
                 onChange={(e) => setNewLang(e.target.value)}
-                placeholder="e.g. Arabic, Swahili"
+                placeholder="e.g. Swahili, Arabic"
                 className="flex-1 p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary transition-all dark:text-white"
               />
               <button
@@ -208,7 +229,7 @@ export const Settings: React.FC = () => {
               Candidate Status Values
             </h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Add custom statuses for vendor classification (e.g. `on_hold`). Core evaluation statuses are protected from deletion.
+              Add custom statuses for vendor classification and select color tags associated with the status value.
             </p>
 
             {/* Add Status Form */}
@@ -216,11 +237,23 @@ export const Settings: React.FC = () => {
               <input
                 type="text"
                 required
-                value={newStatus}
-                onChange={(e) => setNewStatus(e.target.value)}
+                value={newStatusKey}
+                onChange={(e) => setNewStatusKey(e.target.value)}
                 placeholder="e.g. on_hold, blacklisted"
                 className="flex-1 p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary transition-all dark:text-white"
               />
+              
+              {/* Color Selector Dropdown */}
+              <select
+                value={newStatusColor}
+                onChange={(e) => setNewStatusColor(e.target.value)}
+                className="p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl text-slate-900 dark:text-white cursor-pointer font-bold capitalize"
+              >
+                {Object.keys(STATUS_COLORS_MAP).map((color) => (
+                  <option key={color} value={color}>{color}</option>
+                ))}
+              </select>
+
               <button
                 type="submit"
                 className="py-2.5 px-3.5 bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 btn-animate"
@@ -236,31 +269,36 @@ export const Settings: React.FC = () => {
                 <thead>
                   <tr className="bg-slate-50 dark:bg-bg-dark text-slate-400 font-bold uppercase tracking-wider border-b border-slate-100 dark:border-white/5">
                     <th className="p-3 pl-4">Status Slug Key</th>
+                    <th className="p-3">Color Badge Label</th>
                     <th className="p-3 pr-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                   <AnimatePresence>
                     {statuses.map((status) => {
-                      const isLocked = ['pending', 'approved', 'rejected'].includes(status);
+                      const isLocked = ['pending', 'approved', 'rejected'].includes(status.key);
                       return (
                         <motion.tr 
-                          key={status}
+                          key={status.key}
                           initial={{ opacity: 0, height: 0 }}
                           animate={{ opacity: 1, height: 'auto' }}
                           exit={{ opacity: 0, height: 0 }}
                           className="hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors"
                         >
-                          <td className="p-3 pl-4 font-mono font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
-                            {status}
-                            {isLocked && (
-                              <span className="px-1.5 py-0.5 rounded text-[8px] bg-slate-200 dark:bg-slate-800 text-slate-400 uppercase font-extrabold border border-slate-300/10">Locked</span>
-                            )}
+                          <td className="p-3 pl-4 font-mono font-bold text-slate-800 dark:text-slate-200">
+                            {status.key}
+                          </td>
+                          <td className="p-3">
+                            <span className={`px-2 py-0.5 border text-[10px] font-bold rounded-lg uppercase ${
+                              STATUS_COLORS_MAP[status.color] || STATUS_COLORS_MAP.gray
+                            }`}>
+                              {status.color}
+                            </span>
                           </td>
                           <td className="p-3 pr-4 text-right">
                             <button
                               type="button"
-                              onClick={() => handleRemoveStatus(status)}
+                              onClick={() => handleRemoveStatus(status.key)}
                               disabled={isLocked}
                               className={`p-1 rounded transition-colors ${
                                 isLocked 
