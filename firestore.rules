@@ -1,0 +1,15 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // =======================================================
+    // [MLC Vendor Recruitment] Rules
+    // Target Database: mlc-vendor-recruitment-db
+    // =======================================================
+
+    // Default rule: lock down everything. Rules will be expanded 
+    // as collections are defined in development.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

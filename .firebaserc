@@ -1,0 +1,15 @@
+{
+  "projects": {
+    "default": "in-house-dev-mlc"
+  },
+  "targets": {
+    "in-house-dev-mlc": {
+      "hosting": {
+        "mlc-vendor-recruitment": [
+          "mlc-vendor-recruitment"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

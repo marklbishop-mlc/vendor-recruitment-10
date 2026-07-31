@@ -1,0 +1,32 @@
+{
+  "firestore": [
+    {
+      "database": "mlc-vendor-recruitment-db",
+      "rules": "firestore.rules"
+    }
+  ],
+  "hosting": [
+    {
+      "target": "mlc-vendor-recruitment",
+      "public": "app/dist",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "rewrites": [
+        {
+          "source": "**",
+          "destination": "/index.html"
+        }
+      ]
+    }
+  ],
+  "functions": [
+    {
+      "codebase": "mlc-vendor-recruitment",
+      "source": "functions",
+      "runtime": "nodejs20"
+    }
+  ]
+}
