@@ -42,7 +42,35 @@ export const checkRecruitmentStatus = onRequest(
 );
 
 /**
- * Trigger: auto-queue email notifications when a candidate's pipeline stage changes.
+ * Helper to evaluate a custom workflow condition on a candidate's data object.
+ */
+function evaluateCondition(candidateData: any, field: string, operator: string, value: string): boolean {
+  const actualValue = candidateData[field];
+  
+  // Format target value for comparison
+  let targetValue: any = value;
+  if (value === 'true') targetValue = true;
+  if (value === 'false') targetValue = false;
+  if (!isNaN(Number(value)) && typeof actualValue === 'number') targetValue = Number(value);
+
+  if (operator === '==') {
+    return actualValue === targetValue;
+  }
+  if (operator === '!=') {
+    return actualValue !== targetValue;
+  }
+  if (operator === 'empty') {
+    return actualValue === undefined || actualValue === null || actualValue === '';
+  }
+  if (operator === 'not_empty') {
+    return actualValue !== undefined && actualValue !== null && actualValue !== '';
+  }
+  
+  return false;
+}
+
+/**
+ * Trigger: Evaluates complex workflow rules and conditional actions when a candidate's stage changes.
  */
 export const onVendorStageChange = onDocumentUpdated(
   {
@@ -70,51 +98,89 @@ export const onVendorStageChange = onDocumentUpdated(
     logger.info(`Candidate ${vendorId} stage updated from ${beforeData?.stage} to ${newStage}`);
 
     try {
-      // Find the email template associated with this pipeline stage
-      const templateQuery = await db.collection("templates")
-        .where("stage", "==", newStage)
-        .limit(1)
+      // Query all workflow actions registered for this new stage
+      const actionsQuery = await db.collection("workflow_actions")
+        .where("triggerStage", "==", newStage)
         .get();
 
-      if (templateQuery.empty) {
-        logger.info(`No template registered for stage: ${newStage}. Notification skipped.`);
+      if (actionsQuery.empty) {
+        logger.info(`No workflow action rules registered for stage: ${newStage}.`);
         return;
       }
 
-      const template = templateQuery.docs[0].data();
-      let emailBody = template.body || "";
-      let emailSubject = template.subject || "";
+      logger.info(`Found ${actionsQuery.size} potential actions for stage: ${newStage}. Evaluating rules...`);
 
-      // Perform dynamic merge tags expansion
-      const mergeValues: Record<string, string> = {
-        Vendor_Name: afterData.contactName || afterData.companyName || "Partner",
-        Language: afterData.languages?.join(", ") || "Languages",
-        Adjusted_Rate: afterData.adjustedRate ? `$${afterData.adjustedRate}` : "Negotiated",
-        Project_Link: `https://mlconnections.com/portal/onboarding/${vendorId}`,
-        NDA_Status: afterData.stage === 'sourced' || afterData.stage === 'nda_pending' ? "Signature Required" : "NDA Verified"
-      };
+      for (const actionDoc of actionsQuery.docs) {
+        const action = actionDoc.data();
+        if (!action.isActive) continue;
 
-      Object.entries(mergeValues).forEach(([key, val]) => {
-        emailBody = emailBody.replace(new RegExp(`{{${key}}}`, 'g'), val);
-        emailSubject = emailSubject.replace(new RegExp(`{{${key}}}`, 'g'), val);
-      });
+        // Evaluate rule conditions
+        const isMatched = evaluateCondition(afterData, action.field, action.operator, action.value);
 
-      // Write queued email notification to the notifications collection
-      const notificationRef = db.collection("notifications").doc();
-      await notificationRef.set({
-        id: notificationRef.id,
-        vendorId,
-        email: afterData.email,
-        subject: emailSubject,
-        body: emailBody,
-        status: "queued",
-        createdAt: new Date().toISOString()
-      });
+        if (!isMatched) {
+          logger.info(`Rule "${action.name}" condition not met for candidate ${vendorId}.`);
+          continue;
+        }
 
-      logger.info(`Successfully queued notification for candidate ${vendorId} at stage ${newStage}`);
+        logger.info(`Rule "${action.name}" matched! Executing action type: ${action.actionType}`);
+
+        if (action.actionType === 'send_email' && action.templateId) {
+          // Fetch associated email template
+          const templateDoc = await db.collection("templates").doc(action.templateId).get();
+          if (!templateDoc.exists) {
+            logger.error(`Template ID ${action.templateId} not found in database.`);
+            continue;
+          }
+
+          const template = templateDoc.data();
+          let emailBody = template?.body || "";
+          let emailSubject = template?.subject || "";
+
+          // Perform dynamic merge tags expansion
+          const languagesStr = afterData.workingLanguages
+            ? afterData.workingLanguages.map((l: any) => `${l.language} (${l.proficiency})`).join(", ")
+            : "English";
+
+          const mergeValues: Record<string, string> = {
+            Vendor_Name: afterData.contactName || "Specialist",
+            Language: languagesStr,
+            Adjusted_Rate: afterData.adjustedRate ? `$${afterData.adjustedRate}` : "Negotiated",
+            Project_Link: `https://mlconnections.com/portal/onboarding/${vendorId}`,
+            NDA_Status: afterData.hasSignedNda ? "NDA Verified" : "NDA Missing / Required"
+          };
+
+          Object.entries(mergeValues).forEach(([key, val]) => {
+            emailBody = emailBody.replace(new RegExp(`{{${key}}}`, 'g'), val);
+            emailSubject = emailSubject.replace(new RegExp(`{{${key}}}`, 'g'), val);
+          });
+
+          // Write queued email notification
+          const notificationRef = db.collection("notifications").doc();
+          await notificationRef.set({
+            id: notificationRef.id,
+            vendorId,
+            email: afterData.email,
+            subject: emailSubject,
+            body: emailBody,
+            status: "queued",
+            createdAt: new Date().toISOString()
+          });
+
+          logger.info(`Successfully queued notification for candidate ${vendorId} via rule "${action.name}"`);
+        }
+
+        if (action.actionType === 'update_status' && action.updateValue) {
+          // Auto update status field
+          await change.after.ref.update({
+            status: action.updateValue,
+            updatedAt: new Date().toISOString()
+          });
+          logger.info(`Successfully auto-updated status to ${action.updateValue} via rule "${action.name}"`);
+        }
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Unknown error";
-      logger.error("Failed to execute stage trigger automations.", { error: msg });
+      logger.error("Failed to execute stage trigger workflow actions.", { error: msg });
     }
   }
 );

@@ -26,6 +26,11 @@ export type TestGrade = 'pass' | 'fail' | 'pass_caution';
 
 export type VendorStatus = 'pending' | 'approved' | 'rejected';
 
+export interface WorkingLanguage {
+  language: string;
+  proficiency: 'native' | 'bilingual' | 'professional' | 'working';
+}
+
 export interface VendorProfile {
   id: string;
   companyName: string;
@@ -34,7 +39,7 @@ export interface VendorProfile {
   secondaryEmail?: string;
   phone?: string;
   isGmail: boolean;
-  languages: string[]; // e.g. ["Spanish -> English", "French -> English"]
+  workingLanguages: WorkingLanguage[];
   services: string[];
   classificationTier: 1 | 2 | 3;
   source: 'external' | 'xtrf';
@@ -43,9 +48,16 @@ export interface VendorProfile {
   mlcHourlyRate: number; // Client Charge
   adjustedRate: number;  // System Offer
   confirmedRate: number; // Agreed/Negotiated
-  status: VendorStatus; // high-level workflow status
+  status: string; // custom status value mapping
   submittedAt: string;
   updatedAt: string;
+  mtPeExperience?: '1-3' | '3-5' | '5+';
+  prozProfile?: string;
+  linkedInProfile?: string;
+  resumeName?: string;
+  resumeUrl?: string;
+  hoursAvailable?: number;
+  hasSignedNda: boolean;
 }
 
 export interface EmailTemplate {
@@ -55,6 +67,24 @@ export interface EmailTemplate {
   body: string;
   stage: WorkflowStage;
   lastUpdated: string;
+}
+
+export interface WorkflowAction {
+  id: string;
+  name: string;
+  triggerStage: WorkflowStage;
+  field: string; // e.g. "isGmail" or "hasSignedNda"
+  operator: '==' | '!=' | 'empty' | 'not_empty';
+  value: string; // e.g. "false" or "true"
+  actionType: 'send_email' | 'update_status';
+  templateId?: string; // If send_email
+  updateValue?: string; // If update_status
+  isActive: boolean;
+}
+
+export interface SystemConfig {
+  languages: string[];
+  statuses: string[];
 }
 
 export interface NotificationLog {

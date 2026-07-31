@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { 
-  Search, Filter, Globe, Phone, Mail, Award, ChevronRight, MessageSquare, X, User
+  Search, Filter, Globe, Phone, Mail, Award, ChevronRight, X,
+  FileCheck, ShieldAlert, ExternalLink
 } from 'lucide-react';
 import type { VendorProfile } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -17,13 +18,23 @@ const APPROVED_VENDORS_MOCK: VendorProfile[] = [
     category: 'active',
     stage: 'approved',
     services: ['Translation', 'Localization'],
-    languages: ['Spanish -> English', 'English -> Spanish'],
+    workingLanguages: [
+      { language: 'Spanish', proficiency: 'native' },
+      { language: 'English', proficiency: 'professional' }
+    ],
     classificationTier: 1,
     source: 'external',
     mlcHourlyRate: 45,
     adjustedRate: 42,
     confirmedRate: 45,
     isGmail: false,
+    secondaryEmail: 'carlos.santillan.mlc@gmail.com',
+    mtPeExperience: '5+',
+    prozProfile: 'https://proz.com/profile/carlos-trans',
+    linkedInProfile: 'https://linkedin.com/in/carlos-santillan',
+    hoursAvailable: 35,
+    hasSignedNda: true,
+    resumeName: 'carlos_resume_2026.pdf',
     submittedAt: '2026-07-20T10:00:00Z',
     updatedAt: '2026-07-20T10:00:00Z'
   },
@@ -37,13 +48,21 @@ const APPROVED_VENDORS_MOCK: VendorProfile[] = [
     category: 'active',
     stage: 'approved',
     services: ['Translation', 'Subtitling', 'Interpretation'],
-    languages: ['German -> English', 'English -> German', 'Russian -> German'],
+    workingLanguages: [
+      { language: 'German', proficiency: 'native' },
+      { language: 'English', proficiency: 'professional' },
+      { language: 'Russian', proficiency: 'working' }
+    ],
     classificationTier: 2,
     source: 'xtrf',
     mlcHourlyRate: 55,
     adjustedRate: 50,
     confirmedRate: 52,
     isGmail: false,
+    mtPeExperience: '3-5',
+    hoursAvailable: 30,
+    hasSignedNda: true,
+    resumeName: 'elena_cv.pdf',
     submittedAt: '2026-06-12T08:30:00Z',
     updatedAt: '2026-07-15T11:00:00Z'
   },
@@ -57,35 +76,22 @@ const APPROVED_VENDORS_MOCK: VendorProfile[] = [
     category: 'active',
     stage: 'approved',
     services: ['Translation', 'Proofreading'],
-    languages: ['Mandarin -> English', 'English -> Mandarin'],
+    workingLanguages: [
+      { language: 'Mandarin', proficiency: 'native' },
+      { language: 'English', proficiency: 'professional' }
+    ],
     classificationTier: 1,
     source: 'external',
     mlcHourlyRate: 50,
     adjustedRate: 45,
     confirmedRate: 48,
     isGmail: true,
+    mtPeExperience: '5+',
+    hoursAvailable: 40,
+    hasSignedNda: true,
+    resumeName: 'li_wei_cv_trans.pdf',
     submittedAt: '2026-07-02T09:15:00Z',
     updatedAt: '2026-07-12T14:30:00Z'
-  },
-  {
-    id: 'approved-4',
-    companyName: 'Global Voices Ltd',
-    contactName: 'Amara Diop',
-    email: 'amara.diop@globalvoice.sn',
-    phone: '+221 33 987 65 43',
-    status: 'approved',
-    category: 'active',
-    stage: 'approved',
-    services: ['Transcription', 'Proofreading'],
-    languages: ['French -> English', 'Wolof -> French'],
-    classificationTier: 3,
-    source: 'xtrf',
-    mlcHourlyRate: 35,
-    adjustedRate: 30,
-    confirmedRate: 32,
-    isGmail: false,
-    submittedAt: '2026-05-18T10:00:00Z',
-    updatedAt: '2026-07-28T16:00:00Z'
   }
 ];
 
@@ -99,9 +105,9 @@ export const VendorDirectory: React.FC = () => {
   const filteredVendors = useMemo(() => {
     return vendors.filter((v) => {
       const matchesSearch = 
-        v.companyName.toLowerCase().includes(search.toLowerCase()) ||
         v.contactName.toLowerCase().includes(search.toLowerCase()) ||
-        v.languages.some((l) => l.toLowerCase().includes(search.toLowerCase())) ||
+        v.companyName.toLowerCase().includes(search.toLowerCase()) ||
+        v.workingLanguages.some((l) => l.language.toLowerCase().includes(search.toLowerCase())) ||
         v.services.some((s) => s.toLowerCase().includes(search.toLowerCase()));
 
       const matchesTier = tierFilter === 'all' || v.classificationTier.toString() === tierFilter;
@@ -127,7 +133,7 @@ export const VendorDirectory: React.FC = () => {
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Search by name, service, language pair..."
+              placeholder="Search by name, company, service, language..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-10 pr-4 py-2 text-sm bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary transition-all dark:text-white"
@@ -166,8 +172,14 @@ export const VendorDirectory: React.FC = () => {
                 <div className="space-y-4">
                   <div className="flex items-start justify-between">
                     <div>
-                      <h4 className="font-bold text-base text-slate-900 dark:text-white line-clamp-1">{vendor.companyName}</h4>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{vendor.contactName}</p>
+                      {/* Name Priority (Primary Bold title) */}
+                      <h4 className="font-bold text-base text-slate-900 dark:text-white line-clamp-1">{vendor.contactName}</h4>
+                      {/* Company Name (Secondary) */}
+                      {vendor.companyName ? (
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{vendor.companyName}</p>
+                      ) : (
+                        <p className="text-xs text-slate-400 mt-0.5 italic">Individual Vendor</p>
+                      )}
                     </div>
                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
                       vendor.classificationTier === 1 
@@ -183,10 +195,10 @@ export const VendorDirectory: React.FC = () => {
                   {/* Languages and services tags */}
                   <div className="space-y-2">
                     <div className="flex flex-wrap gap-1">
-                      {vendor.languages.slice(0, 3).map((l, i) => (
+                      {vendor.workingLanguages.slice(0, 3).map((l, i) => (
                         <span key={i} className="inline-flex items-center gap-1 text-[10px] bg-primary/10 text-primary py-0.5 px-2 rounded-md font-semibold">
                           <Globe className="w-2.5 h-2.5" />
-                          {l}
+                          {l.language} ({l.proficiency})
                         </span>
                       ))}
                     </div>
@@ -208,7 +220,7 @@ export const VendorDirectory: React.FC = () => {
 
                   <button
                     onClick={() => setSelectedVendor(vendor)}
-                    className="py-1.5 px-3 border border-slate-200 dark:border-border-dark text-xs font-semibold rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 flex items-center gap-1.5 btn-animate cursor-pointer"
+                    className="py-1.5 px-3 border border-slate-200 dark:border-border-dark text-xs font-semibold rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 flex items-center gap-1.5 btn-animate cursor-pointer dark:text-white"
                   >
                     View Details
                     <ChevronRight className="w-3.5 h-3.5" />
@@ -248,18 +260,33 @@ export const VendorDirectory: React.FC = () => {
               <div className="space-y-6">
                 <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-4">
                   <div>
-                    <h3 className="text-xl font-bold text-slate-900 dark:text-white">{selectedVendor.companyName}</h3>
-                    <p className="text-xs text-primary font-semibold uppercase tracking-wider mt-0.5">Tier {selectedVendor.classificationTier} approved partner</p>
+                    <h3 className="text-xl font-bold text-slate-900 dark:text-white">{selectedVendor.contactName}</h3>
+                    {selectedVendor.companyName && (
+                      <p className="text-xs text-slate-500 font-medium">Company: {selectedVendor.companyName}</p>
+                    )}
                   </div>
                   <button
                     onClick={() => setSelectedVendor(null)}
-                    className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-slate-500 cursor-pointer"
+                    className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-slate-500 cursor-pointer animate-fade-in"
                   >
                     <X className="w-5 h-5" />
                   </button>
                 </div>
 
                 <div className="space-y-5 text-sm">
+                  {/* Signed NDA verified status */}
+                  <div className="flex items-center gap-2 p-3 bg-slate-50 dark:bg-bg-dark border border-slate-200/20 dark:border-white/5 rounded-2xl">
+                    {selectedVendor.hasSignedNda ? (
+                      <FileCheck className="w-5 h-5 text-emerald-500" />
+                    ) : (
+                      <ShieldAlert className="w-5 h-5 text-rose-500" />
+                    )}
+                    <div>
+                      <span className="text-xs font-bold text-slate-900 dark:text-white">NDA Status</span>
+                      <span className="text-[10px] text-slate-500 block">{selectedVendor.hasSignedNda ? 'Signed NDA Verified' : 'NDA Missing / Pending'}</span>
+                    </div>
+                  </div>
+
                   {/* Rates Card */}
                   <div className="bg-slate-50 dark:bg-bg-dark border border-slate-100 dark:border-white/5 rounded-2xl p-4 space-y-3">
                     <h5 className="font-bold text-xs text-slate-400 uppercase tracking-wider">Financial Rates Mapping</h5>
@@ -284,11 +311,11 @@ export const VendorDirectory: React.FC = () => {
                     <h5 className="font-bold text-xs text-slate-400 uppercase tracking-wider">Services and Languages</h5>
                     <div className="space-y-2">
                       <div>
-                        <span className="text-xs text-slate-500 block mb-1">Approved Languages:</span>
+                        <span className="text-xs text-slate-500 block mb-1">Working Languages:</span>
                         <div className="flex flex-wrap gap-1.5">
-                          {selectedVendor.languages.map((l, i) => (
+                          {selectedVendor.workingLanguages.map((l, i) => (
                             <span key={i} className="text-xs bg-primary/15 text-primary py-0.5 px-2.5 rounded-md font-semibold">
-                              {l}
+                              {l.language} ({l.proficiency})
                             </span>
                           ))}
                         </div>
@@ -308,26 +335,30 @@ export const VendorDirectory: React.FC = () => {
 
                   {/* Contact Info */}
                   <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-white/5">
-                    <h5 className="font-bold text-xs text-slate-400 uppercase tracking-wider font-semibold">Contact Cards</h5>
+                    <h5 className="font-bold text-xs text-slate-400 uppercase tracking-wider font-semibold">Contact Details</h5>
                     <div className="space-y-2">
-                      <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300">
-                        <User className="w-4 h-4 text-slate-400" />
-                        <span>Carlos Santillan (Primary Contact)</span>
-                      </div>
                       <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300">
                         <Mail className="w-4 h-4 text-slate-400" />
                         <a href={`mailto:${selectedVendor.email}`} className="text-primary hover:underline">{selectedVendor.email}</a>
                       </div>
-                      <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300">
-                        <Phone className="w-4 h-4 text-slate-400" />
-                        <span>{selectedVendor.phone}</span>
-                      </div>
-                      <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300">
-                        <MessageSquare className="w-4 h-4 text-slate-400" />
-                        <span className="inline-flex items-center gap-1.5 text-xs text-slate-500">
-                          Account type: {selectedVendor.isGmail ? 'Direct Google User (Gmail)' : 'External Domain Link'}
-                        </span>
-                      </div>
+                      {selectedVendor.secondaryEmail && (
+                        <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300">
+                          <Mail className="w-4 h-4 text-primary" />
+                          <span className="text-primary">Google Acc: {selectedVendor.secondaryEmail}</span>
+                        </div>
+                      )}
+                      {selectedVendor.phone && (
+                        <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300">
+                          <Phone className="w-4 h-4 text-slate-400" />
+                          <span>{selectedVendor.phone}</span>
+                        </div>
+                      )}
+                      {selectedVendor.linkedInProfile && (
+                        <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300">
+                          <ExternalLink className="w-4 h-4 text-slate-400" />
+                          <a href={selectedVendor.linkedInProfile} target="_blank" rel="noreferrer" className="text-primary hover:underline">LinkedIn Profile</a>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -338,9 +369,19 @@ export const VendorDirectory: React.FC = () => {
                       <span className="font-bold capitalize">{selectedVendor.source} import</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Status Database Date:</span>
-                      <span>{new Date(selectedVendor.updatedAt).toLocaleDateString()}</span>
+                      <span>Hours Available:</span>
+                      <span>{selectedVendor.hoursAvailable ? `${selectedVendor.hoursAvailable} hrs/wk` : 'N/A'}</span>
                     </div>
+                    <div className="flex justify-between">
+                      <span>MT PE Experience:</span>
+                      <span>{selectedVendor.mtPeExperience ? `${selectedVendor.mtPeExperience} yrs` : 'N/A'}</span>
+                    </div>
+                    {selectedVendor.resumeName && (
+                      <div className="flex justify-between">
+                        <span>Resume Name:</span>
+                        <span className="font-mono text-[10px] text-slate-700 dark:text-slate-300">{selectedVendor.resumeName}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

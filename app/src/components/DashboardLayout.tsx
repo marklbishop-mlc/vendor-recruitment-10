@@ -3,7 +3,7 @@ import { Link, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { 
   BarChart2, BookOpen, Users, Mail, Compass, 
-  ShieldCheck, LogOut, Menu, X, Sparkles, Globe 
+  ShieldCheck, LogOut, Menu, X, Sparkles, Settings 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -18,6 +18,7 @@ export const DashboardLayout: React.FC = () => {
     { name: 'Grading Portal', path: '/testing', icon: BookOpen, roles: ['admin', 'manager'] },
     { name: 'Template Manager', path: '/templates', icon: Mail, roles: ['admin'] },
     { name: 'User Management', path: '/users', icon: Users, roles: ['admin'] },
+    { name: 'System Settings', path: '/settings', icon: Settings, roles: ['admin'] },
   ];
 
   const visibleNavItems = navigationItems.filter(
@@ -30,13 +31,11 @@ export const DashboardLayout: React.FC = () => {
       {/* Sidebar - Desktop Layout */}
       <aside className="hidden lg:flex flex-col w-64 border-r border-slate-200/50 dark:border-border-dark bg-white dark:bg-card-dark transition-all duration-300">
         {/* Logo and Head */}
-        <div className="px-6 py-5 border-b border-slate-200/50 dark:border-border-dark flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center text-white shadow-md shadow-primary/25">
-            <Globe className="w-5 h-5" />
-          </div>
+        <div className="px-6 py-4.5 border-b border-slate-200/50 dark:border-border-dark flex items-center gap-3">
+          <img src="/logomark.png" alt="Multilingual Connections Logo" className="w-9 h-9 object-contain" />
           <div>
-            <span className="font-extrabold text-sm text-slate-900 dark:text-white leading-none block">MLC recruiting</span>
-            <span className="text-[10px] text-primary font-bold uppercase tracking-wider">Onboarding System</span>
+            <span className="font-extrabold text-sm text-slate-900 dark:text-white leading-none block">MLC Onboarding</span>
+            <span className="text-[10px] text-primary font-bold uppercase tracking-wider">Recruitment</span>
           </div>
         </div>
 
@@ -93,11 +92,9 @@ export const DashboardLayout: React.FC = () => {
       {/* Mobile Top Header */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <header className="lg:hidden bg-white dark:bg-card-dark border-b border-slate-200/50 dark:border-border-dark px-6 py-4 flex items-center justify-between z-30">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-white">
-              <Globe className="w-4 h-4" />
-            </div>
-            <span className="font-extrabold text-sm text-slate-900 dark:text-white">MLC recruitment</span>
+          <div className="flex items-center gap-2">
+            <img src="/logomark.png" alt="Logo" className="w-7 h-7 object-contain" />
+            <span className="font-extrabold text-sm text-slate-900 dark:text-white">MLC Onboarding</span>
           </div>
           <button
             onClick={() => setIsMobileOpen((prev) => !prev)}
