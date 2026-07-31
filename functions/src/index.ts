@@ -3,12 +3,35 @@ import { onDocumentUpdated, onDocumentCreated } from "firebase-functions/v2/fire
 import * as logger from "firebase-functions/logger";
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
+import * as nodemailer from "nodemailer";
 
 // Initialize Firebase Admin SDK
 initializeApp();
 
 // Explicitly target the named database in the admin SDK
 const db = getFirestore("mlc-vendor-recruitment-db");
+
+// Load service account file copied from sibling folder
+const serviceAccount = require("./email-service-account.json");
+
+const IMPERSONATE_EMAIL = "vm@mlconnections.com";
+
+/**
+ * Helper to build OAuth2 transporter
+ */
+const createNodemailerTransport = () => {
+  return nodemailer.createTransport({
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true,
+    auth: {
+      type: 'OAuth2',
+      user: IMPERSONATE_EMAIL,
+      serviceClient: serviceAccount.client_id,
+      privateKey: serviceAccount.private_key,
+    }
+  });
+};
 
 /**
  * REST API for diagnostic checking of the recruitment backend.
@@ -204,8 +227,8 @@ export const onVendorStageChange = onDocumentUpdated(
 );
 
 /**
- * Trigger: Automatic mail processor mock.
- * Detects new queued documents in notifications and simulates sending them out.
+ * Trigger: Automatic mail processor with OAuth2 service account integration.
+ * If testing mode is enabled in Settings, intercepts emails and redirects to the selected admin.
  */
 export const processMailQueue = onDocumentCreated(
   {
@@ -221,17 +244,69 @@ export const processMailQueue = onDocumentCreated(
 
     logger.info(`Processing mail ID ${event.params.notificationId} to ${data.email}`);
 
+    let finalRecipient = data.email;
+    let finalSubject = data.subject;
+    let finalBody = data.body;
+    let isTestMode = false;
+
     try {
-      // Simulate mail transport latency
-      await new Promise(resolve => setTimeout(resolve, 800));
+      // Query settings/global_config doc for testingMode active state
+      const configSnap = await db.collection("settings").doc("global_config").get();
+      if (configSnap.exists) {
+        const config = configSnap.data();
+        if (config?.testingMode?.enabled) {
+          isTestMode = true;
+          finalRecipient = config.testingMode.recipientEmail || "mark@mlconnections.com";
+          finalSubject = `[TEST MODE] ${data.subject}`;
+          
+          // Format HTML with red testing warning banner
+          finalBody = `
+            <div style="background-color: #ec6757; color: white; padding: 12px; text-align: center; font-weight: bold; font-family: sans-serif; margin-bottom: 20px; font-size: 14px; border-radius: 6px; letter-spacing: 0.5px;">
+              ⚠️ SYSTEM EMAIL TESTING MODE ACTIVE
+            </div>
+            <div style="background-color: #fef2f2; color: #991b1b; padding: 12px; border: 1px solid #fee2e2; border-radius: 6px; margin-bottom: 20px; font-family: sans-serif; font-size: 12px; line-height: 1.5;">
+              <strong>⚠️ TESTING MODE DETAILS:</strong><br/>
+              When live, this email would be sent to candidate: <strong>${data.email}</strong>
+            </div>
+            <div style="font-family: sans-serif; font-size: 13px; color: #334155; line-height: 1.6; white-space: pre-wrap;">
+${data.body}
+            </div>
+          `;
+        }
+      }
+    } catch (configErr) {
+      logger.error("Failed to query settings/global_config. Defaulting to direct dispatch.", configErr);
+    }
+
+    if (!isTestMode) {
+      // Wrap regular text in basic layout
+      finalBody = `
+        <div style="font-family: sans-serif; font-size: 13px; color: #334155; line-height: 1.6; white-space: pre-wrap;">
+${data.body}
+        </div>
+      `;
+    }
+
+    try {
+      const transporter = createNodemailerTransport();
+      const mailOptions = {
+        from: `"MLC Recruiting Team" <${IMPERSONATE_EMAIL}>`,
+        to: finalRecipient,
+        subject: finalSubject,
+        html: finalBody
+      };
+
+      await transporter.sendMail(mailOptions);
 
       // Update mail delivery status
       await snap.ref.update({
         status: 'sent',
-        sentAt: new Date().toISOString()
+        sentAt: new Date().toISOString(),
+        isTestMode,
+        dispatchedTo: finalRecipient
       });
 
-      logger.info(`Mail ID ${event.params.notificationId} successfully sent.`);
+      logger.info(`Mail ID ${event.params.notificationId} successfully sent via SMTP.`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Unknown error";
       logger.error(`Mail dispatch failed for ID ${event.params.notificationId}`, { error: msg });

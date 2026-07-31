@@ -4,6 +4,8 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { StatusConfig } from '../types';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 
 // Default configuration settings to fallback on
 const DEFAULT_LANGUAGES = ['English', 'Spanish', 'German', 'Japanese', 'Mandarin', 'Swedish', 'Wolof', 'French', 'Portuguese'];
@@ -27,10 +29,20 @@ export const STATUS_COLORS_MAP: Record<string, string> = {
   gray: 'bg-slate-500/15 text-slate-600 dark:text-slate-400 border-slate-500/20'
 };
 
+const ADMINS_LIST = [
+  { name: 'Mark Bishop (Admin)', email: 'mark@mlconnections.com' },
+  { name: 'Sarah Conners (Manager)', email: 'sarah@mlconnections.com' },
+  { name: 'IT Support (Operations)', email: 'support@mlconnections.com' }
+];
+
 export const Settings: React.FC = () => {
   const [languages, setLanguages] = useState<string[]>([]);
   const [statuses, setStatuses] = useState<StatusConfig[]>([]);
   
+  // Testing Mode states
+  const [testingEnabled, setTestingEnabled] = useState(false);
+  const [testingRecipient, setTestingRecipient] = useState('mark@mlconnections.com');
+
   // New input states
   const [newLang, setNewLang] = useState('');
   const [newStatusKey, setNewStatusKey] = useState('');
@@ -41,25 +53,73 @@ export const Settings: React.FC = () => {
 
   // Load configuration from local storage fallback or mock defaults
   useEffect(() => {
+    // 1. Fallback Local Load
     const savedLangs = localStorage.getItem('mlc_settings_languages');
     const savedStatuses = localStorage.getItem('mlc_settings_statuses_v2');
+    const savedTesting = localStorage.getItem('mlc_settings_testing_mode');
     
-    if (savedLangs) {
-      setLanguages(JSON.parse(savedLangs));
-    } else {
-      setLanguages(DEFAULT_LANGUAGES);
-    }
+    if (savedLangs) setLanguages(JSON.parse(savedLangs));
+    else setLanguages(DEFAULT_LANGUAGES);
     
-    if (savedStatuses) {
-      setStatuses(JSON.parse(savedStatuses));
+    if (savedStatuses) setStatuses(JSON.parse(savedStatuses));
+    else setStatuses(DEFAULT_STATUSES);
+
+    if (savedTesting) {
+      const parsed = JSON.parse(savedTesting);
+      setTestingEnabled(parsed.enabled);
+      setTestingRecipient(parsed.recipientEmail);
     } else {
-      setStatuses(DEFAULT_STATUSES);
+      setTestingEnabled(false);
+      setTestingRecipient('mark@mlconnections.com');
     }
+
+    // 2. Async Cloud Load
+    const loadFirestoreConfig = async () => {
+      try {
+        const docRef = doc(db, 'settings', 'global_config');
+        const snap = await getDoc(docRef);
+        if (snap.exists()) {
+          const data = snap.data();
+          if (data.languages) setLanguages(data.languages);
+          if (data.statuses) setStatuses(data.statuses);
+          if (data.testingMode) {
+            setTestingEnabled(data.testingMode.enabled);
+            setTestingRecipient(data.testingMode.recipientEmail);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load settings from Firestore", err);
+      }
+    };
+    loadFirestoreConfig();
   }, []);
 
   const handleSaveAll = () => {
+    // 1. Save Local
     localStorage.setItem('mlc_settings_languages', JSON.stringify(languages));
     localStorage.setItem('mlc_settings_statuses_v2', JSON.stringify(statuses));
+    localStorage.setItem('mlc_settings_testing_mode', JSON.stringify({
+      enabled: testingEnabled,
+      recipientEmail: testingRecipient
+    }));
+
+    // 2. Save Cloud
+    const saveFirestoreConfig = async () => {
+      try {
+        const docRef = doc(db, 'settings', 'global_config');
+        await setDoc(docRef, {
+          languages,
+          statuses,
+          testingMode: {
+            enabled: testingEnabled,
+            recipientEmail: testingRecipient
+          }
+        });
+      } catch (err) {
+        console.error("Failed to save settings to Firestore", err);
+      }
+    };
+    saveFirestoreConfig();
     
     setShowToast(true);
     setTimeout(() => setShowToast(false), 2500);
@@ -319,6 +379,69 @@ export const Settings: React.FC = () => {
           </div>
         </section>
       </div>
+
+      {/* Email Testing Mode Card */}
+      <section className="bg-white dark:bg-card-dark rounded-3xl border border-slate-200/50 dark:border-border-dark p-6 space-y-6 shadow-sm">
+        <div>
+          <h3 className="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2">
+            <Shield className="w-5 h-5 text-rose-500" />
+            Email Testing Mode Configuration
+          </h3>
+          <p className="text-xs text-slate-400 mt-1">
+            Simulate and validate workflow emails safely. If active, all outbound emails are intercepted and routed to your chosen admin instead of the vendor.
+          </p>
+        </div>
+
+        <div className="flex flex-col md:flex-row gap-6 items-stretch md:items-center justify-between border-t border-slate-100 dark:border-white/5 pt-4">
+          
+          {/* Active Switch */}
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              id="testing-mode-active"
+              checked={testingEnabled}
+              onChange={(e) => setTestingEnabled(e.target.checked)}
+              className="w-5 h-5 rounded text-rose-600 focus:ring-rose-500 bg-slate-50 border-slate-200 cursor-pointer"
+            />
+            <label htmlFor="testing-mode-active" className="text-xs font-bold text-slate-700 dark:text-slate-200 cursor-pointer select-none">
+              Enable System Email Testing Mode (Redirect all outbound mails)
+            </label>
+          </div>
+
+          {/* Admin Selector Radio Cards list */}
+          <div className="flex-1 flex flex-col sm:flex-row gap-3 justify-end items-stretch sm:items-center">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Admin Recipient:</span>
+            <div className="flex flex-wrap gap-2">
+              {ADMINS_LIST.map((admin) => {
+                const isSelected = testingRecipient === admin.email;
+                return (
+                  <button
+                    key={admin.email}
+                    type="button"
+                    onClick={() => setTestingRecipient(admin.email)}
+                    disabled={!testingEnabled}
+                    className={`py-2 px-3 rounded-xl border text-[11px] font-bold transition-all text-left flex items-center justify-between gap-3 cursor-pointer ${
+                      !testingEnabled 
+                        ? 'opacity-40 cursor-not-allowed bg-slate-50 dark:bg-bg-dark border-slate-200/40 text-slate-400'
+                        : isSelected
+                        ? 'bg-rose-500/10 text-rose-600 border-rose-500/20'
+                        : 'bg-white dark:bg-card-dark text-slate-700 dark:text-slate-300 border-slate-200/50 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div>
+                      <span className="block font-bold">{admin.name}</span>
+                      <span className="text-[9px] font-normal text-slate-400 block">{admin.email}</span>
+                    </div>
+                    {testingEnabled && isSelected && (
+                      <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   );
 };
