@@ -2,8 +2,13 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './AuthContext';
 import { ProtectedRoute } from './ProtectedRoute';
+import { DashboardLayout } from './components/DashboardLayout';
 import { Login } from './screens/Login';
 import { Dashboard } from './screens/Dashboard';
+import { VendorDirectory } from './screens/VendorDirectory';
+import { TestingPortal } from './screens/TestingPortal';
+import { Templates } from './screens/Templates';
+import { UserManagement } from './screens/UserManagement';
 import { Unauthorized } from './screens/Unauthorized';
 import { RefreshCw } from 'lucide-react';
 
@@ -19,7 +24,7 @@ const DevRoleSwitcher: React.FC = () => {
         <span>Dev Switch:</span>
       </div>
       <div className="flex gap-1.5">
-        {(['admin', 'recruiter', 'vendor'] as const).map((role) => (
+        {(['admin', 'manager', 'user'] as const).map((role) => (
           <button
             key={role}
             onClick={() => switchRole(role)}
@@ -29,7 +34,7 @@ const DevRoleSwitcher: React.FC = () => {
                 : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white'
             }`}
           >
-            {role}
+            {role === 'user' ? 'PM (User)' : role}
           </button>
         ))}
       </div>
@@ -43,7 +48,7 @@ const AppContent: React.FC = () => {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public Login Route - Redirects to home if already logged in */}
+        {/* Public Login Route - Redirects to dashboard if already logged in */}
         <Route 
           path="/login" 
           element={user ? <Navigate to="/" replace /> : <Login />} 
@@ -52,21 +57,57 @@ const AppContent: React.FC = () => {
         {/* Access Denied Route */}
         <Route path="/unauthorized" element={<Unauthorized />} />
 
-        {/* Protected Dashboard Route */}
+        {/* Protected System Layout Wrapping all routes */}
         <Route
           path="/"
           element={
             <ProtectedRoute>
-              <Dashboard />
+              <DashboardLayout />
             </ProtectedRoute>
           }
-        />
+        >
+          {/* Index dashboard funnel view */}
+          <Route index element={<Dashboard />} />
+          
+          {/* Approved PM Directory */}
+          <Route path="directory" element={<VendorDirectory />} />
+          
+          {/* Testing/Grading Portal (Manager and Admin only) */}
+          <Route 
+            path="testing" 
+            element={
+              <ProtectedRoute allowedRoles={['admin', 'manager']}>
+                <TestingPortal />
+              </ProtectedRoute>
+            } 
+          />
+          
+          {/* Template Manager (Admin only) */}
+          <Route 
+            path="templates" 
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <Templates />
+              </ProtectedRoute>
+            } 
+          />
+          
+          {/* User Role Management (Admin only) */}
+          <Route 
+            path="users" 
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <UserManagement />
+              </ProtectedRoute>
+            } 
+          />
+        </Route>
 
         {/* Catch-all fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
 
-      {/* Floating Developer Tools role toggler */}
+      {/* Floating Developer Tools role switcher for mock testing */}
       <DevRoleSwitcher />
     </BrowserRouter>
   );
