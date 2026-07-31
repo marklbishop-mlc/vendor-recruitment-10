@@ -71,7 +71,7 @@ export interface WorkflowAction {
   name: string;
   triggerStage: WorkflowStage;
   field: string; // e.g. "isGmail" or "hasSignedNda"
-  operator: '==' | '!=' | 'empty' | 'not_empty';
+  operator: '==' | '!=' | 'empty' | 'not_empty' | 'always';
   value: string; // e.g. "false" or "true"
   actionType: 'send_email' | 'update_status';
   templateId?: string; // If send_email
