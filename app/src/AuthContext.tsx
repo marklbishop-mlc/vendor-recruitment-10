@@ -158,8 +158,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const result = await signInWithPopup(auth, provider);
       await syncUserProfile(result.user);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Google Auth Error, redirecting to simulation", err);
+      setSyncError(err instanceof Error ? err.message : String(err));
       // If config is missing or popup fails, automatically launch as mock Admin for evaluation ease
       await loginAsMock('admin');
     } finally {
