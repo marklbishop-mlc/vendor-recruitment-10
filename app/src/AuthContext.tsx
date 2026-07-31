@@ -21,6 +21,7 @@ interface AuthContextType {
   loginAsMock: (role: UserRole) => Promise<void>;
   logout: () => Promise<void>;
   isMockMode: boolean;
+  syncError: string | null;
   switchRole: (role: UserRole) => Promise<void>;
 }
 
@@ -32,6 +33,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [isMockMode, setIsMockMode] = useState<boolean>(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   // Sync Firebase authenticated user with Firestore user document
   const syncUserProfile = useCallback(async (firebaseUser: FirebaseUser) => {
@@ -73,8 +75,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       setUser(profile);
       setIsMockMode(false);
+      setSyncError(null);
     } catch (err) {
       console.warn("Firestore connection failed. Running in simulation mode.", err);
+      setSyncError(err instanceof Error ? err.message : String(err));
       // Fallback to local sandbox user on connection failures (useful if database is not provisioned yet)
       const assignedRole: UserRole = firebaseUser.email === GOOGLE_ADMIN_EMAIL ? 'admin' : 'user';
       setUser({
@@ -231,6 +235,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       loginAsMock,
       logout, 
       isMockMode, 
+      syncError,
       switchRole 
     }}>
       {children}

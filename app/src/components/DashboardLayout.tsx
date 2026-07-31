@@ -8,7 +8,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 
 export const DashboardLayout: React.FC = () => {
-  const { user, logout, isMockMode } = useAuth();
+  const { user, logout, isMockMode, syncError } = useAuth();
   const location = useLocation();
   const [isMobileOpen, setIsMobileOpen] = React.useState(false);
   const [emailTestingActive, setEmailTestingActive] = React.useState(false);
@@ -200,7 +200,7 @@ export const DashboardLayout: React.FC = () => {
             <div className="bg-amber-500/10 border-b border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs px-6 py-2.5 font-semibold flex items-center justify-between gap-4 select-none">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: '4s' }} />
-                <span>Running in local simulation mode. Firestore rules are bypassed; updates will save in memory only.</span>
+                <span>Running in local simulation mode. Firestore connection bypassed or failed; data writes save in-memory only.{syncError && ` (Reason: ${syncError})`}</span>
               </div>
             </div>
           )}
