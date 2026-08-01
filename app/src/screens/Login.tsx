@@ -7,6 +7,16 @@ import { motion } from 'framer-motion';
 export const Login: React.FC = () => {
   const { loginWithGoogle, loginAsMock } = useAuth();
   const [selectedRole, setSelectedRole] = useState<UserRole>('admin');
+  const [error, setError] = useState<string | null>(null);
+
+  const handleGoogleLogin = async () => {
+    setError(null);
+    try {
+      await loginWithGoogle();
+    } catch (err: any) {
+      setError(err?.message || String(err));
+    }
+  };
 
   return (
     <div className="min-h-screen relative flex items-center justify-center overflow-hidden bg-slate-900">
@@ -31,9 +41,17 @@ export const Login: React.FC = () => {
           <div className="space-y-6">
             {/* Primary Google Login */}
             <div className="space-y-3">
+              {/* Error Box */}
+              {error && (
+                <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs p-4 rounded-xl text-left space-y-1">
+                  <span className="font-bold block uppercase tracking-wider text-[9px] text-red-500">Google Auth Error</span>
+                  <span className="font-medium text-slate-350">{error}</span>
+                </div>
+              )}
+
               <button
                 type="button"
-                onClick={loginWithGoogle}
+                onClick={handleGoogleLogin}
                 className="w-full py-3.5 bg-white hover:bg-slate-100 text-slate-900 font-bold rounded-xl flex items-center justify-center gap-3 transition-all duration-200 cursor-pointer shadow-lg shadow-white/5 active:scale-[0.99]"
               >
                 {/* Google Icon SVG */}
