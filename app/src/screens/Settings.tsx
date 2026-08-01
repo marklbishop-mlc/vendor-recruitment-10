@@ -75,8 +75,10 @@ export const Settings: React.FC = () => {
       alert("Language already exists!");
       return;
     }
-    setLanguages((prev) => prev.map((l) => l === oldLang ? newVal : l));
+    const updated = languages.map((l) => l === oldLang ? newVal : l);
+    setLanguages(updated);
     setEditingLanguage(null);
+    saveConfigDirect(updated, statuses, testingEnabled, testingRecipients);
   };
 
   const handleStartEditStatus = (status: StatusConfig) => {
@@ -99,10 +101,10 @@ export const Settings: React.FC = () => {
       return;
     }
 
-    setStatuses((prev) => 
-      prev.map((s) => s.key === oldKey ? { key: targetKey, color: editStatusColor } : s)
-    );
+    const updated = statuses.map((s) => s.key === oldKey ? { key: targetKey, color: editStatusColor } : s);
+    setStatuses(updated);
     setEditingStatusKey(null);
+    saveConfigDirect(languages, updated, testingEnabled, testingRecipients);
   };
 
   // Load configuration from local storage fallback or mock defaults
@@ -186,60 +188,75 @@ export const Settings: React.FC = () => {
     fetchAdmins();
   }, []);
 
-  const handleSaveAll = () => {
-    // 1. Save Local
-    localStorage.setItem('mlc_settings_languages', JSON.stringify(languages));
-    localStorage.setItem('mlc_settings_statuses_v2', JSON.stringify(statuses));
+  const saveConfigDirect = async (
+    updatedLangs: string[],
+    updatedStatuses: StatusConfig[],
+    testingEnabledVal: boolean,
+    testingRecipientsVal: string[]
+  ) => {
+    localStorage.setItem('mlc_settings_languages', JSON.stringify(updatedLangs));
+    localStorage.setItem('mlc_settings_statuses_v2', JSON.stringify(updatedStatuses));
     localStorage.setItem('mlc_settings_testing_mode', JSON.stringify({
-      enabled: testingEnabled,
-      recipientEmails: testingRecipients
+      enabled: testingEnabledVal,
+      recipientEmails: testingRecipientsVal
     }));
 
-    // 2. Save Cloud
-    const saveFirestoreConfig = async () => {
-      try {
-        const docRef = doc(db, 'settings', 'global_config');
-        await setDoc(docRef, {
-          languages,
-          statuses,
-          testingMode: {
-            enabled: testingEnabled,
-            recipientEmails: testingRecipients
-          }
-        });
-      } catch (err) {
-        console.error("Failed to save settings to Firestore", err);
-      }
-    };
-    saveFirestoreConfig();
-    
-    setShowToast(true);
-    window.dispatchEvent(new Event('mlc-settings-saved'));
-    setTimeout(() => setShowToast(false), 2500);
+    try {
+      const docRef = doc(db, 'settings', 'global_config');
+      await setDoc(docRef, {
+        languages: updatedLangs,
+        statuses: updatedStatuses,
+        testingMode: {
+          enabled: testingEnabledVal,
+          recipientEmails: testingRecipientsVal
+        }
+      });
+      setShowToast(true);
+      window.dispatchEvent(new Event('mlc-settings-saved'));
+      setTimeout(() => setShowToast(false), 2000);
+    } catch (err) {
+      console.error("Failed to commit settings write to Firestore", err);
+    }
+  };
+
+  const handleSaveAll = () => {
+    saveConfigDirect(languages, statuses, testingEnabled, testingRecipients);
   };
 
   const handleAddLanguage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newLang.trim()) return;
-    if (languages.map(l => l.toLowerCase()).includes(newLang.trim().toLowerCase())) return;
-    
-    setLanguages((prev) => [...prev, newLang.trim()]);
+    const val = newLang.trim();
+    if (!val) return;
+    if (languages.map(l => l.toLowerCase()).includes(val.toLowerCase())) {
+      alert("Language already exists!");
+      return;
+    }
+    const updated = [...languages, val];
+    setLanguages(updated);
     setNewLang('');
+    saveConfigDirect(updated, statuses, testingEnabled, testingRecipients);
   };
 
   const handleRemoveLanguage = (lang: string) => {
-    setLanguages((prev) => prev.filter((l) => l !== lang));
+    const updated = languages.filter((l) => l !== lang);
+    setLanguages(updated);
+    saveConfigDirect(updated, statuses, testingEnabled, testingRecipients);
   };
 
   const handleAddStatus = (e: React.FormEvent) => {
     e.preventDefault();
     const statusKey = newStatusKey.trim().toLowerCase().replace(/\s+/g, '_');
     if (!statusKey) return;
-    if (statuses.some((s) => s.key === statusKey)) return;
+    if (statuses.some((s) => s.key === statusKey)) {
+      alert("Status key already exists!");
+      return;
+    }
 
-    setStatuses((prev) => [...prev, { key: statusKey, color: newStatusColor }]);
+    const updated = [...statuses, { key: statusKey, color: newStatusColor }];
+    setStatuses(updated);
     setNewStatusKey('');
     setNewStatusColor('blue');
+    saveConfigDirect(languages, updated, testingEnabled, testingRecipients);
   };
 
   const handleRemoveStatus = (statusKey: string) => {
@@ -247,15 +264,16 @@ export const Settings: React.FC = () => {
       alert("Core pipeline statuses ('pending', 'approved', 'rejected') are locked and cannot be deleted.");
       return;
     }
-    setStatuses((prev) => prev.filter((s) => s.key !== statusKey));
+    const updated = statuses.filter((s) => s.key !== statusKey);
+    setStatuses(updated);
+    saveConfigDirect(languages, updated, testingEnabled, testingRecipients);
   };
 
   const handleResetDefaults = () => {
     if (window.confirm("Are you sure you want to revert to original default languages and status states?")) {
       setLanguages(DEFAULT_LANGUAGES);
       setStatuses(DEFAULT_STATUSES);
-      localStorage.setItem('mlc_settings_languages', JSON.stringify(DEFAULT_LANGUAGES));
-      localStorage.setItem('mlc_settings_statuses_v2', JSON.stringify(DEFAULT_STATUSES));
+      saveConfigDirect(DEFAULT_LANGUAGES, DEFAULT_STATUSES, testingEnabled, testingRecipients);
     }
   };
 
@@ -585,7 +603,11 @@ export const Settings: React.FC = () => {
               type="checkbox"
               id="testing-mode-active"
               checked={testingEnabled}
-              onChange={(e) => setTestingEnabled(e.target.checked)}
+              onChange={(e) => {
+                const val = e.target.checked;
+                setTestingEnabled(val);
+                saveConfigDirect(languages, statuses, val, testingRecipients);
+              }}
               className="w-5 h-5 rounded text-rose-600 focus:ring-rose-500 bg-slate-50 border-slate-200 cursor-pointer"
             />
             <label htmlFor="testing-mode-active" className="text-xs font-bold text-slate-700 dark:text-slate-200 cursor-pointer select-none">
@@ -604,11 +626,11 @@ export const Settings: React.FC = () => {
                     key={admin.email}
                     type="button"
                     onClick={() => {
-                      setTestingRecipients((prev) => 
-                        prev.includes(admin.email)
-                          ? prev.filter((e) => e !== admin.email)
-                          : [...prev, admin.email]
-                      );
+                      const updated = testingRecipients.includes(admin.email)
+                        ? testingRecipients.filter((e) => e !== admin.email)
+                        : [...testingRecipients, admin.email];
+                      setTestingRecipients(updated);
+                      saveConfigDirect(languages, statuses, testingEnabled, updated);
                     }}
                     disabled={!testingEnabled}
                     className={`py-2 px-3 rounded-xl border text-[11px] font-bold transition-all text-left flex items-center justify-between gap-3 cursor-pointer ${

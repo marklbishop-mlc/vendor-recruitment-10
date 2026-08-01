@@ -59,5 +59,17 @@ service cloud.firestore {
     match /notifications/{notificationId} {
       allow read, write: if isManager();
     }
+
+    // Workflow Actions Collection (Admin manages, Manager can read)
+    match /workflow_actions/{actionId} {
+      allow read: if isManager();
+      allow write: if isAdmin();
+    }
+
+    // Audit Logs Collection (Managers can write, Admins can manage)
+    match /audit_logs/{logId} {
+      allow read: if isManager();
+      allow write: if isManager();
+    }
   }
 }

@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
-import type { TestRecord, TestGrade } from '../types';
+import React, { useState, useEffect } from 'react';
+import type { TestRecord, TestGrade, VendorProfile } from '../types';
 import { 
   BookOpen, Star, CheckCircle2, AlertCircle, XCircle, Calendar, Link as LinkIcon 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { collection, getDocs, doc, setDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 
 // Mock active testing records
 const INITIAL_TESTS: TestRecord[] = [
@@ -27,20 +29,57 @@ const INITIAL_TESTS: TestRecord[] = [
   }
 ];
 
-// Mock mapping vendor ID to details for view
-const VENDOR_NAMES: Record<string, { name: string; languages: string }> = {
-  'v-2': { name: 'Hana Tanaka', languages: 'Japanese (Native)' },
-  'v-3': { name: 'Freja Lindstrom', languages: 'Swedish (Native)' }
-};
-
 export const TestingPortal: React.FC = () => {
-  const [tests, setTests] = useState<TestRecord[]>(INITIAL_TESTS);
+  const [tests, setTests] = useState<TestRecord[]>([]);
+  const [vendorsList, setVendorsList] = useState<VendorProfile[]>([]);
   const [selectedTest, setSelectedTest] = useState<TestRecord | null>(null);
   
   // Grading Modal Form State
   const [score, setScore] = useState<'1' | '2' | '3'>('2');
   const [grade, setGrade] = useState<TestGrade>('pass');
   const [notes, setNotes] = useState('');
+
+  useEffect(() => {
+    const loadTestingData = async () => {
+      try {
+        // 1. Load test records
+        const testSnap = await getDocs(collection(db, 'tests'));
+        const testList: TestRecord[] = [];
+        testSnap.forEach((doc) => {
+          testList.push(doc.data() as TestRecord);
+        });
+        
+        if (testList.length > 0) {
+          setTests(testList);
+        } else {
+          // Seed
+          for (const t of INITIAL_TESTS) {
+            await setDoc(doc(db, 'tests', t.id), t);
+          }
+          setTests(INITIAL_TESTS);
+        }
+
+        // 2. Load vendor list to map names and languages dynamically
+        const vendorSnap = await getDocs(collection(db, 'vendors'));
+        const vList: VendorProfile[] = [];
+        vendorSnap.forEach((doc) => {
+          vList.push(doc.data() as VendorProfile);
+        });
+        setVendorsList(vList);
+      } catch (err) {
+        console.error("Failed to load testing portal collections", err);
+      }
+    };
+    loadTestingData();
+  }, []);
+
+  const getVendorInfo = (vendorId: string) => {
+    const v = vendorsList.find((v) => v.id === vendorId);
+    if (!v) return { name: 'Unknown Candidate', languages: 'N/A' };
+    const name = v.companyName ? `${v.contactName} (${v.companyName})` : v.contactName;
+    const languages = v.workingLanguages.map((l) => `${l.language} (${l.proficiency})`).join(', ');
+    return { name, languages };
+  };
 
   const handleOpenGrading = (test: TestRecord) => {
     setSelectedTest(test);
@@ -49,26 +88,32 @@ export const TestingPortal: React.FC = () => {
     setNotes(test.internalNotes || '');
   };
 
-  const handleSubmitGrade = (e: React.FormEvent) => {
+  const handleSubmitGrade = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTest) return;
 
-    setTests((prev) => 
-      prev.map((t) => 
-        t.id === selectedTest.id 
-          ? { 
-              ...t, 
-              status: 'completed', 
-              score: parseInt(score) as 1 | 2 | 3, 
-              grade, 
-              internalNotes: notes, 
-              completedAt: new Date().toISOString() 
-            } 
-          : t
-      )
-    );
+    const updatedTest: TestRecord = { 
+      ...selectedTest, 
+      status: 'completed', 
+      score: parseInt(score) as 1 | 2 | 3, 
+      grade, 
+      internalNotes: notes, 
+      completedAt: new Date().toISOString() 
+    };
 
-    setSelectedTest(null);
+    try {
+      await setDoc(doc(db, 'tests', selectedTest.id), updatedTest);
+
+      setTests((prev) => 
+        prev.map((t) => t.id === selectedTest.id ? updatedTest : t)
+      );
+
+      setSelectedTest(null);
+      alert("Test record graded and saved successfully.");
+    } catch (err) {
+      console.error("Failed to submit test grade to Firestore", err);
+      alert("Failed to submit grade: " + (err instanceof Error ? err.message : String(err)));
+    }
   };
 
   return (
@@ -98,7 +143,7 @@ export const TestingPortal: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-slate-200/50 dark:divide-white/5">
               {tests.map((t) => {
-                const info = VENDOR_NAMES[t.vendorId] || { name: 'Unknown Candidate', languages: 'N/A' };
+                const info = getVendorInfo(t.vendorId);
                 return (
                   <tr key={t.id} className="hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors">
                     <td className="p-4 pl-6 font-bold text-slate-900 dark:text-white">{info.name}</td>
@@ -180,7 +225,7 @@ export const TestingPortal: React.FC = () => {
                         Grade Evaluation Portal
                       </h3>
                       <p className="text-[10px] text-slate-500 mt-0.5">
-                        Test Candidate: {VENDOR_NAMES[selectedTest.vendorId]?.name}
+                        Test Candidate: {getVendorInfo(selectedTest.vendorId).name}
                       </p>
                     </div>
                   </div>

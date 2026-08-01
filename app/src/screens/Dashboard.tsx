@@ -1,11 +1,13 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import type { VendorProfile, WorkflowStage, WorkingLanguage, StatusConfig, WorkflowAction } from '../types';
+import type { VendorProfile, WorkflowStage, WorkingLanguage, StatusConfig, WorkflowAction, EmailTemplate, TestRecord } from '../types';
 import { 
   Plus, Search, Filter, ShieldAlert, X, 
   FileText, Check, UploadCloud, Grid, List, ArrowUpDown,
-  FileCheck, Info, ExternalLink, Edit2, AlertTriangle
+  FileCheck, Info, ExternalLink, Edit2, AlertTriangle, Download
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { collection, getDocs, doc, setDoc, getDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 
 // Mock candidates list matching expanded profile attributes with new 7 stages
 const INITIAL_VENDORS_MOCK: VendorProfile[] = [
@@ -155,8 +157,9 @@ export const Dashboard: React.FC = () => {
   const [activeLanguages, setActiveLanguages] = useState<string[]>([]);
   const [activeStatuses, setActiveStatuses] = useState<StatusConfig[]>([]);
 
-  // Pipeline lists
-  const [vendors, setVendors] = useState<VendorProfile[]>(INITIAL_VENDORS_MOCK);
+  const [vendors, setVendors] = useState<VendorProfile[]>([]);
+  const [workflowActions, setWorkflowActions] = useState<WorkflowAction[]>([]);
+  const [templates, setTemplates] = useState<EmailTemplate[]>([]);
   const [search, setSearch] = useState('');
   const [stageFilter, setStageFilter] = useState<string>('all');
   
@@ -233,29 +236,85 @@ export const Dashboard: React.FC = () => {
     recipientType: string;
   } | null>(null);
 
-  // Load configurations
+  // Load configurations and Firestore collections
   useEffect(() => {
-    const savedLangs = localStorage.getItem('mlc_settings_languages');
-    const savedStatuses = localStorage.getItem('mlc_settings_statuses_v2');
-    
-    if (savedLangs) {
-      setActiveLanguages(JSON.parse(savedLangs));
-    } else {
-      setActiveLanguages(['English', 'Spanish', 'German', 'Japanese', 'Mandarin', 'Swedish', 'Wolof', 'French', 'Portuguese']);
-    }
-    
-    if (savedStatuses) {
-      setActiveStatuses(JSON.parse(savedStatuses));
-    } else {
-      setActiveStatuses([
-        { key: 'pending', color: 'yellow' },
-        { key: 'approved', color: 'green' },
-        { key: 'rejected', color: 'red' },
-        { key: 'on_hold', color: 'blue' },
-        { key: 'blacklisted', color: 'purple' },
-        { key: 'active', color: 'indigo' }
-      ]);
-    }
+    const loadData = async () => {
+      try {
+        // 1. Fetch system configs from Firestore
+        const systemConfigSnap = await getDoc(doc(db, 'settings', 'global_config'));
+        if (systemConfigSnap.exists()) {
+          const config = systemConfigSnap.data();
+          if (config.languages) {
+            setActiveLanguages(config.languages);
+          }
+          if (config.statuses) {
+            setActiveStatuses(config.statuses);
+          }
+        } else {
+          // Fallback to local storage
+          const savedLangs = localStorage.getItem('mlc_settings_languages');
+          const savedStatuses = localStorage.getItem('mlc_settings_statuses_v2');
+          
+          if (savedLangs) {
+            setActiveLanguages(JSON.parse(savedLangs));
+          } else {
+            setActiveLanguages(['English', 'Spanish', 'German', 'Japanese', 'Mandarin', 'Swedish', 'Wolof', 'French', 'Portuguese']);
+          }
+          
+          if (savedStatuses) {
+            setActiveStatuses(JSON.parse(savedStatuses));
+          } else {
+            setActiveStatuses([
+              { key: 'pending', color: 'yellow' },
+              { key: 'approved', color: 'green' },
+              { key: 'rejected', color: 'red' },
+              { key: 'on_hold', color: 'blue' },
+              { key: 'blacklisted', color: 'purple' },
+              { key: 'active', color: 'indigo' }
+            ]);
+          }
+        }
+
+        // 2. Fetch Vendors
+        const vendorSnap = await getDocs(collection(db, 'vendors'));
+        const vendorList: VendorProfile[] = [];
+        vendorSnap.forEach((doc) => {
+          vendorList.push(doc.data() as VendorProfile);
+        });
+        if (vendorList.length > 0) {
+          setVendors(vendorList);
+        } else {
+          // Seed
+          for (const v of INITIAL_VENDORS_MOCK) {
+            await setDoc(doc(db, 'vendors', v.id), v);
+          }
+          setVendors(INITIAL_VENDORS_MOCK);
+        }
+
+        // 3. Fetch Trigger Rules
+        const actionSnap = await getDocs(collection(db, 'workflow_actions'));
+        const actionList: WorkflowAction[] = [];
+        actionSnap.forEach((doc) => {
+          actionList.push(doc.data() as WorkflowAction);
+        });
+        if (actionList.length > 0) {
+          setWorkflowActions(actionList);
+        }
+
+        // 4. Fetch Templates
+        const templateSnap = await getDocs(collection(db, 'templates'));
+        const templateList: EmailTemplate[] = [];
+        templateSnap.forEach((doc) => {
+          templateList.push(doc.data() as EmailTemplate);
+        });
+        if (templateList.length > 0) {
+          setTemplates(templateList);
+        }
+      } catch (err) {
+        console.error("Dashboard failed to load database collections", err);
+      }
+    };
+    loadData();
   }, []);
 
   useEffect(() => {
@@ -307,33 +366,7 @@ export const Dashboard: React.FC = () => {
     }, 200);
   };
 
-  // Mock list of registered email actions to check validation triggers
-  const mockActionsList: WorkflowAction[] = [
-    {
-      id: 'act-1',
-      name: 'Send NDA on Outreach Stage',
-      triggerStage: 'nda',
-      field: 'hasSignedNda',
-      operator: '==',
-      value: 'false',
-      actionType: 'send_email',
-      templateId: 't-2',
-      recipientType: 'vendor',
-      isActive: true
-    },
-    {
-      id: 'act-2',
-      name: 'Auto-Invite Gmail Users to Test',
-      triggerStage: 'ready_for_testing',
-      field: 'isGmail',
-      operator: '==',
-      value: 'true',
-      actionType: 'send_email',
-      templateId: 't-3',
-      recipientType: 'both',
-      isActive: true
-    }
-  ];
+
 
   // Stage change trigger with validation check
   const handleStageChangeRequest = (vendorId: string, nextStage: WorkflowStage) => {
@@ -341,12 +374,13 @@ export const Dashboard: React.FC = () => {
     if (!candidate) return;
 
     // Look for matching action rule triggered on nextStage
-    const matchingAction = mockActionsList.find(
+    const matchingAction = workflowActions.find(
       (act) => act.triggerStage === nextStage && act.isActive
     );
 
     if (matchingAction && matchingAction.actionType === 'send_email') {
-      const templateName = matchingAction.templateId === 't-2' ? 'NDA Signature Request' : 'Testing Invitation';
+      const template = templates.find((t) => t.id === matchingAction.templateId);
+      const templateName = template ? template.name : 'Outbound Notification';
       setPendingTransition({
         vendorId,
         targetStage: nextStage,
@@ -360,33 +394,60 @@ export const Dashboard: React.FC = () => {
     }
   };
 
-  const commitStageChange = (vendorId: string, nextStage: WorkflowStage) => {
-    setVendors((prev) => 
-      prev.map((v) => {
-        if (v.id !== vendorId) return v;
-        
-        let newStatus = v.status;
-        if (nextStage === 'ready_for_pm') {
-          newStatus = 'approved';
+  const commitStageChange = async (vendorId: string, nextStage: WorkflowStage) => {
+    const existingVendor = vendors.find((v) => v.id === vendorId);
+    if (!existingVendor) return;
+
+    let newStatus = existingVendor.status;
+    if (nextStage === 'ready_for_pm') {
+      newStatus = 'approved';
+    }
+
+    const updatedVendor: VendorProfile = {
+      ...existingVendor,
+      stage: nextStage,
+      status: newStatus,
+      updatedAt: new Date().toISOString()
+    };
+
+    try {
+      // Save updated vendor in Firestore
+      await setDoc(doc(db, 'vendors', vendorId), updatedVendor);
+
+      // Auto-provision test record if candidate transitions to testing stages
+      if (nextStage === 'ready_for_testing' || nextStage === 'in_testing') {
+        const testId = `test-${vendorId}`;
+        const testDocRef = doc(db, 'tests', testId);
+        const testDocSnap = await getDoc(testDocRef);
+        if (!testDocSnap.exists()) {
+          const newTest: TestRecord = {
+            id: testId,
+            vendorId: vendorId,
+            projectNumber: `PR-${Math.floor(1000 + Math.random() * 9000)}-${vendorId.toUpperCase().slice(-2)}`,
+            assignmentLink: `https://mlconnections.com/portal/assess-${vendorId}`,
+            deadline: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+            status: 'assigned',
+            graderId: 'admin'
+          };
+          await setDoc(testDocRef, newTest);
         }
-        
-        return { 
-          ...v, 
-          stage: nextStage, 
-          status: newStatus,
-          updatedAt: new Date().toISOString() 
-        };
-      })
-    );
+      }
 
-    setSelectedVendor((prev) => {
-      if (!prev || prev.id !== vendorId) return prev;
-      let newStatus = prev.status;
-      if (nextStage === 'ready_for_pm') newStatus = 'approved';
-      return { ...prev, stage: nextStage, status: newStatus, updatedAt: new Date().toISOString() };
-    });
+      // Update state locally
+      setVendors((prev) => 
+        prev.map((v) => v.id === vendorId ? updatedVendor : v)
+      );
 
-    setPendingTransition(null);
+      setSelectedVendor((prev) => {
+        if (!prev || prev.id !== vendorId) return prev;
+        return updatedVendor;
+      });
+
+      setPendingTransition(null);
+    } catch (err) {
+      console.error("Failed to commit stage change to Firestore", err);
+      alert("Failed to change stage: " + (err instanceof Error ? err.message : String(err)));
+    }
   };
 
   const startEditingVendor = (vendor: VendorProfile) => {
@@ -411,7 +472,7 @@ export const Dashboard: React.FC = () => {
     setIsEditing(true);
   };
 
-  const handleSaveEdit = (e: React.FormEvent) => {
+  const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedVendor) return;
 
@@ -444,12 +505,21 @@ export const Dashboard: React.FC = () => {
       updatedAt: new Date().toISOString()
     };
 
-    setVendors((prev) => prev.map((v) => v.id === selectedVendor.id ? updatedProfile : v));
-    setSelectedVendor(updatedProfile);
-    setIsEditing(false);
+    try {
+      // Save updated vendor in Firestore
+      await setDoc(doc(db, 'vendors', selectedVendor.id), updatedProfile);
+
+      setVendors((prev) => prev.map((v) => v.id === selectedVendor.id ? updatedProfile : v));
+      setSelectedVendor(updatedProfile);
+      setIsEditing(false);
+      alert(`Candidate profile for "${editContactName}" saved successfully.`);
+    } catch (err) {
+      console.error("Failed to commit profile edit to Firestore", err);
+      alert("Failed to save changes: " + (err instanceof Error ? err.message : String(err)));
+    }
   };
 
-  const handleDirectSubmit = (e: React.FormEvent) => {
+  const handleDirectSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Validation: secondary email is required if isGmail is false
@@ -487,8 +557,17 @@ export const Dashboard: React.FC = () => {
       updatedAt: new Date().toISOString()
     };
 
-    setVendors((prev) => [newLead, ...prev]);
-    setIsAddOpen(false);
+    try {
+      // Save new vendor in Firestore
+      await setDoc(doc(db, 'vendors', newLead.id), newLead);
+
+      setVendors((prev) => [newLead, ...prev]);
+      setIsAddOpen(false);
+      alert(`Candidate "${formContactName}" registered successfully.`);
+    } catch (err) {
+      console.error("Failed to save new candidate", err);
+      alert("Failed to create candidate: " + (err instanceof Error ? err.message : String(err)));
+    }
 
     // Reset Form fields
     setFormContactName('');
@@ -575,6 +654,47 @@ export const Dashboard: React.FC = () => {
     return aggregates;
   }, [vendors]);
 
+  const handleExportCSV = () => {
+    const headers = [
+      'Company Name', 'Contact Name', 'Email', 'Secondary Email', 'Phone',
+      'Services', 'Languages', 'Tier', 'Hourly Rate (Client)', 'Adjusted Rate (Offer)',
+      'Confirmed Rate (Negotiated)', 'Stage', 'Status', 'Signed NDA', 'Submitted At'
+    ];
+    
+    const rows = sortedVendors.map((v) => [
+      v.companyName || 'N/A',
+      v.contactName,
+      v.email,
+      v.secondaryEmail || '',
+      v.phone || '',
+      v.services.join('; '),
+      v.workingLanguages.map(l => `${l.language} (${l.proficiency})`).join('; '),
+      v.classificationTier,
+      v.mlcHourlyRate,
+      v.adjustedRate,
+      v.confirmedRate,
+      v.stage,
+      v.status,
+      v.hasSignedNda ? 'Yes' : 'No',
+      v.submittedAt || ''
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(val => `"${String(val).replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'mlc_candidates_export.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-8">
       {/* Header Panel */}
@@ -641,7 +761,7 @@ export const Dashboard: React.FC = () => {
       <section className="bg-white dark:bg-card-dark p-6 rounded-3xl border border-slate-200/50 dark:border-border-dark shadow-sm">
         <h4 className="font-extrabold text-xs text-slate-400 uppercase tracking-wider mb-5 flex items-center gap-2">
           <FileText className="w-4 h-4 text-primary" />
-          Workflow Stage Gates
+          Workflow Stages
         </h4>
         <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
           {(Object.keys(STAGE_LABELS) as WorkflowStage[]).map((stage) => {
@@ -697,6 +817,15 @@ export const Dashboard: React.FC = () => {
             </select>
             <Filter className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
           </div>
+          
+          <button
+            type="button"
+            onClick={handleExportCSV}
+            className="py-2 px-4 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-border-dark text-slate-700 dark:text-slate-200 rounded-xl font-bold text-xs flex items-center gap-1.5 btn-animate cursor-pointer"
+          >
+            <Download className="w-4.5 h-4.5 text-primary" />
+            Export CSV
+          </button>
         </div>
       </section>
 
@@ -704,7 +833,7 @@ export const Dashboard: React.FC = () => {
       <section>
         {viewMode === 'cards' ? (
           /* Cards View */
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <AnimatePresence mode="popLayout">
               {sortedVendors.length > 0 ? (
                 sortedVendors.map((candidate) => {
@@ -851,7 +980,7 @@ export const Dashboard: React.FC = () => {
                     {/* Quick stage transition column inside Pipeline View table */}
                     <th className="p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors" onClick={() => toggleSort('stage')}>
                       <div className="flex items-center gap-1.5">
-                        Workflow Stage Gate
+                        Workflow Stage
                         <ArrowUpDown className="w-3.5 h-3.5" />
                       </div>
                     </th>
@@ -1332,7 +1461,7 @@ export const Dashboard: React.FC = () => {
 
                     {/* Stage selector dropdown inside sidebar details */}
                     <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Workflow Stage Gate</label>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Workflow Stage</label>
                       <select
                         value={selectedVendor.stage}
                         onChange={(e) => handleStageChangeRequest(selectedVendor.id, e.target.value as WorkflowStage)}

@@ -3,7 +3,7 @@ import { useAuth } from '../AuthContext';
 import type { UserProfile, UserRole, AuditLog } from '../types';
 import { Shield, Search, Clock, Plus, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { collection, getDocs, doc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
 // Mock users list matching roles to seed if DB is empty
@@ -190,8 +190,10 @@ export const UserManagement: React.FC = () => {
 
       setAuditLogs((prev) => [log, ...prev]);
       setIsModalOpen(false);
+      alert(isEdit ? `Changes saved successfully for user "${displayName}".` : `Staff user account "${displayName}" created successfully.`);
     } catch (err) {
       console.error("Failed to commit user profile write to Firestore", err);
+      alert("Failed to save staff user: " + (err instanceof Error ? err.message : String(err)));
     }
   };
 
@@ -230,8 +232,51 @@ export const UserManagement: React.FC = () => {
         if (!prev || prev.uid !== targetUid) return prev;
         return updatedUser;
       });
+      alert(`User role for "${targetUser.displayName}" changed to "${newRole}" successfully.`);
     } catch (err) {
       console.error("Failed to update user role", err);
+      alert("Failed to update role: " + (err instanceof Error ? err.message : String(err)));
+    }
+  };
+
+  const handleDeleteUser = async (targetUser: UserProfile) => {
+    if (targetUser.email === 'mark@mlconnections.com') {
+      alert("The main system admin account cannot be deleted.");
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to delete the staff user account for "${targetUser.displayName}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    const timestamp = new Date().toISOString();
+    const currentActor = user || { uid: 'system', displayName: 'System Administrator' };
+
+    const log: AuditLog = {
+      id: `log-${Date.now()}`,
+      actorId: currentActor.uid,
+      actorName: currentActor.displayName,
+      action: 'ROLE_UPDATE',
+      targetId: targetUser.uid,
+      timestamp,
+      details: `Deleted staff user account for ${targetUser.displayName} (${targetUser.email})`
+    };
+
+    try {
+      await deleteDoc(doc(db, 'users', targetUser.uid));
+      await setDoc(doc(db, 'audit_logs', log.id), log);
+
+      setUsersList((prev) => prev.filter((u) => u.uid !== targetUser.uid));
+      setAuditLogs((prev) => [log, ...prev]);
+
+      if (selectedUser?.uid === targetUser.uid) {
+        setSelectedUser(null);
+      }
+
+      alert(`Successfully deleted staff user account "${targetUser.displayName}".`);
+    } catch (err) {
+      console.error("Failed to delete user profile from Firestore", err);
+      alert("Failed to delete user: " + (err instanceof Error ? err.message : String(err)));
     }
   };
 
@@ -315,6 +360,13 @@ export const UserManagement: React.FC = () => {
                       className="py-1 px-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-xs font-bold rounded-lg btn-animate cursor-pointer dark:text-white"
                     >
                       Logs
+                    </button>
+                    <button
+                      onClick={() => handleDeleteUser(u)}
+                      disabled={u.email === 'mark@mlconnections.com'} // Lock seeded admin
+                      className="py-1 px-3 border border-rose-250 dark:border-rose-900/35 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20 text-xs font-bold rounded-lg btn-animate cursor-pointer disabled:opacity-50"
+                    >
+                      Delete
                     </button>
                   </td>
                 </tr>
