@@ -47,7 +47,7 @@ const INITIAL_AUDITS: AuditLog[] = [
 ];
 
 export const UserManagement: React.FC = () => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const [usersList, setUsersList] = useState<UserProfile[]>(INITIAL_USERS);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(INITIAL_AUDITS);
   const [search, setSearch] = useState('');
@@ -65,6 +65,8 @@ export const UserManagement: React.FC = () => {
 
   // Load staff registries and security logs from Firestore
   useEffect(() => {
+    if (loading) return;
+
     const loadData = async () => {
       try {
         // 1. Fetch Users
@@ -107,7 +109,7 @@ export const UserManagement: React.FC = () => {
       }
     };
     loadData();
-  }, []);
+  }, [loading, user]);
 
   // Filter list
   const filteredUsers = usersList.filter((u) => 

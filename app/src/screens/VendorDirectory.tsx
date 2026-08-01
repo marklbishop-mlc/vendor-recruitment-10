@@ -99,7 +99,7 @@ const APPROVED_VENDORS_MOCK: VendorProfile[] = [
 ];
 
 export const VendorDirectory: React.FC = () => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const [vendors, setVendors] = useState<VendorProfile[]>([]);
   const [search, setSearch] = useState('');
   const [tierFilter, setTierFilter] = useState<string>('all');
@@ -131,6 +131,8 @@ export const VendorDirectory: React.FC = () => {
   const [selectedProfToAdd, setSelectedProfToAdd] = useState<WorkingLanguage['proficiency']>('working');
 
   useEffect(() => {
+    if (loading) return;
+
     const loadDirectoryData = async () => {
       try {
         // Load configurations
@@ -171,7 +173,7 @@ export const VendorDirectory: React.FC = () => {
       }
     };
     loadDirectoryData();
-  }, [user]);
+  }, [user, loading]);
 
   // Filter approved directory
   const filteredVendors = useMemo(() => {

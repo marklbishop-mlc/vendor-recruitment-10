@@ -6,6 +6,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { collection, getDocs, doc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
+import { useAuth } from '../AuthContext';
 
 // Mock active testing records
 const INITIAL_TESTS: TestRecord[] = [
@@ -30,6 +31,7 @@ const INITIAL_TESTS: TestRecord[] = [
 ];
 
 export const TestingPortal: React.FC = () => {
+  const { user, loading } = useAuth();
   const [tests, setTests] = useState<TestRecord[]>([]);
   const [vendorsList, setVendorsList] = useState<VendorProfile[]>([]);
   const [selectedTest, setSelectedTest] = useState<TestRecord | null>(null);
@@ -40,6 +42,8 @@ export const TestingPortal: React.FC = () => {
   const [notes, setNotes] = useState('');
 
   useEffect(() => {
+    if (loading) return;
+
     const loadTestingData = async () => {
       try {
         // 1. Load test records
@@ -71,7 +75,7 @@ export const TestingPortal: React.FC = () => {
       }
     };
     loadTestingData();
-  }, []);
+  }, [loading, user]);
 
   const getVendorInfo = (vendorId: string) => {
     const v = vendorsList.find((v) => v.id === vendorId);

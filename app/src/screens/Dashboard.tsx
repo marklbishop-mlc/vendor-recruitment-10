@@ -8,6 +8,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { collection, getDocs, doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
+import { useAuth } from '../AuthContext';
 
 // Mock candidates list matching expanded profile attributes with new 7 stages
 const INITIAL_VENDORS_MOCK: VendorProfile[] = [
@@ -152,6 +153,7 @@ const STATUS_COLORS_MAP: Record<string, string> = {
 };
 
 export const Dashboard: React.FC = () => {
+  const { user, loading } = useAuth();
   
   // Settings configurations
   const [activeLanguages, setActiveLanguages] = useState<string[]>([]);
@@ -238,6 +240,8 @@ export const Dashboard: React.FC = () => {
 
   // Load configurations and Firestore collections
   useEffect(() => {
+    if (loading) return;
+
     const loadData = async () => {
       try {
         // 1. Fetch system configs from Firestore
@@ -315,7 +319,7 @@ export const Dashboard: React.FC = () => {
       }
     };
     loadData();
-  }, []);
+  }, [loading, user]);
 
   useEffect(() => {
     if (activeLanguages.length > 0 && !selectedLangToAdd) {
