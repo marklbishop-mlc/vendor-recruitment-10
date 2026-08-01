@@ -221,6 +221,7 @@ export const Templates: React.FC = () => {
       triggerAlertToast();
     } catch (err) {
       console.error("Failed to save template to Firestore", err);
+      alert("Failed to save template: " + (err instanceof Error ? err.message : String(err)));
     }
   };
 
@@ -254,6 +255,7 @@ export const Templates: React.FC = () => {
       handleTemplateSelect(tmpl);
     } catch (err) {
       console.error("Failed to create template document", err);
+      alert("Failed to create template: " + (err instanceof Error ? err.message : String(err)));
     }
   };
 
@@ -316,6 +318,7 @@ export const Templates: React.FC = () => {
       setNewActName('');
     } catch (err) {
       console.error("Failed to save workflow action rule", err);
+      alert("Failed to save action rule: " + (err instanceof Error ? err.message : String(err)));
     }
   };
 
@@ -331,6 +334,7 @@ export const Templates: React.FC = () => {
       );
     } catch (err) {
       console.error("Failed to toggle action status", err);
+      alert("Failed to toggle action status: " + (err instanceof Error ? err.message : String(err)));
     }
   };
 
@@ -340,6 +344,7 @@ export const Templates: React.FC = () => {
       setWorkflowActions((prev) => prev.filter((a) => a.id !== id));
     } catch (err) {
       console.error("Failed to delete action document", err);
+      alert("Failed to delete action rule: " + (err instanceof Error ? err.message : String(err)));
     }
   };
 
