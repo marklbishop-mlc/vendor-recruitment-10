@@ -116,7 +116,6 @@ export const Templates: React.FC = () => {
   // Add Template fields
   const [newTmplName, setNewTmplName] = useState('');
   const [newTmplSubject, setNewTmplSubject] = useState('');
-  const [newTmplStage, setNewTmplStage] = useState<WorkflowStage>('outreach');
 
   // Add Action fields
   const [newActName, setNewActName] = useState('');
@@ -129,6 +128,7 @@ export const Templates: React.FC = () => {
   const [newActRecipient, setNewActRecipient] = useState<WorkflowAction['recipientType']>('vendor');
 
   // Editor states
+  const [name, setName] = useState(selectedTemplate.name);
   const [subject, setSubject] = useState(selectedTemplate.subject);
   const [body, setBody] = useState(selectedTemplate.body);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
@@ -150,6 +150,7 @@ export const Templates: React.FC = () => {
         if (tmplList.length > 0) {
           setTemplates(tmplList);
           setSelectedTemplate(tmplList[0]);
+          setName(tmplList[0].name);
           setSubject(tmplList[0].subject);
           setBody(tmplList[0].body);
         } else {
@@ -158,6 +159,7 @@ export const Templates: React.FC = () => {
           }
           setTemplates(INITIAL_TEMPLATES);
           setSelectedTemplate(INITIAL_TEMPLATES[0]);
+          setName(INITIAL_TEMPLATES[0].name);
           setSubject(INITIAL_TEMPLATES[0].subject);
           setBody(INITIAL_TEMPLATES[0].body);
         }
@@ -200,6 +202,7 @@ export const Templates: React.FC = () => {
 
   const handleTemplateSelect = (tmpl: EmailTemplate) => {
     setSelectedTemplate(tmpl);
+    setName(tmpl.name);
     setSubject(tmpl.subject);
     setBody(tmpl.body);
   };
@@ -207,6 +210,7 @@ export const Templates: React.FC = () => {
   const handleSaveTemplate = async () => {
     const updated = { 
       ...selectedTemplate, 
+      name,
       subject, 
       body, 
       lastUpdated: new Date().toISOString() 
@@ -222,6 +226,38 @@ export const Templates: React.FC = () => {
     } catch (err) {
       console.error("Failed to save template to Firestore", err);
       alert("Failed to save template: " + (err instanceof Error ? err.message : String(err)));
+    }
+  };
+
+  const handleDeleteTemplate = async () => {
+    if (!window.confirm(`Are you sure you want to delete the email template "${selectedTemplate.name}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      await deleteDoc(doc(db, 'templates', selectedTemplate.id));
+      const updatedList = templates.filter((t) => t.id !== selectedTemplate.id);
+      setTemplates(updatedList);
+      
+      if (updatedList.length > 0) {
+        handleTemplateSelect(updatedList[0]);
+      } else {
+        const placeholder: EmailTemplate = {
+          id: 'placeholder',
+          name: 'No Templates Available',
+          subject: 'No Subject',
+          body: 'Create a new template to get started...',
+          stage: 'outreach',
+          lastUpdated: new Date().toISOString()
+        };
+        setSelectedTemplate(placeholder);
+        setName(placeholder.name);
+        setSubject(placeholder.subject);
+        setBody(placeholder.body);
+      }
+    } catch (err) {
+      console.error("Failed to delete template document", err);
+      alert("Failed to delete template: " + (err instanceof Error ? err.message : String(err)));
     }
   };
 
@@ -242,7 +278,7 @@ export const Templates: React.FC = () => {
       name: newTmplName.trim(),
       subject: newTmplSubject.trim() || 'Localization Partnership Notice',
       body: 'Hi {{Vendor_Name}},\n\nEnter email copy here...',
-      stage: newTmplStage,
+      stage: 'outreach',
       lastUpdated: new Date().toISOString()
     };
 
@@ -452,17 +488,12 @@ export const Templates: React.FC = () => {
                       onClick={() => handleTemplateSelect(tmpl)}
                       className={`w-full p-4 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between gap-3 ${
                         isSelected 
-                          ? 'bg-slate-900 border-slate-900 text-white dark:bg-slate-800 dark:border-slate-700 shadow-sm'
+                          ? 'bg-primary border-primary text-white shadow-sm'
                           : 'bg-white dark:bg-card-dark border-slate-200/50 dark:border-border-dark text-slate-700 dark:text-slate-350 hover:bg-slate-50'
                       }`}
                     >
                       <div className="space-y-1">
                         <span className="block font-bold text-xs">{tmpl.name}</span>
-                        <span className={`inline-block px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wider ${
-                          isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
-                        }`}>
-                          {STAGE_LABELS[tmpl.stage]}
-                        </span>
                       </div>
                       <Mail className={`w-4 h-4 ${isSelected ? 'text-white' : 'text-slate-400'}`} />
                     </button>
@@ -480,13 +511,23 @@ export const Templates: React.FC = () => {
                     <p className="text-xs text-slate-500 mt-1">Configuring subject headers and template HTML contents.</p>
                   </div>
                   
-                  <button
-                    onClick={handleSaveTemplate}
-                    className="py-2.5 px-4 bg-primary hover:bg-primary-dark text-white rounded-xl font-bold text-xs flex items-center gap-1.5 btn-animate cursor-pointer"
-                  >
-                    <Save className="w-4 h-4" />
-                    Save Template Copy
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleDeleteTemplate}
+                      className="py-2.5 px-4 border border-rose-200 dark:border-rose-900/30 text-rose-600 dark:text-rose-450 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-xl font-bold text-xs flex items-center gap-1.5 btn-animate cursor-pointer"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete Template
+                    </button>
+
+                    <button
+                      onClick={handleSaveTemplate}
+                      className="py-2.5 px-4 bg-primary hover:bg-primary-dark text-white rounded-xl font-bold text-xs flex items-center gap-1.5 btn-animate cursor-pointer"
+                    >
+                      <Save className="w-4 h-4" />
+                      Save Template Copy
+                    </button>
+                  </div>
                 </div>
 
                 <div className="space-y-4">
@@ -509,6 +550,16 @@ export const Templates: React.FC = () => {
 
                   {/* Form fields */}
                   <div className="space-y-3 font-bold text-xs text-slate-650 dark:text-slate-300">
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Template Name</label>
+                      <input
+                        type="text"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className="w-full p-3 bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary transition-all dark:text-white"
+                      />
+                    </div>
+
                     <div className="space-y-1">
                       <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Subject Header</label>
                       <input
@@ -728,18 +779,6 @@ export const Templates: React.FC = () => {
                     />
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Trigger Stage Gate</label>
-                    <select
-                      value={newTmplStage}
-                      onChange={(e) => setNewTmplStage(e.target.value as WorkflowStage)}
-                      className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none dark:text-white cursor-pointer"
-                    >
-                      {Object.entries(STAGE_LABELS).map(([key, val]) => (
-                        <option key={key} value={key}>{val}</option>
-                      ))}
-                    </select>
-                  </div>
                 </form>
               </div>
 
