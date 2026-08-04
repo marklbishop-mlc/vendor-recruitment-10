@@ -25,21 +25,46 @@ try {
   }
 }
 
-const IMPERSONATE_EMAIL = "vm@mlconnections.com";
+const AUTH_USER_EMAIL = "mark@mlconnections.com";
+const DISPLAY_FROM_EMAIL = "vm@mlconnections.com";
 
 /**
  * Helper to build OAuth2 transporter
  */
-const createNodemailerTransport = () => {
+const createNodemailerTransport = (smtpConfig?: any) => {
+  if (smtpConfig && smtpConfig.host && smtpConfig.user && smtpConfig.pass) {
+    return nodemailer.createTransport({
+      host: smtpConfig.host,
+      port: Number(smtpConfig.port) || 465,
+      secure: (Number(smtpConfig.port) || 465) === 465,
+      auth: {
+        user: smtpConfig.user,
+        pass: smtpConfig.pass,
+      }
+    });
+  }
+
+  if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+    return nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT) || 465,
+      secure: (Number(process.env.SMTP_PORT) || 465) === 465,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      }
+    });
+  }
+
   return nodemailer.createTransport({
     host: 'smtp.gmail.com',
     port: 465,
     secure: true,
     auth: {
       type: 'OAuth2',
-      user: IMPERSONATE_EMAIL,
-      serviceClient: serviceAccount.client_id,
-      privateKey: serviceAccount.private_key,
+      user: AUTH_USER_EMAIL,
+      serviceClient: serviceAccount?.client_id || "",
+      privateKey: serviceAccount?.private_key || "",
     }
   });
 };
@@ -58,11 +83,71 @@ export const checkRecruitmentStatus = onRequest(
       const snapshot = await db.collection("vendors").limit(5).get();
       const count = snapshot.size;
       
+      // Execute Automated SLA Nudges if active
+      let nudgesQueued = 0;
+      const configSnap = await db.collection("settings").doc("global_config").get();
+      if (configSnap.exists) {
+        const config = configSnap.data();
+        const slaConfig = config?.slaNudges;
+
+        if (slaConfig?.enabled && slaConfig?.mode === 'automated') {
+          const waitDays = Number(slaConfig.ndaWaitDays) || 3;
+          const maxNudges = Number(slaConfig.maxNudges) || 2;
+          const nowMs = Date.now();
+
+          const ndaVendors = await db.collection("vendors")
+            .where("stage", "==", "nda")
+            .get();
+
+          for (const vDoc of ndaVendors.docs) {
+            const vData = vDoc.data();
+            if (vData.hasSignedNda) continue;
+
+            const updatedMs = new Date(vData.updatedAt || vData.submittedAt || Date.now()).getTime();
+            const daysStagnant = (nowMs - updatedMs) / (1000 * 60 * 60 * 24);
+            const currentNudges = Number(vData.nudgeCount) || 0;
+
+            const lastNudgeMs = vData.lastNudgeAt ? new Date(vData.lastNudgeAt).getTime() : 0;
+            const hoursSinceLastNudge = (nowMs - lastNudgeMs) / (1000 * 60 * 60);
+
+            if (daysStagnant >= waitDays && currentNudges < maxNudges && hoursSinceLastNudge >= 48) {
+              const ndaUrl = `https://mlc-vendor-recruitment.web.app/portal/nda/${vDoc.id}`;
+              const notificationRef = db.collection("notifications").doc();
+
+              await notificationRef.set({
+                id: notificationRef.id,
+                vendorId: vDoc.id,
+                vendorName: vData.contactName || "Specialist",
+                vendorEmail: vData.email || "",
+                actionName: "[Auto SLA Nudge] NDA Signature Reminder",
+                templateId: "t-2",
+                templateName: "NDA Signature Request",
+                recipientType: "vendor",
+                email: vData.email || "",
+                subject: `Reminder: Action Required - Sign NDA for Multilingual Connections (${vData.contactName})`,
+                body: `Hi ${vData.contactName},\n\nWe noticed you haven't completed your Non-Disclosure Agreement (NDA) yet.\n\nPlease click the link below to review and sign your NDA online so we can proceed with your application:\n${ndaUrl}\n\nThank you,\nMLC Recruitment & Compliance Team`,
+                status: "queued",
+                createdAt: new Date().toISOString()
+              });
+
+              await vDoc.ref.update({
+                nudgeCount: currentNudges + 1,
+                lastNudgeAt: new Date().toISOString()
+              });
+
+              nudgesQueued++;
+              logger.info(`Auto SLA Nudge queued for candidate ${vData.contactName} (${vDoc.id})`);
+            }
+          }
+        }
+      }
+
       response.status(200).json({
         success: true,
         message: "MLC Vendor Onboarding Backend functions are online.",
         database: "mlc-vendor-recruitment-db",
-        activeCandidates: count
+        activeCandidates: count,
+        nudgesQueued
       });
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
@@ -125,32 +210,49 @@ export const onVendorStageChange = onDocumentUpdated(
     const beforeData = change.before.data();
     const afterData = change.after.data();
 
-    // Only trigger if the workflow stage has changed
-    if (beforeData?.stage === afterData?.stage) {
+    const stageChanged = beforeData?.stage !== afterData?.stage;
+    const stageStatusChanged = beforeData?.stageStatus !== afterData?.stageStatus;
+
+    // Only trigger if either the stage or stageStatus has changed
+    if (!stageChanged && !stageStatusChanged) {
       return;
     }
 
-    const newStage = afterData?.stage;
+    const currentStage = afterData?.stage;
+    const currentStageStatus = afterData?.stageStatus || 'started';
     const vendorId = event.params.vendorId;
 
-    logger.info(`Candidate ${vendorId} stage updated from ${beforeData?.stage} to ${newStage}`);
+    logger.info(`Candidate ${vendorId} updated: Stage=${currentStage}, StageStatus=${currentStageStatus}`);
+
+    // Skip automated backend email dispatch if frontend handled custom dispatch or user selected "Confirm (No Email)"
+    if (afterData?.suppressWorkflowEmail) {
+      logger.info(`Candidate ${vendorId} updated with suppressWorkflowEmail flag. Skipping automatic backend email dispatch.`);
+      return;
+    }
 
     try {
-      // Query all workflow actions registered for this new stage
+      // Query all workflow actions registered for this stage
       const actionsQuery = await db.collection("workflow_actions")
-        .where("triggerStage", "==", newStage)
+        .where("triggerStage", "==", currentStage)
         .get();
 
       if (actionsQuery.empty) {
-        logger.info(`No workflow action rules registered for stage: ${newStage}.`);
+        logger.info(`No workflow action rules registered for stage: ${currentStage}.`);
         return;
       }
 
-      logger.info(`Found ${actionsQuery.size} potential actions for stage: ${newStage}. Evaluating rules...`);
+      logger.info(`Found ${actionsQuery.size} potential actions for stage: ${currentStage}. Evaluating rules...`);
 
       for (const actionDoc of actionsQuery.docs) {
         const action = actionDoc.data();
         if (!action.isActive) continue;
+
+        // Check if rule's triggerStatus matches currentStageStatus
+        const actionTriggerStatus = action.triggerStatus || 'started';
+        if (actionTriggerStatus !== 'any' && actionTriggerStatus !== currentStageStatus) {
+          logger.info(`Rule "${action.name}" triggerStatus (${actionTriggerStatus}) does not match current candidate stageStatus (${currentStageStatus}). Skipping.`);
+          continue;
+        }
 
         // Evaluate rule conditions
         const isMatched = evaluateCondition(afterData, action.field, action.operator, action.value);
@@ -175,22 +277,40 @@ export const onVendorStageChange = onDocumentUpdated(
           let emailSubject = template?.subject || "";
 
           // Perform dynamic merge tags expansion
-          const languagesStr = afterData.workingLanguages
-            ? afterData.workingLanguages.map((l: any) => `${l.language} (${l.proficiency})`).join(", ")
-            : "English";
+          const languagesStr = Array.isArray(afterData.workingLanguages) && afterData.workingLanguages.length > 0
+            ? afterData.workingLanguages.map((l: Record<string, string>) => `${l.language} (${l.proficiency})`).join(", ")
+            : "N/A";
 
           const mergeValues: Record<string, string> = {
-            Vendor_Name: afterData.contactName || "Specialist",
-            Language: languagesStr,
-            Adjusted_Rate: afterData.adjustedRate ? `$${afterData.adjustedRate}` : "Negotiated",
-            Project_Link: `https://mlconnections.com/portal/onboarding/${vendorId}`,
-            NDA_Status: afterData.hasSignedNda ? "NDA Verified" : "NDA Missing / Required"
+            Vendor_Name:    afterData.contactName   || "Specialist",
+            Contact_Name:   afterData.contactName   || "Specialist",
+            Company_Name:   afterData.companyName   || "",
+            Email:          afterData.email         || "",
+            Language:       languagesStr,
+            Adjusted_Rate:  afterData.adjustedRate  ? `$${afterData.adjustedRate}` : "Negotiated",
+            Confirmed_Rate: afterData.confirmedRate ? `$${afterData.confirmedRate}` : "Negotiated",
+            Project_Link:   afterData.stage === 'nda'
+              ? `https://mlc-vendor-recruitment.web.app/portal/nda/${vendorId}`
+              : `https://mlc-vendor-recruitment.web.app/portal/onboarding/${vendorId}`,
+            NDA_Status:     afterData.hasSignedNda  ? "NDA Verified" : "NDA Missing / Required",
+            Stage:          afterData.stage         || "",
+            Status:         afterData.status        || "",
           };
 
-          Object.entries(mergeValues).forEach(([key, val]) => {
-            emailBody = emailBody.replace(new RegExp(`{{${key}}}`, 'g'), val);
-            emailSubject = emailSubject.replace(new RegExp(`{{${key}}}`, 'g'), val);
-          });
+          // Safe string replacement — avoids RegExp special-char issues with {{ }}
+          const replaceMergeTags = (text: string): string => {
+            let result = text;
+            Object.entries(mergeValues).forEach(([key, val]) => {
+              const tag = `{{${key}}}`;
+              while (result.includes(tag)) {
+                result = result.split(tag).join(val);
+              }
+            });
+            return result;
+          };
+
+          emailBody    = replaceMergeTags(emailBody);
+          emailSubject = replaceMergeTags(emailSubject);
 
           // Queue emails based on recipientType
           const sendToVendor = action.recipientType === 'vendor' || action.recipientType === 'both';
@@ -201,6 +321,14 @@ export const onVendorStageChange = onDocumentUpdated(
             await notificationRef.set({
               id: notificationRef.id,
               vendorId,
+              vendorName: afterData.contactName || "Specialist",
+              vendorEmail: afterData.email || "",
+              actionName: action.name || "Workflow Rule Action",
+              templateId: action.templateId || "",
+              templateName: templateDoc.data()?.name || "Email Template",
+              recipientType: action.recipientType || "vendor",
+              actualRecipients: [afterData.email],
+              isIntercepted: false,
               email: afterData.email,
               subject: emailSubject,
               body: emailBody,
@@ -215,23 +343,48 @@ export const onVendorStageChange = onDocumentUpdated(
             await notificationRef.set({
               id: notificationRef.id,
               vendorId,
-              email: "vm@mlconnections.com",
+              vendorName: afterData.contactName || "Specialist",
+              vendorEmail: afterData.email || "",
+              actionName: action.name || "Workflow Rule Action",
+              templateId: action.templateId || "",
+              templateName: templateDoc.data()?.name || "Email Template",
+              recipientType: action.recipientType || "both",
+              actualRecipients: ["hr@mlconnections.com"],
+              isIntercepted: false,
+              email: "hr@mlconnections.com",
               subject: `[MLC Copy] ${emailSubject}`,
               body: `--- Copy of mail sent to Candidate: ${afterData.contactName} (${afterData.email}) ---\n\n` + emailBody,
               status: "queued",
               createdAt: new Date().toISOString()
             });
-            logger.info(`Queued email to MLC Office: vm@mlconnections.com`);
+            logger.info(`Queued email to MLC Office: hr@mlconnections.com`);
           }
         }
 
-        if (action.actionType === 'update_status' && action.updateValue) {
-          // Auto update status field
-          await change.after.ref.update({
-            status: action.updateValue,
-            updatedAt: new Date().toISOString()
-          });
-          logger.info(`Successfully auto-updated status to ${action.updateValue} via rule "${action.name}"`);
+        // Apply configured candidate field updates (Status, Stage, Stage Status)
+        const fieldUpdates: Record<string, any> = {};
+
+        const targetStatus = action.updateStatus || action.updateValue;
+        if (targetStatus && targetStatus !== 'none') {
+          fieldUpdates.status = targetStatus;
+        }
+
+        const targetStage = action.updateStage || action.autoAdvanceStage;
+        if (targetStage && targetStage !== 'none') {
+          fieldUpdates.stage = targetStage;
+          if (!action.updateStageStatus || action.updateStageStatus === 'none') {
+            fieldUpdates.stageStatus = 'started';
+          }
+        }
+
+        if (action.updateStageStatus && action.updateStageStatus !== 'none') {
+          fieldUpdates.stageStatus = action.updateStageStatus;
+        }
+
+        if (Object.keys(fieldUpdates).length > 0) {
+          fieldUpdates.updatedAt = new Date().toISOString();
+          await change.after.ref.update(fieldUpdates);
+          logger.info(`Successfully updated candidate profile via rule "${action.name}":`, fieldUpdates);
         }
       }
     } catch (err: unknown) {
@@ -257,18 +410,20 @@ export const processMailQueue = onDocumentCreated(
     const data = snap.data();
     if (data?.status !== 'queued') return;
 
-    logger.info(`Processing mail ID ${event.params.notificationId} to ${data.email}`);
-
-    let finalRecipient = data.email;
+    let finalRecipient = data.email || data.vendorEmail || "";
     let finalSubject = data.subject;
     let finalBody = data.body;
     let isTestMode = false;
+    let smtpConfig: any = null;
 
     try {
-      // Query settings/global_config doc for testingMode active state
+      // Query settings/global_config doc for testingMode active state and custom SMTP config
       const configSnap = await db.collection("settings").doc("global_config").get();
       if (configSnap.exists) {
         const config = configSnap.data();
+        if (config?.smtp && config.smtp.host && config.smtp.user) {
+          smtpConfig = config.smtp;
+        }
         if (config?.testingMode?.enabled) {
           isTestMode = true;
           const emails = config.testingMode.recipientEmails || [];
@@ -282,7 +437,7 @@ export const processMailQueue = onDocumentCreated(
             </div>
             <div style="background-color: #fef2f2; color: #991b1b; padding: 12px; border: 1px solid #fee2e2; border-radius: 6px; margin-bottom: 20px; font-family: sans-serif; font-size: 12px; line-height: 1.5;">
               <strong>⚠️ TESTING MODE DETAILS:</strong><br/>
-              When live, this email would be sent to candidate: <strong>${data.email}</strong>
+              When live, this email would be sent to candidate: <strong>${data.email || data.vendorEmail || ""}</strong>
             </div>
             <div style="font-family: sans-serif; font-size: 13px; color: #334155; line-height: 1.6; white-space: pre-wrap;">
 ${data.body}
@@ -304,9 +459,9 @@ ${data.body}
     }
 
     try {
-      const transporter = createNodemailerTransport();
+      const transporter = createNodemailerTransport(smtpConfig);
       const mailOptions = {
-        from: `"MLC Recruiting Team" <${IMPERSONATE_EMAIL}>`,
+        from: smtpConfig?.from || `"MLC Vendor Recruitment" <${DISPLAY_FROM_EMAIL}>`,
         to: finalRecipient,
         subject: finalSubject,
         html: finalBody

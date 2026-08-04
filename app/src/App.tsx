@@ -7,10 +7,15 @@ import { Login } from './screens/Login';
 import { Dashboard } from './screens/Dashboard';
 import { VendorDirectory } from './screens/VendorDirectory';
 import { TestingPortal } from './screens/TestingPortal';
+import { Reports } from './screens/Reports';
 import { Templates } from './screens/Templates';
 import { UserManagement } from './screens/UserManagement';
 import { Settings } from './screens/Settings';
+import { NotificationsLog } from './screens/NotificationsLog';
 import { Unauthorized } from './screens/Unauthorized';
+import { NdaPortalScreen } from './screens/NdaPortalScreen';
+import { IntakePortalScreen } from './screens/IntakePortalScreen';
+import { PortalModulesScreen } from './screens/PortalModulesScreen';
 import { RefreshCw } from 'lucide-react';
 
 const DevRoleSwitcher: React.FC = () => {
@@ -58,6 +63,17 @@ const AppContent: React.FC = () => {
         {/* Access Denied Route */}
         <Route path="/unauthorized" element={<Unauthorized />} />
 
+        {/* Public NDA Signing Portal Route */}
+        <Route path="/portal/nda/:vendorId" element={<NdaPortalScreen />} />
+
+        {/* Public Linguist Application & Intake Portal Routes */}
+        <Route path="/portal/apply" element={<IntakePortalScreen />} />
+        <Route path="/portal/apply/:slug" element={<IntakePortalScreen />} />
+        <Route path="/portal/intake" element={<IntakePortalScreen />} />
+        <Route path="/portal/intake/:slug" element={<IntakePortalScreen />} />
+        <Route path="/apply" element={<IntakePortalScreen />} />
+        <Route path="/apply/:slug" element={<IntakePortalScreen />} />
+
         {/* Protected System Layout Wrapping all routes */}
         <Route
           path="/"
@@ -72,6 +88,12 @@ const AppContent: React.FC = () => {
           
           {/* Approved PM Directory */}
           <Route path="directory" element={<VendorDirectory />} />
+          
+          {/* Recruitment Reports */}
+          <Route path="reports" element={<Reports />} />
+          
+          {/* External Portal Modules & Integration Guide */}
+          <Route path="modules" element={<PortalModulesScreen />} />
           
           {/* Testing/Grading Portal (Manager and Admin only) */}
           <Route 
@@ -109,6 +131,19 @@ const AppContent: React.FC = () => {
             element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <Settings />
+              </ProtectedRoute>
+            } 
+          />
+
+          {/* Legacy /analytics redirect to unified Reports */}
+          <Route path="analytics" element={<Navigate to="/reports" replace />} />
+
+          {/* Outbound Notification Queue Log (Admin only) */}
+          <Route 
+            path="notifications" 
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <NotificationsLog />
               </ProtectedRoute>
             } 
           />
