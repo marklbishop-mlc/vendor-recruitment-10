@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import type { VendorProfile, WorkflowStage, WorkingLanguage, StatusConfig, WorkflowAction, EmailTemplate, TestRecord, WorkflowStageConfig, SlaNudgeConfig, StageProgressConfig, ApplicationConfig } from '../types';
+import type { VendorProfile, WorkflowStage, WorkingLanguage, StatusConfig, WorkflowAction, EmailTemplate, TestRecord, WorkflowStageConfig, SlaNudgeConfig, StageProgressConfig, ApplicationConfig, WeeklyAvailabilityOption, MtqaExperienceYears, ErrorTaggingExpLevel, AgilitySelfAssessment } from '../types';
 import { getActiveSortedLanguages, DEFAULT_STAGE_PROGRESS_OPTIONS, getStageProgressStyle, getStageProgressTextColor } from '../types';
+import { COUNTRIES, TIME_ZONES } from '../utils/locationData';
 import { 
   Plus, Search, ShieldAlert, X, ChevronDown,
   FileText, Check, Copy, UploadCloud, Grid, List, ArrowUpDown,
@@ -103,6 +104,25 @@ export const Dashboard: React.FC = () => {
   const [formTier, setFormTier] = useState<'1' | '2' | '3'>('2');
   const [formStatus, setFormStatus] = useState('pending');
   const [formNdaUrl, setFormNdaUrl] = useState('');
+
+  // Detailed Evaluation Fields for New Intake
+  const [formCountry, setFormCountry] = useState('United States');
+  const [formTimeZone, setFormTimeZone] = useState('UTC-05:00 Eastern Time');
+  const [formAvailableStartDate, setFormAvailableStartDate] = useState('Immediately');
+  const [formWeeklyAvailability, setFormWeeklyAvailability] = useState<WeeklyAvailabilityOption>('up_to_20');
+  const [formOtherLanguages, setFormOtherLanguages] = useState('');
+  const [formMtqaExperienceYears, setFormMtqaExperienceYears] = useState<MtqaExperienceYears>('1_to_3');
+  const [formHandsOnExperienceAreas, setFormHandsOnExperienceAreas] = useState<string[]>([
+    'Machine Translation Quality Assurance (MTQA)',
+    'Machine Translation Post-Editing (MTPE)'
+  ]);
+  const [formAgilitySelfAssessment, setFormAgilitySelfAssessment] = useState<AgilitySelfAssessment>({
+    qaPlatforms: 2,
+    grammarStyle: 3,
+    errorTagging: 3,
+    policyFeedback: 2
+  });
+  const [formErrorTaggingExperience, setFormErrorTaggingExperience] = useState<ErrorTaggingExpLevel>('basic');
   
   // Selected multiple languages in form
   const [formLanguages, setFormLanguages] = useState<{ language: string; proficiency: WorkingLanguage['proficiency'] }[]>([]);
@@ -133,6 +153,22 @@ export const Dashboard: React.FC = () => {
   const [editHasSignedNda, setEditHasSignedNda] = useState(false);
   const [editLanguages, setEditLanguages] = useState<WorkingLanguage[]>([]);
   const [editConfirmedRate, setEditConfirmedRate] = useState('');
+
+  // Detailed Evaluation Fields for Edit Candidate
+  const [editCountry, setEditCountry] = useState('');
+  const [editTimeZone, setEditTimeZone] = useState('');
+  const [editAvailableStartDate, setEditAvailableStartDate] = useState('');
+  const [editWeeklyAvailability, setEditWeeklyAvailability] = useState<WeeklyAvailabilityOption>('up_to_20');
+  const [editOtherLanguages, setEditOtherLanguages] = useState('');
+  const [editMtqaExperienceYears, setEditMtqaExperienceYears] = useState<MtqaExperienceYears>('1_to_3');
+  const [editHandsOnExperienceAreas, setEditHandsOnExperienceAreas] = useState<string[]>([]);
+  const [editAgilitySelfAssessment, setEditAgilitySelfAssessment] = useState<AgilitySelfAssessment>({
+    qaPlatforms: 2,
+    grammarStyle: 3,
+    errorTagging: 3,
+    policyFeedback: 2
+  });
+  const [editErrorTaggingExperience, setEditErrorTaggingExperience] = useState<ErrorTaggingExpLevel>('basic');
 
   // Applications Multi-Link States
   const [applicationsList, setApplicationsList] = useState<ApplicationConfig[]>([]);
@@ -631,6 +667,22 @@ export const Dashboard: React.FC = () => {
     setEditHasSignedNda(vendor.hasSignedNda);
     setEditLanguages([...vendor.workingLanguages]);
     setEditConfirmedRate(vendor.confirmedRate.toString());
+
+    // Populate Detailed Evaluation fields for edit mode
+    setEditCountry(vendor.country || 'United States');
+    setEditTimeZone(vendor.timeZone || 'UTC-05:00 Eastern Time');
+    setEditAvailableStartDate(vendor.availableStartDate || 'Immediately');
+    setEditWeeklyAvailability(vendor.weeklyAvailability || 'up_to_20');
+    setEditOtherLanguages(vendor.otherLanguages || '');
+    setEditMtqaExperienceYears(vendor.mtqaExperienceYears || '1_to_3');
+    setEditHandsOnExperienceAreas(vendor.handsOnExperienceAreas || []);
+    setEditAgilitySelfAssessment(vendor.agilitySelfAssessment || {
+      qaPlatforms: 2,
+      grammarStyle: 3,
+      errorTagging: 3,
+      policyFeedback: 2
+    });
+    setEditErrorTaggingExperience(vendor.errorTaggingExperience || 'basic');
     setIsEditing(true);
   };
 
@@ -674,6 +726,15 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
       ndaUrl: editNdaUrl.trim(),
       hasSignedNda: editHasSignedNda,
       workingLanguages: editLanguages.length > 0 ? editLanguages : [{ language: 'English', proficiency: 'working' }],
+      country: editCountry,
+      timeZone: editTimeZone,
+      availableStartDate: editAvailableStartDate,
+      weeklyAvailability: editWeeklyAvailability,
+      otherLanguages: editOtherLanguages,
+      mtqaExperienceYears: editMtqaExperienceYears,
+      handsOnExperienceAreas: editHandsOnExperienceAreas,
+      agilitySelfAssessment: editAgilitySelfAssessment,
+      errorTaggingExperience: editErrorTaggingExperience,
       updatedAt: new Date().toISOString()
     };
 
@@ -786,6 +847,15 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
       resumeName: uploadedResumeName || '',
       hasSignedNda: false,
       stageStatus: 'started',
+      country: formCountry,
+      timeZone: formTimeZone,
+      availableStartDate: formAvailableStartDate,
+      weeklyAvailability: formWeeklyAvailability,
+      otherLanguages: formOtherLanguages,
+      mtqaExperienceYears: formMtqaExperienceYears,
+      handsOnExperienceAreas: formHandsOnExperienceAreas,
+      agilitySelfAssessment: formAgilitySelfAssessment,
+      errorTaggingExperience: formErrorTaggingExperience,
       submittedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -1339,7 +1409,7 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              Domain & Agility View
+              All Fields View
             </button>
           </div>
           
@@ -2321,6 +2391,178 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                       </div>
                     </div>
 
+                    {/* Edit Detailed Evaluation Section */}
+                    <div className="space-y-3 p-3.5 bg-primary/5 rounded-2xl border border-primary/20">
+                      <span className="text-[10px] text-primary uppercase font-extrabold tracking-wider block flex items-center gap-1">
+                        <Sparkles className="w-3.5 h-3.5" /> Detailed Evaluation & Location Profile
+                      </span>
+
+                      {/* Country & Time Zone */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <label className="text-[9px] text-slate-500 uppercase block">Country of Residence</label>
+                          <select
+                            value={editCountry}
+                            onChange={(e) => setEditCountry(e.target.value)}
+                            className="w-full p-2 text-xs bg-white dark:bg-card-dark border rounded-lg dark:text-white"
+                          >
+                            {COUNTRIES.map((c) => (
+                              <option key={c.code} value={c.name}>{c.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] text-slate-500 uppercase block">Time Zone</label>
+                          <select
+                            value={editTimeZone}
+                            onChange={(e) => setEditTimeZone(e.target.value)}
+                            className="w-full p-2 text-xs bg-white dark:bg-card-dark border rounded-lg dark:text-white"
+                          >
+                            {TIME_ZONES.map((tz) => (
+                              <option key={tz.value} value={tz.label}>{tz.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Start Date & Weekly Availability */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <label className="text-[9px] text-slate-500 uppercase block">Available Start Date</label>
+                          <input
+                            type="text"
+                            value={editAvailableStartDate}
+                            onChange={(e) => setEditAvailableStartDate(e.target.value)}
+                            placeholder="e.g. Immediately"
+                            className="w-full p-2 text-xs bg-white dark:bg-card-dark border rounded-lg dark:text-white"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] text-slate-500 uppercase block">Weekly Availability</label>
+                          <select
+                            value={editWeeklyAvailability}
+                            onChange={(e) => setEditWeeklyAvailability(e.target.value as WeeklyAvailabilityOption)}
+                            className="w-full p-2 text-xs bg-white dark:bg-card-dark border rounded-lg dark:text-white"
+                          >
+                            <option value="less_than_10">Less than 10 hrs/week</option>
+                            <option value="up_to_15">Up to 15 hrs/week</option>
+                            <option value="up_to_20">Up to 20 hrs/week</option>
+                            <option value="more_than_20">20+ hrs/week</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Other Languages */}
+                      <div className="space-y-1">
+                        <label className="text-[9px] text-slate-500 uppercase block">Other Working Languages Handled</label>
+                        <input
+                          type="text"
+                          value={editOtherLanguages}
+                          onChange={(e) => setEditOtherLanguages(e.target.value)}
+                          placeholder="e.g. French (Canadian), Catalan"
+                          className="w-full p-2 text-xs bg-white dark:bg-card-dark border rounded-lg dark:text-white"
+                        />
+                      </div>
+
+                      {/* MTQA Specific Experience Years & Error Tagging */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <label className="text-[9px] text-slate-500 uppercase block">MTQA / MTPE Years</label>
+                          <select
+                            value={editMtqaExperienceYears}
+                            onChange={(e) => setEditMtqaExperienceYears(e.target.value as MtqaExperienceYears)}
+                            className="w-full p-2 text-xs bg-white dark:bg-card-dark border rounded-lg dark:text-white"
+                          >
+                            <option value="less_than_1">Less than 1 year</option>
+                            <option value="1_year">1 year</option>
+                            <option value="1_to_3">1–3 years</option>
+                            <option value="3_to_5">3–5 years</option>
+                            <option value="5_plus">5+ years</option>
+                          </select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[9px] text-slate-500 uppercase block">Taxonomy Experience</label>
+                          <select
+                            value={editErrorTaggingExperience}
+                            onChange={(e) => setEditErrorTaggingExperience(e.target.value as ErrorTaggingExpLevel)}
+                            className="w-full p-2 text-xs bg-white dark:bg-card-dark border rounded-lg dark:text-white"
+                          >
+                            <option value="extensive">Extensive Experience</option>
+                            <option value="basic">Basic Experience</option>
+                            <option value="none_learning">None, Quick to Learn</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Hands-On Domain Checkboxes */}
+                      <div className="space-y-1 pt-1">
+                        <label className="text-[9px] text-slate-500 uppercase block">Proven Hands-On Experience</label>
+                        <div className="space-y-1">
+                          {[
+                            'Machine Translation Quality Assurance (MTQA)',
+                            'Machine Translation Post-Editing (MTPE)',
+                            'AI Training Data Annotation',
+                            'PII Safety Auditing',
+                            'Content Safety / Policy Enforcement Auditing',
+                            'General Localization & Translation'
+                          ].map((area) => (
+                            <label key={area} className="flex items-center gap-2 text-[11px] text-slate-700 dark:text-slate-300 font-medium cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={editHandsOnExperienceAreas.includes(area)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setEditHandsOnExperienceAreas([...editHandsOnExperienceAreas, area]);
+                                  } else {
+                                    setEditHandsOnExperienceAreas(editHandsOnExperienceAreas.filter((a) => a !== area));
+                                  }
+                                }}
+                                className="w-3.5 h-3.5 rounded text-primary border-slate-300"
+                              />
+                              {area}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Agility Ratings 1-3 */}
+                      <div className="space-y-1.5 pt-1 border-t border-primary/10">
+                        <label className="text-[9px] text-slate-500 uppercase block font-bold">Agility Ratings (1-Beginner to 3-Expert)</label>
+                        <div className="grid grid-cols-2 gap-2 text-[10px]">
+                          {[
+                            { key: 'qaPlatforms', label: 'QA Platforms' },
+                            { key: 'grammarStyle', label: 'Grammar & Style' },
+                            { key: 'errorTagging', label: 'Error Tagging' },
+                            { key: 'policyFeedback', label: 'Policy Feedback' }
+                          ].map((metric) => (
+                            <div key={metric.key} className="p-1.5 bg-white dark:bg-card-dark rounded-lg border border-slate-200/50">
+                              <span className="block text-slate-500 font-bold mb-1">{metric.label}</span>
+                              <div className="flex gap-1">
+                                {[1, 2, 3].map((num) => (
+                                  <button
+                                    key={num}
+                                    type="button"
+                                    onClick={() => setEditAgilitySelfAssessment({
+                                      ...editAgilitySelfAssessment,
+                                      [metric.key]: num
+                                    })}
+                                    className={`flex-1 py-0.5 rounded text-[9px] font-extrabold ${
+                                      editAgilitySelfAssessment[metric.key as keyof AgilitySelfAssessment] === num
+                                        ? 'bg-primary text-white'
+                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                                    }`}
+                                  >
+                                    {num}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
                   </form>
                 ) : (
                   /* Display details drawer view */
@@ -2877,6 +3119,178 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                       placeholder="Signed NDA document URL (e.g. DocuSign)"
                       className="w-full p-2 border rounded-lg text-xs bg-white dark:bg-card-dark"
                     />
+                  </div>
+
+                  {/* Comprehensive Evaluation Fields */}
+                  <div className="space-y-3 p-3.5 bg-primary/5 rounded-2xl border border-primary/20">
+                    <span className="text-[10px] text-primary uppercase font-extrabold tracking-wider block flex items-center gap-1">
+                      <Sparkles className="w-3.5 h-3.5" /> Detailed Evaluation & Location Profile
+                    </span>
+
+                    {/* Country & Time Zone */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <label className="text-[9px] text-slate-500 uppercase block">Country of Residence</label>
+                        <select
+                          value={formCountry}
+                          onChange={(e) => setFormCountry(e.target.value)}
+                          className="w-full p-2 text-xs bg-white dark:bg-card-dark border rounded-lg dark:text-white"
+                        >
+                          {COUNTRIES.map((c) => (
+                            <option key={c.code} value={c.name}>{c.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] text-slate-500 uppercase block">Time Zone</label>
+                        <select
+                          value={formTimeZone}
+                          onChange={(e) => setFormTimeZone(e.target.value)}
+                          className="w-full p-2 text-xs bg-white dark:bg-card-dark border rounded-lg dark:text-white"
+                        >
+                          {TIME_ZONES.map((tz) => (
+                            <option key={tz.value} value={tz.label}>{tz.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Start Date & Weekly Availability */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <label className="text-[9px] text-slate-500 uppercase block">Available Start Date</label>
+                        <input
+                          type="text"
+                          value={formAvailableStartDate}
+                          onChange={(e) => setFormAvailableStartDate(e.target.value)}
+                          placeholder="e.g. Immediately"
+                          className="w-full p-2 text-xs bg-white dark:bg-card-dark border rounded-lg dark:text-white"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] text-slate-500 uppercase block">Weekly Availability</label>
+                        <select
+                          value={formWeeklyAvailability}
+                          onChange={(e) => setFormWeeklyAvailability(e.target.value as WeeklyAvailabilityOption)}
+                          className="w-full p-2 text-xs bg-white dark:bg-card-dark border rounded-lg dark:text-white"
+                        >
+                          <option value="less_than_10">Less than 10 hrs/week</option>
+                          <option value="up_to_15">Up to 15 hrs/week</option>
+                          <option value="up_to_20">Up to 20 hrs/week</option>
+                          <option value="more_than_20">20+ hrs/week</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Other Languages */}
+                    <div className="space-y-1">
+                      <label className="text-[9px] text-slate-500 uppercase block">Other Working Languages Handled</label>
+                      <input
+                        type="text"
+                        value={formOtherLanguages}
+                        onChange={(e) => setFormOtherLanguages(e.target.value)}
+                        placeholder="e.g. French (Canadian), Catalan"
+                        className="w-full p-2 text-xs bg-white dark:bg-card-dark border rounded-lg dark:text-white"
+                      />
+                    </div>
+
+                    {/* MTQA Specific Experience Years & Error Tagging */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <label className="text-[9px] text-slate-500 uppercase block">MTQA / MTPE Years</label>
+                        <select
+                          value={formMtqaExperienceYears}
+                          onChange={(e) => setFormMtqaExperienceYears(e.target.value as MtqaExperienceYears)}
+                          className="w-full p-2 text-xs bg-white dark:bg-card-dark border rounded-lg dark:text-white"
+                        >
+                          <option value="less_than_1">Less than 1 year</option>
+                          <option value="1_year">1 year</option>
+                          <option value="1_to_3">1–3 years</option>
+                          <option value="3_to_5">3–5 years</option>
+                          <option value="5_plus">5+ years</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[9px] text-slate-500 uppercase block">Taxonomy Experience</label>
+                        <select
+                          value={formErrorTaggingExperience}
+                          onChange={(e) => setFormErrorTaggingExperience(e.target.value as ErrorTaggingExpLevel)}
+                          className="w-full p-2 text-xs bg-white dark:bg-card-dark border rounded-lg dark:text-white"
+                        >
+                          <option value="extensive">Extensive Experience</option>
+                          <option value="basic">Basic Experience</option>
+                          <option value="none_learning">None, Quick to Learn</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Hands-On Domain Checkboxes */}
+                    <div className="space-y-1 pt-1">
+                      <label className="text-[9px] text-slate-500 uppercase block">Proven Hands-On Experience</label>
+                      <div className="space-y-1">
+                        {[
+                          'Machine Translation Quality Assurance (MTQA)',
+                          'Machine Translation Post-Editing (MTPE)',
+                          'AI Training Data Annotation',
+                          'PII Safety Auditing',
+                          'Content Safety / Policy Enforcement Auditing',
+                          'General Localization & Translation'
+                        ].map((area) => (
+                          <label key={area} className="flex items-center gap-2 text-[11px] text-slate-700 dark:text-slate-300 font-medium cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={formHandsOnExperienceAreas.includes(area)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setFormHandsOnExperienceAreas([...formHandsOnExperienceAreas, area]);
+                                } else {
+                                  setFormHandsOnExperienceAreas(formHandsOnExperienceAreas.filter((a) => a !== area));
+                                }
+                              }}
+                              className="w-3.5 h-3.5 rounded text-primary border-slate-300"
+                            />
+                            {area}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Agility Ratings 1-3 */}
+                    <div className="space-y-1.5 pt-1 border-t border-primary/10">
+                      <label className="text-[9px] text-slate-500 uppercase block font-bold">Agility Ratings (1-Beginner to 3-Expert)</label>
+                      <div className="grid grid-cols-2 gap-2 text-[10px]">
+                        {[
+                          { key: 'qaPlatforms', label: 'QA Platforms' },
+                          { key: 'grammarStyle', label: 'Grammar & Style' },
+                          { key: 'errorTagging', label: 'Error Tagging' },
+                          { key: 'policyFeedback', label: 'Policy Feedback' }
+                        ].map((metric) => (
+                          <div key={metric.key} className="p-1.5 bg-white dark:bg-card-dark rounded-lg border border-slate-200/50">
+                            <span className="block text-slate-500 font-bold mb-1">{metric.label}</span>
+                            <div className="flex gap-1">
+                              {[1, 2, 3].map((num) => (
+                                <button
+                                  key={num}
+                                  type="button"
+                                  onClick={() => setFormAgilitySelfAssessment({
+                                    ...formAgilitySelfAssessment,
+                                    [metric.key]: num
+                                  })}
+                                  className={`flex-1 py-0.5 rounded text-[9px] font-extrabold ${
+                                    formAgilitySelfAssessment[metric.key as keyof AgilitySelfAssessment] === num
+                                      ? 'bg-primary text-white'
+                                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                                  }`}
+                                >
+                                  {num}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
 
                   {/* Resume Upload simulation */}
