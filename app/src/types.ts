@@ -294,6 +294,54 @@ export function getActiveSortedLanguages(rawList: (string | LanguageConfig)[]): 
   });
 }
 
+export const FULL_DEFAULT_LANGUAGES: LanguageConfig[] = [
+  { name: 'Arabic (Egyptian)', code: 'ar-eg', shortName: 'ARE', isActive: true, isPriority: true },
+  { name: 'Arabic (Iraqi)', code: 'ar-iq', shortName: 'ARI', isActive: true, isPriority: false },
+  { name: 'Arabic (Lebanese)', code: 'ar-lb', shortName: 'ARL', isActive: true, isPriority: false },
+  { name: 'Arabic (Levantine)', code: 'ar-lev', shortName: 'ARV', isActive: true, isPriority: true },
+  { name: 'Arabic (Modern Standard)', code: 'ar-msa', shortName: 'MSA', isActive: true, isPriority: true },
+  { name: 'Arabic (Moroccan)', code: 'ar-ma', shortName: 'ARM', isActive: true, isPriority: false },
+  { name: 'Arabic (Palestinian)', code: 'ar-ps', shortName: 'ARP', isActive: true, isPriority: false },
+  { name: 'Azerbaijani', code: 'az', shortName: 'AZE', isActive: true, isPriority: false },
+  { name: 'Bangla (Bengali)', code: 'bn', shortName: 'BEN', isActive: true, isPriority: true },
+  { name: 'Chinese (Cantonese)', code: 'yue', shortName: 'YUE', isActive: true, isPriority: true },
+  { name: 'Chinese (Mandarin)', code: 'zh-cn', shortName: 'ZHO', isActive: true, isPriority: true },
+  { name: 'Chinese (Traditional)', code: 'zh-tw', shortName: 'ZHT', isActive: true, isPriority: true },
+  { name: 'Dutch', code: 'nl', shortName: 'NLD', isActive: true, isPriority: false },
+  { name: 'English', code: 'en', shortName: 'ENG', isActive: true, isPriority: true },
+  { name: 'Filipino', code: 'fil', shortName: 'FIL', isActive: true, isPriority: true },
+  { name: 'French (Canadian)', code: 'fr-ca', shortName: 'FRC', isActive: true, isPriority: true },
+  { name: 'French (European)', code: 'fr-fr', shortName: 'FRE', isActive: true, isPriority: true },
+  { name: 'German', code: 'de', shortName: 'DEU', isActive: true, isPriority: true },
+  { name: 'Gujarati', code: 'gu', shortName: 'GUJ', isActive: true, isPriority: false },
+  { name: 'Hindi', code: 'hi', shortName: 'HIN', isActive: true, isPriority: true },
+  { name: 'Indonesian', code: 'id', shortName: 'IND', isActive: true, isPriority: false },
+  { name: 'Italian', code: 'it', shortName: 'ITA', isActive: true, isPriority: false },
+  { name: 'Japanese', code: 'ja', shortName: 'JPN', isActive: true, isPriority: true },
+  { name: 'Kazakh', code: 'kk', shortName: 'KAZ', isActive: true, isPriority: false },
+  { name: 'Korean', code: 'ko', shortName: 'KOR', isActive: true, isPriority: true },
+  { name: 'Malayalam', code: 'ml', shortName: 'MAL', isActive: true, isPriority: false },
+  { name: 'Manipuri', code: 'mni', shortName: 'MNI', isActive: true, isPriority: false },
+  { name: 'Marathi', code: 'mr', shortName: 'MAR', isActive: true, isPriority: false },
+  { name: 'Nepali', code: 'ne', shortName: 'NEP', isActive: true, isPriority: false },
+  { name: 'Persian', code: 'fa', shortName: 'FAS', isActive: true, isPriority: false },
+  { name: 'Polish', code: 'pl', shortName: 'POL', isActive: true, isPriority: false },
+  { name: 'Portuguese (Brazilian)', code: 'pt-br', shortName: 'PTB', isActive: true, isPriority: true },
+  { name: 'Portuguese (Portugal)', code: 'pt-pt', shortName: 'PTP', isActive: true, isPriority: false },
+  { name: 'Punjabi', code: 'pa', shortName: 'PAN', isActive: true, isPriority: false },
+  { name: 'Romanian', code: 'ro', shortName: 'RON', isActive: true, isPriority: false },
+  { name: 'Russian', code: 'ru', shortName: 'RUS', isActive: true, isPriority: true },
+  { name: 'Spanish', code: 'es', shortName: 'SPA', isActive: true, isPriority: true },
+  { name: 'Spanish (Mexican)', code: 'es-mx', shortName: 'MXS', isActive: true, isPriority: true },
+  { name: 'Swedish', code: 'sv', shortName: 'SWE', isActive: true, isPriority: false },
+  { name: 'Tagalog', code: 'tl', shortName: 'TGL', isActive: true, isPriority: false },
+  { name: 'Tamil', code: 'ta', shortName: 'TAM', isActive: true, isPriority: false },
+  { name: 'Telugu', code: 'te', shortName: 'TEL', isActive: true, isPriority: false },
+  { name: 'Turkish', code: 'tr', shortName: 'TUR', isActive: true, isPriority: true },
+  { name: 'Urdu', code: 'ur', shortName: 'URD', isActive: true, isPriority: true },
+  { name: 'Vietnamese', code: 'vi', shortName: 'VIE', isActive: true, isPriority: true }
+];
+
 export interface NotificationLog {
   id: string;
   vendorId: string;

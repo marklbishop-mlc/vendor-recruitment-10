@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import type { VendorProfile, WorkflowStage, WorkingLanguage, StatusConfig, WorkflowAction, EmailTemplate, TestRecord, WorkflowStageConfig, SlaNudgeConfig, StageProgressConfig, ApplicationConfig, WeeklyAvailabilityOption, MtqaExperienceYears, ErrorTaggingExpLevel, AgilitySelfAssessment } from '../types';
-import { getActiveSortedLanguages, DEFAULT_STAGE_PROGRESS_OPTIONS, getStageProgressStyle, getStageProgressTextColor } from '../types';
+import { getActiveSortedLanguages, DEFAULT_STAGE_PROGRESS_OPTIONS, getStageProgressStyle, getStageProgressTextColor, FULL_DEFAULT_LANGUAGES } from '../types';
 import { COUNTRIES, TIME_ZONES } from '../utils/locationData';
 import { 
   Plus, Search, ShieldAlert, X, ChevronDown,
@@ -48,7 +48,7 @@ const STATUS_COLORS_MAP: Record<string, string> = {
   gray: 'bg-slate-500/15 text-slate-600 dark:text-slate-400 border-slate-500/20'
 };
 
-const DEFAULT_LANGUAGES = ['English', 'Spanish', 'German', 'Japanese', 'Mandarin', 'Swedish', 'Wolof', 'French', 'Portuguese'];
+const DEFAULT_LANGUAGES = FULL_DEFAULT_LANGUAGES.map((l) => l.name);
 
 export const Dashboard: React.FC = () => {
   const { user, loading } = useAuth();

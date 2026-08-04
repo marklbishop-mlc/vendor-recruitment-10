@@ -4,22 +4,12 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { StatusConfig, VendorProfile, LanguageConfig } from '../types';
-import { normalizeLanguageList } from '../types';
+import { normalizeLanguageList, FULL_DEFAULT_LANGUAGES } from '../types';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
 // Default configuration settings to fallback on
-const DEFAULT_LANGUAGES: LanguageConfig[] = [
-  { name: 'English', code: 'en', shortName: 'ENG', isActive: true, isPriority: true },
-  { name: 'Spanish', code: 'es', shortName: 'SPA', isActive: true, isPriority: true },
-  { name: 'German', code: 'de', shortName: 'DEU', isActive: true, isPriority: false },
-  { name: 'Japanese', code: 'ja', shortName: 'JPN', isActive: true, isPriority: true },
-  { name: 'Mandarin', code: 'zh', shortName: 'ZHO', isActive: true, isPriority: false },
-  { name: 'Swedish', code: 'sv', shortName: 'SWE', isActive: true, isPriority: false },
-  { name: 'Wolof', code: 'wo', shortName: 'WOL', isActive: true, isPriority: false },
-  { name: 'French', code: 'fr', shortName: 'FRA', isActive: true, isPriority: false },
-  { name: 'Portuguese', code: 'pt', shortName: 'POR', isActive: true, isPriority: false }
-];
+const DEFAULT_LANGUAGES: LanguageConfig[] = FULL_DEFAULT_LANGUAGES;
 const DEFAULT_STATUSES: StatusConfig[] = [
   { key: 'pending', color: 'yellow' },
   { key: 'approved', color: 'green' },

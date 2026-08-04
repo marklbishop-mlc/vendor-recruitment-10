@@ -12,7 +12,7 @@ import type {
   WeeklyAvailabilityOption,
   AgilitySelfAssessment
 } from '../types';
-import { getActiveSortedLanguages } from '../types';
+import { getActiveSortedLanguages, FULL_DEFAULT_LANGUAGES } from '../types';
 import { COUNTRIES, TIME_ZONES } from '../utils/locationData';
 import { 
   User, Globe, Upload, Plus, Trash2, 
@@ -21,10 +21,7 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-const DEFAULT_LANGUAGES = [
-  'English', 'Spanish', 'French', 'German', 'Italian', 'Portuguese', 
-  'Japanese', 'Mandarin', 'Swedish', 'Wolof', 'Dutch', 'Polish'
-];
+const DEFAULT_LANGUAGES = FULL_DEFAULT_LANGUAGES.map((l) => l.name);
 
 const AVAILABLE_SERVICES = [
   'Translation', 'MTPE (Machine Translation Post-Editing)', 'Editing', 
