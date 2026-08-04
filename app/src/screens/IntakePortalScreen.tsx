@@ -41,9 +41,7 @@ export const IntakePortalScreen: React.FC = () => {
   const [prozProfile, setProzProfile] = useState('');
 
   // Languages state
-  const [languages, setLanguages] = useState<WorkingLanguage[]>([
-    { language: 'Spanish', proficiency: 'native' }
-  ]);
+  const [languages, setLanguages] = useState<WorkingLanguage[]>([]);
   const [newLangName, setNewLangName] = useState('English');
   const [newLangProf, setNewLangProf] = useState<'native' | 'bilingual' | 'professional' | 'working'>('professional');
 
@@ -91,7 +89,6 @@ export const IntakePortalScreen: React.FC = () => {
         setAvailableLanguages(systemLangs);
         if (systemLangs.length > 0) {
           setNewLangName(systemLangs[0]);
-          setLanguages([{ language: systemLangs[0], proficiency: 'native' }]);
         }
 
         // Apply Service Scope Filter if configured on Application
@@ -134,7 +131,6 @@ export const IntakePortalScreen: React.FC = () => {
   };
 
   const handleRemoveLanguage = (langName: string) => {
-    if (languages.length <= 1) return;
     setLanguages(languages.filter(l => l.language !== langName));
   };
 
@@ -158,6 +154,11 @@ export const IntakePortalScreen: React.FC = () => {
     e.preventDefault();
     if (!contactName.trim() || !email.trim()) {
       setError('Please fill in your contact name and email address.');
+      return;
+    }
+
+    if (languages.length === 0) {
+      setError('Please add at least one working language and proficiency.');
       return;
     }
 
@@ -423,20 +424,24 @@ export const IntakePortalScreen: React.FC = () => {
                 </h3>
 
                 <div className="flex flex-wrap gap-2">
-                  {languages.map((l, i) => (
-                    <span key={i} className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary/10 text-primary border border-primary/20 rounded-xl text-xs font-bold">
-                      {l.language} ({l.proficiency})
-                      {languages.length > 1 && (
+                  {languages.length === 0 ? (
+                    <div className="w-full text-xs font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+                      No working languages added yet. Please select your language and proficiency below and click <strong className="text-primary">+ Add Language</strong>.
+                    </div>
+                  ) : (
+                    languages.map((l, i) => (
+                      <span key={i} className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary/10 text-primary border border-primary/20 rounded-xl text-xs font-bold">
+                        {l.language} ({l.proficiency})
                         <button
                           type="button"
                           onClick={() => handleRemoveLanguage(l.language)}
-                          className="hover:text-rose-500 transition-colors"
+                          className="hover:text-rose-500 transition-colors cursor-pointer"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
-                      )}
-                    </span>
-                  ))}
+                      </span>
+                    ))
+                  )}
                 </div>
 
                 <div className="flex flex-col sm:flex-row items-center gap-3 p-3 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200/50 dark:border-slate-800">
