@@ -5,7 +5,7 @@ import { COUNTRIES, TIME_ZONES } from '../utils/locationData';
 import { 
   Plus, Search, ShieldAlert, X, ChevronDown,
   FileText, Check, Copy, UploadCloud, Grid, List, ArrowUpDown,
-  FileCheck, Info, ExternalLink, Edit2, AlertTriangle, Download, Trash2, Mail, Link as LinkIcon, Layers, Sparkles
+  FileCheck, Info, ExternalLink, Edit2, AlertTriangle, Download, Trash2, Mail, Link as LinkIcon, Layers, Sparkles, User, Clock, Award
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { collection, getDocs, doc, setDoc, getDoc, onSnapshot, deleteDoc } from 'firebase/firestore';
@@ -2136,40 +2136,51 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
             ></motion.div>
 
             <motion.div
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-md bg-white dark:bg-card-dark border-l border-slate-200 dark:border-border-dark p-6 overflow-y-auto flex flex-col justify-between"
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="fixed inset-3 sm:inset-6 md:inset-8 lg:inset-10 z-50 bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-3xl shadow-2xl p-6 sm:p-8 overflow-y-auto flex flex-col justify-between"
             >
               <div className="space-y-6">
                 
-                {/* Drawer Header */}
+                {/* Modal Header */}
                 <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-4">
                   <div>
-                    <span className="text-[10px] text-slate-500 block uppercase font-bold tracking-wider">Candidate Profile Drawer</span>
-                    <h3 className="text-xl font-bold text-slate-900 dark:text-white mt-0.5">
-                      {isEditing ? `Editing ${selectedVendor.contactName}` : selectedVendor.contactName}
+                    <span className="text-[10px] text-primary block uppercase font-extrabold tracking-wider">Full Candidate Profile & Evaluation Suite</span>
+                    <h3 className="text-2xl font-extrabold text-slate-900 dark:text-white mt-0.5 flex items-center gap-2">
+                      {isEditing ? `Editing Profile: ${selectedVendor.contactName}` : selectedVendor.contactName}
+                      {selectedVendor.companyName && (
+                        <span className="text-sm font-semibold text-slate-400">({selectedVendor.companyName})</span>
+                      )}
                     </h3>
                   </div>
                   <div className="flex items-center gap-2">
                     {!isEditing && selectedVendor.workingLanguages && selectedVendor.workingLanguages.length > 1 && (
                       <button
                         onClick={() => setSplitPrompt({ vendor: selectedVendor, targetStage: selectedVendor.stage })}
-                        className="p-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer"
+                        className="px-3 py-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-xl text-xs font-extrabold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
                         title="Split candidate into separate language profiles"
                       >
                         <Grid className="w-3.5 h-3.5" />
                         Split Languages
                       </button>
                     )}
-                    {!isEditing && (
+                    {!isEditing ? (
                       <button
                         onClick={() => startEditingVendor(selectedVendor)}
-                        className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 cursor-pointer flex items-center gap-1.5 text-xs font-bold"
+                        className="px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-xl cursor-pointer flex items-center gap-1.5 text-xs font-extrabold shadow-md btn-animate transition-colors"
                       >
-                        <Edit2 className="w-3.5 h-3.5" />
-                        Edit Profile
+                        <Edit2 className="w-4 h-4" />
+                        Edit Candidate Profile
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setIsEditing(false)}
+                        className="px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl cursor-pointer text-xs font-bold transition-colors"
+                      >
+                        Cancel Editing
                       </button>
                     )}
                     <button 
@@ -2177,312 +2188,97 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                         setSelectedVendor(null);
                         setIsEditing(false);
                       }} 
-                      className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-slate-500 cursor-pointer"
+                      className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 text-slate-500 cursor-pointer transition-colors"
                     >
-                      <X className="w-5 h-5" />
+                      <X className="w-6 h-6" />
                     </button>
                   </div>
                 </div>
 
                 {isEditing ? (
                   /* Form: EDIT ALL CANDIDATE FIELDS */
-                  <form id="edit-vendor-form" onSubmit={handleSaveEdit} className="space-y-4 text-xs font-semibold">
+                  <form id="edit-vendor-form" onSubmit={handleSaveEdit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-xs font-semibold">
                     
-                    {/* Full Name */}
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Specialist Full Name</label>
-                      <input
-                        type="text"
-                        required
-                        value={editContactName}
-                        onChange={(e) => setEditContactName(e.target.value)}
-                        className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary dark:text-white"
-                      />
-                    </div>
+                    {/* Column 1: Core Contact & Location */}
+                    <div className="space-y-4 bg-slate-50 dark:bg-bg-dark p-4.5 rounded-2xl border border-slate-200/50 dark:border-white/5">
+                      <h4 className="text-xs font-extrabold text-primary uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-200/40 dark:border-white/5 pb-2">
+                        <User className="w-4 h-4" /> 1. Core Contact & Location
+                      </h4>
 
-                    {/* Company Name */}
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Company Name (Optional)</label>
-                      <input
-                        type="text"
-                        value={editCompanyName}
-                        onChange={(e) => setEditCompanyName(e.target.value)}
-                        className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary dark:text-white"
-                      />
-                    </div>
-
-                    {/* Email and Google Workspace Verification */}
-                    <div className="space-y-2 p-3.5 bg-slate-50 dark:bg-bg-dark rounded-2xl border border-slate-200/20 dark:border-white/5">
+                      {/* Full Name */}
                       <div className="space-y-1">
-                        <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Primary Contact Email</label>
+                        <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Specialist Full Name</label>
                         <input
-                          type="email"
+                          type="text"
                           required
-                          value={editEmail}
-                          onChange={(e) => setEditEmail(e.target.value)}
+                          value={editContactName}
+                          onChange={(e) => setEditContactName(e.target.value)}
                           className="w-full p-2.5 text-xs bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary dark:text-white"
                         />
                       </div>
-                      
-                      <div className="flex items-center gap-2 py-1 select-none">
+
+                      {/* Company Name */}
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Company Name (Optional)</label>
                         <input
-                          type="checkbox"
-                          id="edit-is-gmail"
-                          checked={editIsGmail}
-                          onChange={(e) => setEditIsGmail(e.target.checked)}
-                          className="w-4 h-4 rounded text-primary focus:ring-primary bg-slate-50 cursor-pointer"
+                          type="text"
+                          value={editCompanyName}
+                          onChange={(e) => setEditCompanyName(e.target.value)}
+                          className="w-full p-2.5 text-xs bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary dark:text-white"
                         />
-                        <label htmlFor="edit-is-gmail" className="text-slate-700 dark:text-slate-300 cursor-pointer font-bold">
-                          This is a Gmail or Google Workspace Account
-                        </label>
                       </div>
 
-                      {!editIsGmail && (
-                        <div className="space-y-1.5 pt-1.5 border-t border-slate-200/40">
-                          <label className="text-[10px] text-primary uppercase tracking-wider block">Secondary Google Account Email</label>
+                      {/* Email and Google Workspace Verification */}
+                      <div className="space-y-2 p-3 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50 dark:border-white/5">
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Primary Contact Email</label>
                           <input
                             type="email"
                             required
-                            value={editSecondaryEmail}
-                            onChange={(e) => setEditSecondaryEmail(e.target.value)}
-                            placeholder="e.g. user.auth@gmail.com"
-                            className="w-full p-2.5 text-xs bg-white dark:bg-card-dark border border-primary/20 rounded-xl focus:outline-none dark:text-white"
+                            value={editEmail}
+                            onChange={(e) => setEditEmail(e.target.value)}
+                            className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary dark:text-white"
                           />
                         </div>
-                      )}
-                    </div>
+                        
+                        <div className="flex items-center gap-2 py-1 select-none">
+                          <input
+                            type="checkbox"
+                            id="edit-is-gmail"
+                            checked={editIsGmail}
+                            onChange={(e) => setEditIsGmail(e.target.checked)}
+                            className="w-4 h-4 rounded text-primary focus:ring-primary bg-slate-50 cursor-pointer"
+                          />
+                          <label htmlFor="edit-is-gmail" className="text-slate-700 dark:text-slate-300 cursor-pointer font-bold">
+                            Gmail / Google Account
+                          </label>
+                        </div>
 
-                    {/* Phone & Hours */}
-                    <div className="grid grid-cols-2 gap-4">
+                        {!editIsGmail && (
+                          <div className="space-y-1.5 pt-1.5 border-t border-slate-200/40">
+                            <label className="text-[10px] text-primary uppercase tracking-wider block">Secondary Google Account Email</label>
+                            <input
+                              type="email"
+                              required
+                              value={editSecondaryEmail}
+                              onChange={(e) => setEditSecondaryEmail(e.target.value)}
+                              placeholder="e.g. user.auth@gmail.com"
+                              className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-primary/20 rounded-xl focus:outline-none dark:text-white"
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Phone */}
                       <div className="space-y-1">
                         <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Phone Number</label>
                         <input
                           type="text"
                           value={editPhone}
                           onChange={(e) => setEditPhone(e.target.value)}
-                          className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none dark:text-white"
+                          className="w-full p-2.5 text-xs bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none dark:text-white"
                         />
                       </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Hours Available/wk</label>
-                        <input
-                          type="number"
-                          value={editHours}
-                          onChange={(e) => setEditHours(e.target.value)}
-                          className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none dark:text-white"
-                        />
-                      </div>
-                    </div>
-
-                    {/* MT PE Experience & Custom Status dropdown connected to settings statuses */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-slate-400 uppercase tracking-wider block">MT PE Experience</label>
-                        <select
-                          value={editExperience}
-                          onChange={(e) => setEditExperience(e.target.value as any)}
-                          className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none dark:text-white cursor-pointer"
-                        >
-                          <option value="1-3">1-3 years</option>
-                          <option value="3-5">3-5 years</option>
-                          <option value="5+">5+ years</option>
-                        </select>
-                      </div>
-                      
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Candidate Status</label>
-                        {/* Dynamic statuses list fetched from settings configuration */}
-                        <select
-                          value={editStatus}
-                          onChange={(e) => setEditStatus(e.target.value)}
-                          className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none dark:text-white cursor-pointer capitalize font-bold"
-                        >
-                          {activeStatuses.map((s) => (
-                            <option key={s.key} value={s.key}>{s.key.replace('_', ' ')}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* ProZ & LinkedIn Links */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-slate-400 uppercase tracking-wider block">ProZ Profile URL</label>
-                        <input
-                          type="text"
-                          value={editProz}
-                          onChange={(e) => setEditProz(e.target.value)}
-                          placeholder="proz.com/profile/username"
-                          className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-slate-400 uppercase tracking-wider block">LinkedIn Profile URL</label>
-                        <input
-                          type="text"
-                          value={editLinkedin}
-                          onChange={(e) => setEditLinkedin(e.target.value)}
-                          placeholder="linkedin.com/in/username"
-                          className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none"
-                        />
-                      </div>
-                    </div>
-
-                    {/* NDA links url & checkbox */}
-                    <div className="space-y-2 p-3 bg-slate-50 dark:bg-bg-dark rounded-2xl border border-slate-200/20 dark:border-white/5">
-                      <span className="text-[10px] text-slate-400 uppercase tracking-wider block">NDA Compliance Link</span>
-                      <div className="flex items-center gap-2 select-none mb-1">
-                        <input
-                          type="checkbox"
-                          id="edit-has-signed-nda"
-                          checked={editHasSignedNda}
-                          onChange={(e) => setEditHasSignedNda(e.target.checked)}
-                          className="w-4 h-4 rounded text-primary bg-slate-50 cursor-pointer"
-                        />
-                        <label htmlFor="edit-has-signed-nda" className="text-slate-700 dark:text-slate-300 font-bold cursor-pointer">
-                          Signed NDA Verified
-                        </label>
-                      </div>
-                      
-                      <div className="space-y-1">
-                        <label className="text-[9px] text-slate-400 uppercase block">Signed NDA PDF Contract URL</label>
-                        <input
-                          type="text"
-                          value={editNdaUrl}
-                          onChange={(e) => setEditNdaUrl(e.target.value)}
-                          placeholder="https://docusign.com/..."
-                          className="w-full p-2 bg-white dark:bg-card-dark border rounded-lg text-xs"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Working Languages */}
-                    <div className="space-y-3 p-4 bg-slate-50 dark:bg-bg-dark rounded-2xl border border-slate-200/20 dark:border-white/5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] text-slate-400 uppercase tracking-wider font-extrabold block">
-                          Working Languages
-                        </span>
-                        <span className="text-[9px] text-slate-400 font-mono">
-                          {editLanguages.length} Registered Pair(s)
-                        </span>
-                      </div>
-
-                      {/* Add new language pair */}
-                      <div className="flex gap-2">
-                        <select
-                          id="edit-lang-select"
-                          className="flex-1 p-2 text-xs bg-white dark:bg-card-dark border rounded-xl text-slate-900 dark:text-white font-bold"
-                        >
-                          {activeLanguages.map((l) => (
-                            <option key={l} value={l}>{l}</option>
-                          ))}
-                        </select>
-                        <select
-                          id="edit-prof-select"
-                          className="p-2 text-xs bg-white dark:bg-card-dark border rounded-xl text-slate-900 dark:text-white font-bold"
-                        >
-                          <option value="native">Native</option>
-                          <option value="bilingual">Bilingual</option>
-                          <option value="professional">Professional</option>
-                          <option value="working">Working</option>
-                        </select>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const lSelect = document.getElementById('edit-lang-select') as HTMLSelectElement;
-                            const pSelect = document.getElementById('edit-prof-select') as HTMLSelectElement;
-                            if (lSelect && pSelect) {
-                              handleAddLanguageToEdit(lSelect.value, pSelect.value as any);
-                            }
-                          }}
-                          className="py-1.5 px-3 bg-primary hover:bg-primary-dark text-white rounded-xl font-bold text-xs cursor-pointer btn-animate"
-                        >
-                          Add Pair
-                        </button>
-                      </div>
-
-                      {/* Working Languages Tags List */}
-                      <div className="flex flex-wrap gap-2 pt-1">
-                        {editLanguages.map((l) => (
-                          <div 
-                            key={l.language} 
-                            className="px-3 py-1.5 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50 dark:border-border-dark flex items-center gap-2 text-xs shadow-sm"
-                          >
-                            <span className="font-extrabold text-slate-900 dark:text-white">{l.language}</span>
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary capitalize border border-primary/20">
-                              {l.proficiency}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveLanguageFromEdit(l.language)}
-                              className="text-slate-400 hover:text-rose-500 font-extrabold ml-1 cursor-pointer text-sm"
-                              title="Remove Language Pair"
-                            >
-                              ×
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Services Offered (Comma Separated)</label>
-                        <input
-                          type="text"
-                          value={editServices}
-                          onChange={(e) => setEditServices(e.target.value)}
-                          placeholder="e.g. Translation, Localization"
-                          className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Classification Tier</label>
-                        <select
-                          value={editTier}
-                          onChange={(e) => setEditTier(parseInt(e.target.value) as 1 | 2 | 3)}
-                          className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none cursor-pointer"
-                        >
-                          <option value={1}>Tier 1 (Highest Quality)</option>
-                          <option value={2}>Tier 2 (Standard)</option>
-                          <option value={3}>Tier 3 (Budget/Emerging)</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* Rates Edit fields */}
-                    <div className="grid grid-cols-3 gap-2 p-3 bg-slate-50 dark:bg-bg-dark border border-slate-200/20 rounded-2xl">
-                      <div className="space-y-1">
-                        <label className="text-[9px] text-slate-400 uppercase block">Client Charge ($/hr)</label>
-                        <input
-                          type="number"
-                          value={editMlcRate}
-                          onChange={(e) => setEditMlcRate(e.target.value)}
-                          className="w-full p-2 bg-white dark:bg-card-dark border rounded-lg text-xs"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[9px] text-slate-400 uppercase block">Target Offer ($/hr)</label>
-                        <span className="w-full p-2 bg-slate-200/40 dark:bg-slate-800 rounded-lg text-xs font-bold block text-center leading-normal">
-                          {Math.round((parseFloat(editMlcRate) || 0) * 0.9)}
-                        </span>
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[9px] text-slate-400 uppercase block">Confirmed Rate ($/hr)</label>
-                        <input
-                          type="number"
-                          value={editConfirmedRate}
-                          onChange={(e) => setEditConfirmedRate(e.target.value)}
-                          className="w-full p-2 bg-white dark:bg-card-dark border border-primary/20 rounded-lg text-xs font-bold text-primary"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Edit Detailed Evaluation Section */}
-                    <div className="space-y-3 p-3.5 bg-primary/5 rounded-2xl border border-primary/20">
-                      <span className="text-[10px] text-primary uppercase font-extrabold tracking-wider block flex items-center gap-1">
-                        <Sparkles className="w-3.5 h-3.5" /> Detailed Evaluation & Location Profile
-                      </span>
 
                       {/* Country & Time Zone */}
                       <div className="grid grid-cols-2 gap-2">
@@ -2493,6 +2289,7 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                             onChange={(e) => setEditCountry(e.target.value)}
                             className="w-full p-2 text-xs bg-white dark:bg-card-dark border rounded-lg dark:text-white"
                           >
+                            <option value="">-- Select Country --</option>
                             {COUNTRIES.map((c) => (
                               <option key={c.code} value={c.name}>{c.name}</option>
                             ))}
@@ -2505,15 +2302,52 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                             onChange={(e) => setEditTimeZone(e.target.value)}
                             className="w-full p-2 text-xs bg-white dark:bg-card-dark border rounded-lg dark:text-white"
                           >
+                            <option value="">-- Select Time Zone --</option>
                             {TIME_ZONES.map((tz) => (
                               <option key={tz.value} value={tz.label}>{tz.label}</option>
                             ))}
                           </select>
                         </div>
                       </div>
+                    </div>
+
+                    {/* Column 2: Workflow, Scheduling & Rates */}
+                    <div className="space-y-4 bg-slate-50 dark:bg-bg-dark p-4.5 rounded-2xl border border-slate-200/50 dark:border-white/5">
+                      <h4 className="text-xs font-extrabold text-primary uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-200/40 dark:border-white/5 pb-2">
+                        <Clock className="w-4 h-4" /> 2. Workflow & Rates
+                      </h4>
+
+                      {/* Candidate Status & Classification Tier */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Candidate Status</label>
+                          <select
+                            value={editStatus}
+                            onChange={(e) => setEditStatus(e.target.value)}
+                            className="w-full p-2.5 text-xs bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none dark:text-white cursor-pointer capitalize font-bold"
+                          >
+                            {activeStatuses.map((s) => (
+                              <option key={s.key} value={s.key}>{s.key.replace('_', ' ')}</option>
+                            ))}
+                          </select>
+                        </div>
+                        
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Classification Tier</label>
+                          <select
+                            value={editTier}
+                            onChange={(e) => setEditTier(parseInt(e.target.value) as 1 | 2 | 3)}
+                            className="w-full p-2.5 text-xs bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none cursor-pointer font-bold"
+                          >
+                            <option value={1}>Tier 1 (Highest Quality)</option>
+                            <option value={2}>Tier 2 (Standard)</option>
+                            <option value={3}>Tier 3 (Budget/Emerging)</option>
+                          </select>
+                        </div>
+                      </div>
 
                       {/* Start Date & Weekly Availability */}
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
                           <label className="text-[9px] text-slate-500 uppercase block">Available Start Date</label>
                           <input
@@ -2521,37 +2355,170 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                             value={editAvailableStartDate}
                             onChange={(e) => setEditAvailableStartDate(e.target.value)}
                             placeholder="e.g. Immediately"
-                            className="w-full p-2 text-xs bg-white dark:bg-card-dark border rounded-lg dark:text-white"
+                            className="w-full p-2.5 text-xs bg-white dark:bg-card-dark border rounded-xl dark:text-white font-medium"
                           />
                         </div>
                         <div className="space-y-1">
-                          <label className="text-[9px] text-slate-500 uppercase block">Weekly Availability</label>
+                          <label className="text-[9px] text-slate-500 uppercase block">Weekly Capacity</label>
                           <select
                             value={editWeeklyAvailability}
                             onChange={(e) => setEditWeeklyAvailability(e.target.value as WeeklyAvailabilityOption)}
-                            className="w-full p-2 text-xs bg-white dark:bg-card-dark border rounded-lg dark:text-white"
+                            className="w-full p-2.5 text-xs bg-white dark:bg-card-dark border rounded-xl dark:text-white font-medium"
                           >
-                            <option value="less_than_10">Less than 10 hrs/week</option>
-                            <option value="up_to_15">Up to 15 hrs/week</option>
-                            <option value="up_to_20">Up to 20 hrs/week</option>
-                            <option value="more_than_20">20+ hrs/week</option>
+                            <option value="">-- Select Capacity --</option>
+                            <option value="less_than_10">Less than 10 hrs/wk</option>
+                            <option value="up_to_15">Up to 15 hrs/wk</option>
+                            <option value="up_to_20">Up to 20 hrs/wk</option>
+                            <option value="more_than_20">20+ hrs/wk</option>
                           </select>
                         </div>
                       </div>
 
-                      {/* Other Languages */}
-                      <div className="space-y-1">
-                        <label className="text-[9px] text-slate-500 uppercase block">Other Working Languages Handled</label>
-                        <input
-                          type="text"
-                          value={editOtherLanguages}
-                          onChange={(e) => setEditOtherLanguages(e.target.value)}
-                          placeholder="e.g. French (Canadian), Catalan"
-                          className="w-full p-2 text-xs bg-white dark:bg-card-dark border rounded-lg dark:text-white"
-                        />
+                      {/* Negotiated Rates */}
+                      <div className="space-y-2 p-3 bg-white dark:bg-card-dark border border-slate-200/50 rounded-xl">
+                        <span className="text-[10px] text-slate-400 uppercase font-extrabold block">Commercial Rates ($/hr)</span>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="space-y-1">
+                            <label className="text-[9px] text-slate-400 uppercase block">Client Charge</label>
+                            <input
+                              type="number"
+                              value={editMlcRate}
+                              onChange={(e) => setEditMlcRate(e.target.value)}
+                              className="w-full p-2 bg-slate-50 dark:bg-bg-dark border rounded-lg text-xs font-bold"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] text-slate-400 uppercase block">Target Offer</label>
+                            <span className="w-full p-2 bg-slate-200/40 dark:bg-slate-800 rounded-lg text-xs font-bold block text-center leading-normal">
+                              ${Math.round((parseFloat(editMlcRate) || 0) * 0.9)}
+                            </span>
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] text-slate-400 uppercase block">Agreed Rate</label>
+                            <input
+                              type="number"
+                              value={editConfirmedRate}
+                              onChange={(e) => setEditConfirmedRate(e.target.value)}
+                              className="w-full p-2 bg-slate-50 dark:bg-bg-dark border border-primary/20 rounded-lg text-xs font-extrabold text-primary"
+                            />
+                          </div>
+                        </div>
                       </div>
 
-                      {/* MTQA Specific Experience Years & Error Tagging */}
+                      {/* Portfolio & NDA URLs */}
+                      <div className="space-y-2 p-3 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50">
+                        <span className="text-[10px] text-slate-400 uppercase font-extrabold block">Portfolio & Compliance URLs</span>
+                        <div className="space-y-2">
+                          <input
+                            type="text"
+                            value={editProz}
+                            onChange={(e) => setEditProz(e.target.value)}
+                            placeholder="ProZ Profile URL"
+                            className="w-full p-2 text-xs bg-slate-50 dark:bg-bg-dark border rounded-lg"
+                          />
+                          <input
+                            type="text"
+                            value={editLinkedin}
+                            onChange={(e) => setEditLinkedin(e.target.value)}
+                            placeholder="LinkedIn Profile URL"
+                            className="w-full p-2 text-xs bg-slate-50 dark:bg-bg-dark border rounded-lg"
+                          />
+                          <div className="flex items-center gap-2 select-none pt-1">
+                            <input
+                              type="checkbox"
+                              id="edit-has-signed-nda"
+                              checked={editHasSignedNda}
+                              onChange={(e) => setEditHasSignedNda(e.target.checked)}
+                              className="w-4 h-4 rounded text-primary bg-slate-50 cursor-pointer"
+                            />
+                            <label htmlFor="edit-has-signed-nda" className="text-slate-700 dark:text-slate-300 font-bold cursor-pointer text-xs">
+                              Signed NDA Verified
+                            </label>
+                          </div>
+                          <input
+                            type="text"
+                            value={editNdaUrl}
+                            onChange={(e) => setEditNdaUrl(e.target.value)}
+                            placeholder="Signed NDA Document URL (e.g. DocuSign)"
+                            className="w-full p-2 text-xs bg-slate-50 dark:bg-bg-dark border rounded-lg"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Column 3: Languages & Evaluation Matrix */}
+                    <div className="space-y-4 bg-slate-50 dark:bg-bg-dark p-4.5 rounded-2xl border border-slate-200/50 dark:border-white/5">
+                      <h4 className="text-xs font-extrabold text-primary uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-200/40 dark:border-white/5 pb-2">
+                        <Award className="w-4 h-4" /> 3. Evaluation & Agility Matrix
+                      </h4>
+
+                      {/* Working Languages */}
+                      <div className="space-y-2 p-3 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] text-slate-400 uppercase tracking-wider font-extrabold block">
+                            Working Languages
+                          </span>
+                          <span className="text-[9px] text-slate-400 font-mono">
+                            {editLanguages.length} Pair(s)
+                          </span>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <select
+                            id="edit-lang-select"
+                            className="flex-1 p-2 text-xs bg-slate-50 dark:bg-bg-dark border rounded-xl font-bold"
+                          >
+                            {activeLanguages.map((l) => (
+                              <option key={l} value={l}>{l}</option>
+                            ))}
+                          </select>
+                          <select
+                            id="edit-prof-select"
+                            className="p-2 text-xs bg-slate-50 dark:bg-bg-dark border rounded-xl font-bold"
+                          >
+                            <option value="native">Native</option>
+                            <option value="bilingual">Bilingual</option>
+                            <option value="professional">Professional</option>
+                            <option value="working">Working</option>
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const lSelect = document.getElementById('edit-lang-select') as HTMLSelectElement;
+                              const pSelect = document.getElementById('edit-prof-select') as HTMLSelectElement;
+                              if (lSelect && pSelect) {
+                                handleAddLanguageToEdit(lSelect.value, pSelect.value as any);
+                              }
+                            }}
+                            className="py-1.5 px-3 bg-primary hover:bg-primary-dark text-white rounded-xl font-bold text-xs cursor-pointer btn-animate"
+                          >
+                            Add
+                          </button>
+                        </div>
+
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                          {editLanguages.map((l) => (
+                            <div 
+                              key={l.language} 
+                              className="px-2.5 py-1 bg-slate-50 dark:bg-bg-dark rounded-lg border border-slate-200/50 flex items-center gap-1.5 text-xs"
+                            >
+                              <span className="font-extrabold">{l.language}</span>
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-primary/10 text-primary capitalize">
+                                {l.proficiency}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveLanguageFromEdit(l.language)}
+                                className="text-slate-400 hover:text-rose-500 font-extrabold ml-1 cursor-pointer"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* MTQA Years & Taxonomy Exp */}
                       <div className="grid grid-cols-2 gap-2">
                         <div className="space-y-1">
                           <label className="text-[9px] text-slate-500 uppercase block">MTQA / MTPE Years</label>
@@ -2560,6 +2527,7 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                             onChange={(e) => setEditMtqaExperienceYears(e.target.value as MtqaExperienceYears)}
                             className="w-full p-2 text-xs bg-white dark:bg-card-dark border rounded-lg dark:text-white"
                           >
+                            <option value="">-- Select MTQA Exp --</option>
                             <option value="less_than_1">Less than 1 year</option>
                             <option value="1_year">1 year</option>
                             <option value="1_to_3">1–3 years</option>
@@ -2569,12 +2537,13 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                         </div>
 
                         <div className="space-y-1">
-                          <label className="text-[9px] text-slate-500 uppercase block">Taxonomy Experience</label>
+                          <label className="text-[9px] text-slate-500 uppercase block">Taxonomy Exp</label>
                           <select
                             value={editErrorTaggingExperience}
                             onChange={(e) => setEditErrorTaggingExperience(e.target.value as ErrorTaggingExpLevel)}
                             className="w-full p-2 text-xs bg-white dark:bg-card-dark border rounded-lg dark:text-white"
                           >
+                            <option value="">-- Select Taxonomy Exp --</option>
                             <option value="extensive">Extensive Experience</option>
                             <option value="basic">Basic Experience</option>
                             <option value="none_learning">None, Quick to Learn</option>
@@ -2582,10 +2551,10 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                         </div>
                       </div>
 
-                      {/* Hands-On Domain Checkboxes */}
-                      <div className="space-y-1 pt-1">
-                        <label className="text-[9px] text-slate-500 uppercase block">Proven Hands-On Experience</label>
-                        <div className="space-y-1">
+                      {/* Hands-On Specialization Checkboxes */}
+                      <div className="space-y-1 p-3 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50">
+                        <label className="text-[9px] text-slate-400 uppercase font-extrabold block">Proven Hands-On Specializations</label>
+                        <div className="space-y-1.5 pt-1">
                           {[
                             'Machine Translation Quality Assurance (MTQA)',
                             'Machine Translation Post-Editing (MTPE)',
@@ -2614,8 +2583,8 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                       </div>
 
                       {/* Agility Ratings 1-3 */}
-                      <div className="space-y-1.5 pt-1 border-t border-primary/10">
-                        <label className="text-[9px] text-slate-500 uppercase block font-bold">Agility Ratings (1-Beginner to 3-Expert)</label>
+                      <div className="space-y-1.5 p-3 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50">
+                        <label className="text-[9px] text-slate-400 uppercase font-extrabold block">Technical Agility Ratings (1-3 Scale)</label>
                         <div className="grid grid-cols-2 gap-2 text-[10px]">
                           {[
                             { key: 'qaPlatforms', label: 'QA Platforms' },
@@ -2623,7 +2592,7 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                             { key: 'errorTagging', label: 'Error Tagging' },
                             { key: 'policyFeedback', label: 'Policy Feedback' }
                           ].map((metric) => (
-                            <div key={metric.key} className="p-1.5 bg-white dark:bg-card-dark rounded-lg border border-slate-200/50">
+                            <div key={metric.key} className="p-1.5 bg-slate-50 dark:bg-bg-dark rounded-lg border border-slate-200/50">
                               <span className="block text-slate-500 font-bold mb-1">{metric.label}</span>
                               <div className="flex gap-1">
                                 {[1, 2, 3].map((num) => (
@@ -2637,7 +2606,7 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                                     className={`flex-1 py-0.5 rounded text-[9px] font-extrabold ${
                                       editAgilitySelfAssessment[metric.key as keyof AgilitySelfAssessment] === num
                                         ? 'bg-primary text-white'
-                                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                                        : 'bg-white dark:bg-card-dark text-slate-600 dark:text-slate-400 border'
                                     }`}
                                   >
                                     {num}
@@ -2652,300 +2621,290 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
 
                   </form>
                 ) : (
-                  /* Display details drawer view */
-                  <div className="space-y-6 text-sm">
-                    {/* Status Badge mapping config colors */}
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Candidate Current Status</span>
-                      {(() => {
-                        const statusConf = activeStatuses.find(s => s.key === selectedVendor.status);
-                        const statusColorClass = statusConf 
-                          ? STATUS_COLORS_MAP[statusConf.color] || STATUS_COLORS_MAP.gray
-                          : STATUS_COLORS_MAP.gray;
-                        return (
-                          <span className={`px-2.5 py-0.5 border text-xs font-bold rounded-lg uppercase tracking-wider ${statusColorClass}`}>
-                            {selectedVendor.status.replace('_', ' ')}
-                          </span>
-                        );
-                      })()}
-                    </div>
+                  /* Display details full-screen modal view (3-Column Layout) */
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-sm">
+                    
+                    {/* Column 1: Core Contact & Location */}
+                    <div className="space-y-5 bg-slate-50 dark:bg-bg-dark p-5 rounded-2xl border border-slate-200/50 dark:border-white/5 flex flex-col justify-between">
+                      <div className="space-y-4">
+                        <h4 className="text-xs font-extrabold text-primary uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-200/40 dark:border-white/5 pb-2">
+                          <User className="w-4 h-4" /> Identity & Contact Profile
+                        </h4>
 
-                    {/* Signed NDA verified status and Direct link */}
-                    <div className="flex flex-col gap-2 p-3.5 bg-slate-50 dark:bg-bg-dark border border-slate-200/20 dark:border-white/5 rounded-2xl">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <FileCheck className={`w-5 h-5 ${selectedVendor.hasSignedNda ? 'text-emerald-500' : 'text-slate-400'}`} />
+                        <div className="space-y-3 text-xs">
                           <div>
-                            <span className="text-xs font-bold text-slate-900 dark:text-white">Non-Disclosure Agreement</span>
-                            <span className="text-[10px] text-slate-500 block">{selectedVendor.hasSignedNda ? 'Signed NDA Verified' : 'NDA Missing / Required'}</span>
+                            <span className="text-[10px] text-slate-400 uppercase font-bold block">Specialist Full Name</span>
+                            <span className="text-base font-extrabold text-slate-900 dark:text-white block">{selectedVendor.contactName}</span>
+                          </div>
+
+                          <div>
+                            <span className="text-[10px] text-slate-400 uppercase font-bold block">Company Entity</span>
+                            <span className="font-semibold text-slate-700 dark:text-slate-300 block">{selectedVendor.companyName || 'Individual Freelancer'}</span>
+                          </div>
+
+                          <div>
+                            <span className="text-[10px] text-slate-400 uppercase font-bold block">Primary Email</span>
+                            <span className="font-extrabold text-slate-900 dark:text-white block">{selectedVendor.email}</span>
+                          </div>
+
+                          {selectedVendor.secondaryEmail && (
+                            <div>
+                              <span className="text-[10px] text-primary uppercase font-bold block">Secondary Google Account</span>
+                              <span className="font-bold text-primary block">{selectedVendor.secondaryEmail}</span>
+                            </div>
+                          )}
+
+                          <div>
+                            <span className="text-[10px] text-slate-400 uppercase font-bold block">Phone Number</span>
+                            <span className="font-semibold text-slate-700 dark:text-slate-300 block">{selectedVendor.phone || 'Unspecified'}</span>
+                          </div>
+
+                          <div className="pt-2 border-t border-slate-200/40">
+                            <span className="text-[10px] text-slate-400 uppercase font-bold block">Country of Residence</span>
+                            <span className="font-extrabold text-slate-900 dark:text-white block">{selectedVendor.country || 'Unspecified'}</span>
+                          </div>
+
+                          <div>
+                            <span className="text-[10px] text-slate-400 uppercase font-bold block">Primary Time Zone</span>
+                            <span className="font-semibold text-slate-700 dark:text-slate-300 block">{selectedVendor.timeZone || 'Unspecified'}</span>
                           </div>
                         </div>
                       </div>
-                      
-                      {selectedVendor.ndaUrl && (
-                        <div className="pt-2 border-t border-slate-200/40">
+
+                      {/* NDA Compliance Section */}
+                      <div className="p-3.5 bg-white dark:bg-card-dark border border-slate-200/50 rounded-xl space-y-2 mt-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] text-slate-400 font-bold uppercase">NDA Status</span>
+                          {selectedVendor.hasSignedNda ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/15 text-emerald-600 border border-emerald-500/20">🟢 Signed Verified</span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-rose-500/15 text-rose-600 border border-rose-500/20">🔴 Missing</span>
+                          )}
+                        </div>
+                        {selectedVendor.ndaUrl && (
                           <a 
                             href={selectedVendor.ndaUrl} 
                             target="_blank" 
                             rel="noreferrer" 
                             className="inline-flex items-center gap-1.5 text-primary font-bold hover:underline text-xs"
                           >
-                            <ExternalLink className="w-4 h-4 text-primary" />
-                            Open Signed NDA PDF Document
+                            <ExternalLink className="w-4 h-4" />
+                            View Signed NDA Document ↗
                           </a>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Column 2: Workflow, Scheduling & Rates */}
+                    <div className="space-y-5 bg-slate-50 dark:bg-bg-dark p-5 rounded-2xl border border-slate-200/50 dark:border-white/5 flex flex-col justify-between">
+                      <div className="space-y-4">
+                        <h4 className="text-xs font-extrabold text-primary uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-200/40 dark:border-white/5 pb-2">
+                          <Clock className="w-4 h-4" /> Workflow Stage & Commercials
+                        </h4>
+
+                        {/* Current Status Badge & Tier */}
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="text-[10px] text-slate-400 uppercase font-bold block">Current Status</span>
+                            {(() => {
+                              const statusConf = activeStatuses.find(s => s.key === selectedVendor.status);
+                              const statusColorClass = statusConf 
+                                ? STATUS_COLORS_MAP[statusConf.color] || STATUS_COLORS_MAP.gray
+                                : STATUS_COLORS_MAP.gray;
+                              return (
+                                <span className={`px-2.5 py-0.5 border text-xs font-bold rounded-lg uppercase tracking-wider ${statusColorClass}`}>
+                                  {selectedVendor.status.replace('_', ' ')}
+                                </span>
+                              );
+                            })()}
+                          </div>
+                          <div className="text-right">
+                            <span className="text-[10px] text-slate-400 uppercase font-bold block">Classification Tier</span>
+                            <span className="font-extrabold text-slate-800 dark:text-slate-200">Tier {selectedVendor.classificationTier || 2}</span>
+                          </div>
+                        </div>
+
+                        {/* Workflow Stage Selector */}
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Workflow Pipeline Stage</label>
+                          <select
+                            value={selectedVendor.stage}
+                            onChange={(e) => handleStageChangeRequest(selectedVendor.id, e.target.value as WorkflowStage)}
+                            className="w-full pl-3 pr-8 py-2.5 text-xs font-bold bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-xl dark:text-white cursor-pointer focus:outline-none"
+                          >
+                            {stages.map((stg) => (
+                              <option key={stg.id} value={stg.id}>{stg.name}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Stage Progress Selector */}
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Stage Progress</label>
+                          <div className="w-full">
+                            {renderStageStatusSelector(selectedVendor)}
+                          </div>
+                        </div>
+
+                        {/* Scheduling */}
+                        <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-200/40">
+                          <div>
+                            <span className="text-[10px] text-slate-400 uppercase font-bold block">Start Availability</span>
+                            <span className="font-extrabold text-slate-900 dark:text-white block">{selectedVendor.availableStartDate || 'Immediate'}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-slate-400 uppercase font-bold block">Weekly Capacity</span>
+                            <span className="font-extrabold text-slate-900 dark:text-white block">
+                              {selectedVendor.weeklyAvailability ? (
+                                selectedVendor.weeklyAvailability.replace('_than_', ' ').replace('_to_', '–').replace('_plus', '+') + ' hrs/wk'
+                              ) : selectedVendor.hoursAvailable ? (
+                                `${selectedVendor.hoursAvailable} hrs/wk`
+                              ) : (
+                                'Unspecified'
+                              )}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Commercial Rates Summary */}
+                        <div className="bg-white dark:bg-card-dark rounded-xl p-3.5 border border-slate-200/50 space-y-2">
+                          <span className="text-[10px] text-slate-400 uppercase font-extrabold block">Commercial Rates</span>
+                          <div className="grid grid-cols-3 gap-2 text-center">
+                            <div>
+                              <span className="text-[9px] text-slate-500 block">Client Charge</span>
+                              <span className="font-bold text-slate-800 dark:text-white">${selectedVendor.mlcHourlyRate}/hr</span>
+                            </div>
+                            <div>
+                              <span className="text-[9px] text-slate-500 block">Target Offer</span>
+                              <span className="font-bold text-slate-800 dark:text-white">${selectedVendor.adjustedRate}/hr</span>
+                            </div>
+                            <div className="bg-primary/10 border border-primary/20 rounded-lg p-1">
+                              <span className="text-[9px] text-primary block font-extrabold">Agreed Rate</span>
+                              <span className="font-extrabold text-primary">${selectedVendor.confirmedRate}/hr</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Application Intake Source Campaign */}
+                      {selectedVendor.applicationName && (
+                        <div className="p-3 bg-primary/5 dark:bg-primary/10 rounded-xl border border-primary/20 flex items-center justify-between text-xs mt-4">
+                          <div className="flex items-center gap-2">
+                            <Layers className="w-4 h-4 text-primary shrink-0" />
+                            <div>
+                              <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Intake Campaign</span>
+                              <span className="font-extrabold text-slate-900 dark:text-white">{selectedVendor.applicationName}</span>
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>
 
-                    {/* Stage selector dropdown inside sidebar details */}
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Workflow Stage</label>
-                      <select
-                        value={selectedVendor.stage}
-                        onChange={(e) => handleStageChangeRequest(selectedVendor.id, e.target.value as WorkflowStage)}
-                        className="w-full pl-3 pr-8 py-2.5 text-xs font-bold bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl dark:text-white cursor-pointer focus:outline-none"
-                      >
-                        {stages.map((stg) => (
-                          <option key={stg.id} value={stg.id}>{stg.name}</option>
-                        ))}
-                      </select>
-                    </div>
+                    {/* Column 3: Languages, Services & Evaluation Matrix */}
+                    <div className="space-y-5 bg-slate-50 dark:bg-bg-dark p-5 rounded-2xl border border-slate-200/50 dark:border-white/5 flex flex-col justify-between">
+                      <div className="space-y-4">
+                        <h4 className="text-xs font-extrabold text-primary uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-200/40 dark:border-white/5 pb-2">
+                          <Award className="w-4 h-4" /> Languages & Agility Evaluation
+                        </h4>
 
-                    {/* Stage Progress toggle inside sidebar details */}
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Stage Progress & Status</label>
-                      <div className="w-full">
-                        {renderStageStatusSelector(selectedVendor)}
-                      </div>
-                    </div>
-
-                    {/* Application Intake Source */}
-                    {selectedVendor.applicationName && (
-                      <div className="p-3 bg-primary/5 dark:bg-primary/10 rounded-2xl border border-primary/20 flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-2">
-                          <Layers className="w-4 h-4 text-primary shrink-0" />
-                          <div>
-                            <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Application Intake Source</span>
-                            <span className="font-extrabold text-slate-900 dark:text-white">{selectedVendor.applicationName}</span>
+                        {/* Working Languages */}
+                        <div className="space-y-2 p-3 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-slate-400 uppercase font-bold">Working Languages</span>
+                            <span className="text-[9px] text-slate-400 font-mono">{(selectedVendor.workingLanguages || []).length} Pair(s)</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {Array.isArray(selectedVendor.workingLanguages) && selectedVendor.workingLanguages.map((l, idx) => {
+                              const langName = typeof l === 'string' ? l : (l?.language || 'Primary');
+                              const prof = typeof l === 'string' ? 'working' : (l?.proficiency || 'working');
+                              return (
+                                <span key={idx} className="px-2.5 py-1 bg-primary/10 text-primary rounded-lg text-xs font-bold border border-primary/20">
+                                  {langName} ({prof})
+                                </span>
+                              );
+                            })}
                           </div>
                         </div>
-                      </div>
-                    )}
 
-                    {/* Working Languages Summary */}
-                    <div className="space-y-3 p-4 bg-slate-50 dark:bg-bg-dark rounded-2xl border border-slate-200/20 dark:border-white/5">
-                      <div className="flex items-center justify-between">
-                        <h5 className="font-bold text-xs text-slate-400 uppercase tracking-wider">
-                          Working Languages
-                        </h5>
-                        <span className="text-[10px] text-slate-400 font-mono">
-                          {(selectedVendor.workingLanguages || []).length} Registered Pair(s)
-                        </span>
-                      </div>
-
-                      <div className="flex flex-wrap gap-2">
-                        {Array.isArray(selectedVendor.workingLanguages) && selectedVendor.workingLanguages.map((l, idx) => {
-                          const langName = typeof l === 'string' ? l : (l?.language || 'Primary Language');
-                          const prof = typeof l === 'string' ? 'working' : (l?.proficiency || 'working');
-                          return (
-                            <div 
-                              key={langName + idx} 
-                              className="px-3 py-2 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50 dark:border-border-dark flex items-center gap-2 text-xs shadow-sm"
-                            >
-                              <span className="font-extrabold text-slate-900 dark:text-white">{langName}</span>
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary capitalize border border-primary/20">
-                                {prof}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Rates negotiation values */}
-                    <div className="space-y-3">
-                      <h5 className="font-bold text-xs text-slate-400 uppercase tracking-wider">Negotiated Rates</h5>
-                      <div className="bg-slate-50 dark:bg-bg-dark rounded-2xl p-4 border border-slate-100 dark:border-white/5 space-y-3">
-                        <div className="grid grid-cols-3 gap-4 text-center">
-                          <div>
-                            <span className="text-[9px] text-slate-500 block font-medium">Charge Rate</span>
-                            <span className="font-bold text-slate-800 dark:text-white">${selectedVendor.mlcHourlyRate}/hr</span>
-                          </div>
-                          <div>
-                            <span className="text-[9px] text-slate-500 block font-medium">Target Rate</span>
-                            <span className="font-bold text-slate-800 dark:text-white">${selectedVendor.adjustedRate}/hr</span>
-                          </div>
-                          <div className="bg-primary/10 border border-primary/20 rounded-xl p-1">
-                            <span className="text-[9px] text-primary block font-extrabold">Agreed Rate</span>
-                            <span className="font-extrabold text-primary">${selectedVendor.confirmedRate}/hr</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Specialist Attributes */}
-                    <div className="space-y-3">
-                      <h5 className="font-bold text-xs text-slate-400 uppercase tracking-wider font-semibold">Specialist Attributes</h5>
-                      <div className="bg-slate-50 dark:bg-bg-dark rounded-2xl p-4 border border-slate-100 dark:border-white/5 space-y-2.5 text-xs text-slate-600 dark:text-slate-300">
-                        <div className="flex justify-between">
-                          <span>Primary Email:</span>
-                          <span className="font-bold">{selectedVendor.email}</span>
-                        </div>
-                        
-                        {selectedVendor.secondaryEmail && (
-                          <div className="flex justify-between">
-                            <span>Secondary Google Acc:</span>
-                            <span className="font-bold text-primary">{selectedVendor.secondaryEmail}</span>
+                        {/* Other Languages */}
+                        {selectedVendor.otherLanguages && (
+                          <div className="text-xs">
+                            <span className="text-[10px] text-slate-400 uppercase font-bold block">Other Languages Handled</span>
+                            <span className="font-semibold text-slate-700 dark:text-slate-300 block bg-white dark:bg-card-dark p-2 rounded-lg border">{selectedVendor.otherLanguages}</span>
                           </div>
                         )}
 
-                        <div className="flex justify-between">
-                          <span>Weekly Available Hours:</span>
-                          <span className="font-bold">{selectedVendor.hoursAvailable ? `${selectedVendor.hoursAvailable} hrs` : 'Unspecified'}</span>
-                        </div>
-                        
-                        <div className="flex justify-between">
-                          <span>MT Post-Editing Exp:</span>
-                          <span className="font-bold">{selectedVendor.mtPeExperience ? `${selectedVendor.mtPeExperience} years` : 'Unspecified'}</span>
-                        </div>
-
-                        {selectedVendor.prozProfile && (
-                          <div className="flex justify-between">
-                            <span>ProZ Profile:</span>
-                            <a href={selectedVendor.prozProfile} target="_blank" rel="noreferrer" className="text-primary font-bold hover:underline">View ProZ Portfolio</a>
-                          </div>
-                        )}
-
-                        {selectedVendor.linkedInProfile && (
-                          <div className="flex justify-between">
-                            <span>LinkedIn Profile:</span>
-                            <a href={selectedVendor.linkedInProfile} target="_blank" rel="noreferrer" className="text-primary font-bold hover:underline flex items-center gap-1">
-                              <ExternalLink className="w-3.5 h-3.5" />
-                              View LinkedIn
-                            </a>
-                          </div>
-                        )}
-
-                        {selectedVendor.resumeName && (
-                          <div className="flex justify-between items-center pt-1.5 border-t border-slate-200/40 dark:border-white/5">
-                            <span>Resume File:</span>
-                            <span className="inline-flex items-center gap-1.5 text-primary font-bold bg-primary/5 py-1 px-2.5 rounded-lg border border-primary/10">
-                              <UploadCloud className="w-3.5 h-3.5" />
-                              {selectedVendor.resumeName}
+                        {/* MTQA Experience Years & Taxonomy Level */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <span className="text-[10px] text-slate-400 uppercase font-bold block">MTQA / MTPE Exp</span>
+                            <span className="font-extrabold text-slate-900 dark:text-white block">
+                              {selectedVendor.mtqaExperienceYears ? selectedVendor.mtqaExperienceYears.replace('_to_', '–').replace('_plus', '+').replace('less_than_', '< ') : selectedVendor.mtPeExperience || 'Unspecified'}
                             </span>
                           </div>
+                          <div>
+                            <span className="text-[10px] text-slate-400 uppercase font-bold block">Taxonomy Exp</span>
+                            <span className="font-bold text-primary block capitalize">
+                              {selectedVendor.errorTaggingExperience ? selectedVendor.errorTaggingExperience.replace('_', ' ') : 'Unspecified'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Hands-On Badges */}
+                        {selectedVendor.handsOnExperienceAreas && selectedVendor.handsOnExperienceAreas.length > 0 && (
+                          <div className="space-y-1">
+                            <span className="text-[10px] text-slate-400 uppercase font-bold block">Proven Specializations</span>
+                            <div className="flex flex-wrap gap-1">
+                              {selectedVendor.handsOnExperienceAreas.map((area) => (
+                                <span key={area} className="px-2 py-0.5 rounded text-[9px] font-extrabold bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                                  {area}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
                         )}
-                      </div>
-                    </div>
 
-                    {/* Detailed Application Evaluation & Agility Assessment */}
-                    {(selectedVendor.country || selectedVendor.availableStartDate || selectedVendor.mtqaExperienceYears || selectedVendor.agilitySelfAssessment || selectedVendor.customAnswers) && (
-                      <div className="space-y-3 p-4 bg-primary/5 dark:bg-primary/10 rounded-2xl border border-primary/20">
-                        <h5 className="font-extrabold text-xs text-primary uppercase tracking-wider flex items-center gap-1.5">
-                          <Sparkles className="w-4 h-4" /> Full Evaluation & Agility Assessment
-                        </h5>
-
-                        <div className="space-y-2 text-xs text-slate-700 dark:text-slate-300">
-                          {selectedVendor.country && (
-                            <div className="flex justify-between border-b border-primary/10 pb-1.5">
-                              <span className="text-slate-400">Country & Timezone:</span>
-                              <span className="font-bold">{selectedVendor.country} ({selectedVendor.timeZone || 'N/A'})</span>
-                            </div>
-                          )}
-
-                          {selectedVendor.availableStartDate && (
-                            <div className="flex justify-between border-b border-primary/10 pb-1.5">
-                              <span className="text-slate-400">Available Start Date:</span>
-                              <span className="font-bold">{selectedVendor.availableStartDate}</span>
-                            </div>
-                          )}
-
-                          {selectedVendor.weeklyAvailability && (
-                            <div className="flex justify-between border-b border-primary/10 pb-1.5">
-                              <span className="text-slate-400">Weekly Capacity:</span>
-                              <span className="font-bold capitalize">{selectedVendor.weeklyAvailability.replace('_than_', ' ').replace('_to_', '–').replace('_plus', '+')} hrs/wk</span>
-                            </div>
-                          )}
-
-                          {selectedVendor.otherLanguages && (
-                            <div className="border-b border-primary/10 pb-1.5 space-y-1">
-                              <span className="text-slate-400 block">Other Languages Handled:</span>
-                              <span className="font-medium block italic bg-white dark:bg-card-dark p-2 rounded-lg border border-slate-200/50">{selectedVendor.otherLanguages}</span>
-                            </div>
-                          )}
-
-                          {selectedVendor.mtqaExperienceYears && (
-                            <div className="flex justify-between border-b border-primary/10 pb-1.5">
-                              <span className="text-slate-400">MTQA / MTPE Exp:</span>
-                              <span className="font-extrabold text-slate-900 dark:text-white">
-                                {selectedVendor.mtqaExperienceYears.replace('_to_', '–').replace('_plus', '+').replace('less_than_', '< ')} years
-                              </span>
-                            </div>
-                          )}
-
-                          {selectedVendor.errorTaggingExperience && (
-                            <div className="flex justify-between border-b border-primary/10 pb-1.5">
-                              <span className="text-slate-400">Error-Tagging Taxonomies:</span>
-                              <span className="font-bold capitalize text-primary">{selectedVendor.errorTaggingExperience.replace('_', ' ')}</span>
-                            </div>
-                          )}
-
-                          {/* Hands-On Specialization Badges */}
-                          {selectedVendor.handsOnExperienceAreas && selectedVendor.handsOnExperienceAreas.length > 0 && (
-                            <div className="space-y-1 pt-1 border-b border-primary/10 pb-2">
-                              <span className="text-slate-400 block">Proven Hands-On Experience:</span>
-                              <div className="flex flex-wrap gap-1.5 pt-0.5">
-                                {selectedVendor.handsOnExperienceAreas.map((area) => (
-                                  <span key={area} className="px-2 py-0.5 rounded-lg text-[10px] font-extrabold bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/20">
-                                    {area}
-                                  </span>
-                                ))}
+                        {/* Technical Agility 1-3 Matrix */}
+                        {selectedVendor.agilitySelfAssessment && (
+                          <div className="space-y-1.5 p-3 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50">
+                            <span className="text-[10px] text-slate-400 uppercase font-extrabold block">Technical Agility Ratings (1–3 Scale)</span>
+                            <div className="grid grid-cols-2 gap-2 text-[10px]">
+                              <div className="p-1.5 bg-slate-50 dark:bg-bg-dark rounded-lg">
+                                <span className="text-slate-400 block text-[9px]">QA Platforms</span>
+                                <span className="font-extrabold text-blue-600">★ {selectedVendor.agilitySelfAssessment.qaPlatforms || 0} / 3</span>
+                              </div>
+                              <div className="p-1.5 bg-slate-50 dark:bg-bg-dark rounded-lg">
+                                <span className="text-slate-400 block text-[9px]">Grammar/Style</span>
+                                <span className="font-extrabold text-emerald-600">★ {selectedVendor.agilitySelfAssessment.grammarStyle || 0} / 3</span>
+                              </div>
+                              <div className="p-1.5 bg-slate-50 dark:bg-bg-dark rounded-lg">
+                                <span className="text-slate-400 block text-[9px]">Error Tagging</span>
+                                <span className="font-extrabold text-amber-600">★ {selectedVendor.agilitySelfAssessment.errorTagging || 0} / 3</span>
+                              </div>
+                              <div className="p-1.5 bg-slate-50 dark:bg-bg-dark rounded-lg">
+                                <span className="text-slate-400 block text-[9px]">Policy Feedback</span>
+                                <span className="font-extrabold text-purple-600">★ {selectedVendor.agilitySelfAssessment.policyFeedback || 0} / 3</span>
                               </div>
                             </div>
-                          )}
+                          </div>
+                        )}
 
-                          {/* Agility Ratings Matrix */}
-                          {selectedVendor.agilitySelfAssessment && (
-                            <div className="space-y-1.5 pt-1.5">
-                              <span className="text-slate-400 font-bold block">Technical & Operational Agility Ratings (1-3):</span>
-                              <div className="grid grid-cols-2 gap-2 text-[11px]">
-                                <div className="p-2 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50">
-                                  <span className="text-[10px] text-slate-400 block">QA Platforms:</span>
-                                  <span className="font-extrabold text-blue-600">★ {selectedVendor.agilitySelfAssessment.qaPlatforms} / 3</span>
-                                </div>
-                                <div className="p-2 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50">
-                                  <span className="text-[10px] text-slate-400 block">Grammar & Style:</span>
-                                  <span className="font-extrabold text-emerald-600">★ {selectedVendor.agilitySelfAssessment.grammarStyle} / 3</span>
-                                </div>
-                                <div className="p-2 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50">
-                                  <span className="text-[10px] text-slate-400 block">Error Tagging:</span>
-                                  <span className="font-extrabold text-amber-600">★ {selectedVendor.agilitySelfAssessment.errorTagging} / 3</span>
-                                </div>
-                                <div className="p-2 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50">
-                                  <span className="text-[10px] text-slate-400 block">Policy Feedback:</span>
-                                  <span className="font-extrabold text-purple-600">★ {selectedVendor.agilitySelfAssessment.policyFeedback} / 3</span>
-                                </div>
-                              </div>
-                            </div>
+                        {/* Links & Attachments */}
+                        <div className="flex flex-wrap gap-2 text-xs pt-1">
+                          {selectedVendor.prozProfile && (
+                            <a href={selectedVendor.prozProfile} target="_blank" rel="noreferrer" className="px-2.5 py-1 bg-white dark:bg-card-dark border rounded-lg text-primary font-bold hover:underline">
+                              ProZ Profile ↗
+                            </a>
                           )}
-
-                          {/* Custom Question Answers */}
-                          {selectedVendor.customAnswers && Object.keys(selectedVendor.customAnswers).length > 0 && (
-                            <div className="space-y-2 pt-2 border-t border-primary/10">
-                              <span className="text-slate-400 font-bold block">Custom Question Responses:</span>
-                              <div className="space-y-2">
-                                {Object.entries(selectedVendor.customAnswers).map(([qId, ans]) => (
-                                  <div key={qId} className="p-2 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50 space-y-0.5">
-                                    <span className="text-[10px] font-mono text-slate-400 block">Question ID: {qId}</span>
-                                    <span className="font-bold text-slate-900 dark:text-white block">{String(ans)}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
+                          {selectedVendor.linkedInProfile && (
+                            <a href={selectedVendor.linkedInProfile} target="_blank" rel="noreferrer" className="px-2.5 py-1 bg-white dark:bg-card-dark border rounded-lg text-primary font-bold hover:underline">
+                              LinkedIn ↗
+                            </a>
                           )}
                         </div>
                       </div>
-                    )}
+                    </div>
+
                   </div>
                 )}
               </div>
