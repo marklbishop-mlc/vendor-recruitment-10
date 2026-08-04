@@ -8,7 +8,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { ApplicationConfig, LanguageConfig, CustomApplicationQuestion } from '../types';
-import { FULL_DEFAULT_LANGUAGES } from '../types';
+import { FULL_DEFAULT_LANGUAGES, getActiveSortedLanguages } from '../types';
 import { 
   Plus, 
   Copy, 
@@ -63,7 +63,7 @@ const MultiSelectPopover: React.FC<MultiSelectProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const isAllSelected = selected.includes('all');
+  const isAllSelected = selected.includes('all') || (options.length > 0 && selected.length === options.length);
 
   const filteredOptions = options.filter(opt => 
     opt.toLowerCase().includes(searchQuery.toLowerCase())
@@ -71,7 +71,8 @@ const MultiSelectPopover: React.FC<MultiSelectProps> = ({
 
   const toggleOption = (opt: string) => {
     if (isAllSelected) {
-      onChange([opt]);
+      const next = options.filter(item => item !== opt);
+      onChange(next.length === 0 ? ['all'] : next);
       return;
     }
 
@@ -79,7 +80,12 @@ const MultiSelectPopover: React.FC<MultiSelectProps> = ({
       const next = selected.filter(item => item !== opt);
       onChange(next.length === 0 ? ['all'] : next);
     } else {
-      onChange([...selected, opt]);
+      const next = [...selected, opt];
+      if (next.length >= options.length) {
+        onChange(['all']);
+      } else {
+        onChange(next);
+      }
     }
   };
 
@@ -437,7 +443,7 @@ export const ApplicationManager: React.FC = () => {
     setTimeout(() => setCopiedSlug(null), 2500);
   };
 
-  const activeLangsList = languages.filter(l => l.isActive).map(l => l.name);
+  const activeLangsList = getActiveSortedLanguages(languages).map((l) => l.name);
 
   return (
     <div className="space-y-6">
