@@ -34,6 +34,26 @@ export interface WorkingLanguage {
   evaluatorName?: string;
 }
 
+export interface AgilitySelfAssessment {
+  qaPlatforms?: number | null;     // Comfort navigating complex QA platforms and custom tools (1-3)
+  grammarStyle?: number | null;    // Attention to detail regarding grammar, style, and overall mechanics (1-3)
+  errorTagging?: number | null;    // Precision in following strict error-tagging and formatting rules (1-3)
+  policyFeedback?: number | null;  // Ability to apply granular, policy-based feedback across iterations (1-3)
+}
+
+export type MtqaExperienceYears = 'less_than_1' | '1_year' | '1_to_3' | '3_to_5' | '5_plus';
+
+export type ErrorTaggingExpLevel = 'extensive' | 'basic' | 'none_learning';
+
+export type WeeklyAvailabilityOption = 'less_than_10' | 'up_to_15' | 'up_to_20' | 'more_than_20';
+
+export interface CustomApplicationQuestion {
+  id: string;
+  questionText: string;
+  questionType: 'open_ended' | 'rating_1_to_3';
+  required: boolean;
+}
+
 export interface VendorProfile {
   id: string;
   companyName: string;
@@ -69,6 +89,18 @@ export interface VendorProfile {
   splitLanguage?: string;  // Specific language pair for split candidate profile
   applicationId?: string;  // Application Form ID candidate applied through
   applicationName?: string; // Application Form Name candidate applied through
+
+  // Detailed Application Tool Fields
+  country?: string;
+  timeZone?: string;
+  availableStartDate?: string;
+  weeklyAvailability?: WeeklyAvailabilityOption | '';
+  otherLanguages?: string;
+  mtqaExperienceYears?: MtqaExperienceYears | '';
+  handsOnExperienceAreas?: string[];
+  agilitySelfAssessment?: AgilitySelfAssessment;
+  errorTaggingExperience?: ErrorTaggingExpLevel | '';
+  customAnswers?: Record<string, string | number>;
 }
 
 export interface ApplicationConfig {
@@ -85,6 +117,19 @@ export interface ApplicationConfig {
   collectRates: boolean;      // true / false
   requireResume?: boolean;
   requireXtrfId?: boolean;
+
+  // Detailed Field Toggles
+  enableCountryTimeZone?: boolean;
+  enableAvailableStartDate?: boolean;
+  enableWeeklyAvailability?: boolean;
+  enableOtherLanguages?: boolean;
+  enableMtqaExperience?: boolean;
+  enableHandsOnExperience?: boolean;
+  enableAgilityAssessment?: boolean;
+  enableErrorTaggingExp?: boolean;
+
+  // Custom Questions (Up to 5)
+  customQuestions?: CustomApplicationQuestion[];
   
   // Custom Copy
   portalTitle?: string;
@@ -248,6 +293,54 @@ export function getActiveSortedLanguages(rawList: (string | LanguageConfig)[]): 
     return a.name.localeCompare(b.name);
   });
 }
+
+export const FULL_DEFAULT_LANGUAGES: LanguageConfig[] = [
+  { name: 'Arabic (Egyptian)', code: 'ar-eg', shortName: 'ARE', isActive: true, isPriority: true },
+  { name: 'Arabic (Iraqi)', code: 'ar-iq', shortName: 'ARI', isActive: true, isPriority: false },
+  { name: 'Arabic (Lebanese)', code: 'ar-lb', shortName: 'ARL', isActive: true, isPriority: false },
+  { name: 'Arabic (Levantine)', code: 'ar-lev', shortName: 'ARV', isActive: true, isPriority: true },
+  { name: 'Arabic (Modern Standard)', code: 'ar-msa', shortName: 'MSA', isActive: true, isPriority: true },
+  { name: 'Arabic (Moroccan)', code: 'ar-ma', shortName: 'ARM', isActive: true, isPriority: false },
+  { name: 'Arabic (Palestinian)', code: 'ar-ps', shortName: 'ARP', isActive: true, isPriority: false },
+  { name: 'Azerbaijani', code: 'az', shortName: 'AZE', isActive: true, isPriority: false },
+  { name: 'Bangla (Bengali)', code: 'bn', shortName: 'BEN', isActive: true, isPriority: true },
+  { name: 'Chinese (Cantonese)', code: 'yue', shortName: 'YUE', isActive: true, isPriority: true },
+  { name: 'Chinese (Mandarin)', code: 'zh-cn', shortName: 'ZHO', isActive: true, isPriority: true },
+  { name: 'Chinese (Traditional)', code: 'zh-tw', shortName: 'ZHT', isActive: true, isPriority: true },
+  { name: 'Dutch', code: 'nl', shortName: 'NLD', isActive: true, isPriority: false },
+  { name: 'English', code: 'en', shortName: 'ENG', isActive: true, isPriority: true },
+  { name: 'Filipino', code: 'fil', shortName: 'FIL', isActive: true, isPriority: true },
+  { name: 'French (Canadian)', code: 'fr-ca', shortName: 'FRC', isActive: true, isPriority: true },
+  { name: 'French (European)', code: 'fr-fr', shortName: 'FRE', isActive: true, isPriority: true },
+  { name: 'German', code: 'de', shortName: 'DEU', isActive: true, isPriority: true },
+  { name: 'Gujarati', code: 'gu', shortName: 'GUJ', isActive: true, isPriority: false },
+  { name: 'Hindi', code: 'hi', shortName: 'HIN', isActive: true, isPriority: true },
+  { name: 'Indonesian', code: 'id', shortName: 'IND', isActive: true, isPriority: false },
+  { name: 'Italian', code: 'it', shortName: 'ITA', isActive: true, isPriority: false },
+  { name: 'Japanese', code: 'ja', shortName: 'JPN', isActive: true, isPriority: true },
+  { name: 'Kazakh', code: 'kk', shortName: 'KAZ', isActive: true, isPriority: false },
+  { name: 'Korean', code: 'ko', shortName: 'KOR', isActive: true, isPriority: true },
+  { name: 'Malayalam', code: 'ml', shortName: 'MAL', isActive: true, isPriority: false },
+  { name: 'Manipuri', code: 'mni', shortName: 'MNI', isActive: true, isPriority: false },
+  { name: 'Marathi', code: 'mr', shortName: 'MAR', isActive: true, isPriority: false },
+  { name: 'Nepali', code: 'ne', shortName: 'NEP', isActive: true, isPriority: false },
+  { name: 'Persian', code: 'fa', shortName: 'FAS', isActive: true, isPriority: false },
+  { name: 'Polish', code: 'pl', shortName: 'POL', isActive: true, isPriority: false },
+  { name: 'Portuguese (Brazilian)', code: 'pt-br', shortName: 'PTB', isActive: true, isPriority: true },
+  { name: 'Portuguese (Portugal)', code: 'pt-pt', shortName: 'PTP', isActive: true, isPriority: false },
+  { name: 'Punjabi', code: 'pa', shortName: 'PAN', isActive: true, isPriority: false },
+  { name: 'Romanian', code: 'ro', shortName: 'RON', isActive: true, isPriority: false },
+  { name: 'Russian', code: 'ru', shortName: 'RUS', isActive: true, isPriority: true },
+  { name: 'Spanish', code: 'es', shortName: 'SPA', isActive: true, isPriority: true },
+  { name: 'Spanish (Mexican)', code: 'es-mx', shortName: 'MXS', isActive: true, isPriority: true },
+  { name: 'Swedish', code: 'sv', shortName: 'SWE', isActive: true, isPriority: false },
+  { name: 'Tagalog', code: 'tl', shortName: 'TGL', isActive: true, isPriority: false },
+  { name: 'Tamil', code: 'ta', shortName: 'TAM', isActive: true, isPriority: false },
+  { name: 'Telugu', code: 'te', shortName: 'TEL', isActive: true, isPriority: false },
+  { name: 'Turkish', code: 'tr', shortName: 'TUR', isActive: true, isPriority: true },
+  { name: 'Urdu', code: 'ur', shortName: 'URD', isActive: true, isPriority: true },
+  { name: 'Vietnamese', code: 'vi', shortName: 'VIE', isActive: true, isPriority: true }
+];
 
 export interface NotificationLog {
   id: string;

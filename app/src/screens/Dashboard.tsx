@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import type { VendorProfile, WorkflowStage, WorkingLanguage, StatusConfig, WorkflowAction, EmailTemplate, TestRecord, WorkflowStageConfig, SlaNudgeConfig, StageProgressConfig, ApplicationConfig } from '../types';
-import { getActiveSortedLanguages, DEFAULT_STAGE_PROGRESS_OPTIONS, getStageProgressStyle, getStageProgressTextColor } from '../types';
+import type { VendorProfile, WorkflowStage, WorkingLanguage, StatusConfig, WorkflowAction, EmailTemplate, TestRecord, WorkflowStageConfig, SlaNudgeConfig, StageProgressConfig, ApplicationConfig, WeeklyAvailabilityOption, MtqaExperienceYears, ErrorTaggingExpLevel, AgilitySelfAssessment } from '../types';
+import { getActiveSortedLanguages, DEFAULT_STAGE_PROGRESS_OPTIONS, getStageProgressStyle, getStageProgressTextColor, FULL_DEFAULT_LANGUAGES } from '../types';
+import { COUNTRIES, TIME_ZONES } from '../utils/locationData';
 import { 
   Plus, Search, ShieldAlert, X, ChevronDown,
   FileText, Check, Copy, UploadCloud, Grid, List, ArrowUpDown,
-  FileCheck, Info, ExternalLink, Edit2, AlertTriangle, Download, Trash2, Mail, Link as LinkIcon, Layers
+  FileCheck, Info, ExternalLink, Edit2, AlertTriangle, Download, Trash2, Mail, Link as LinkIcon, Layers, Sparkles, User, Clock, Award
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { collection, getDocs, doc, setDoc, getDoc, onSnapshot, deleteDoc } from 'firebase/firestore';
@@ -47,7 +48,7 @@ const STATUS_COLORS_MAP: Record<string, string> = {
   gray: 'bg-slate-500/15 text-slate-600 dark:text-slate-400 border-slate-500/20'
 };
 
-const DEFAULT_LANGUAGES = ['English', 'Spanish', 'German', 'Japanese', 'Mandarin', 'Swedish', 'Wolof', 'French', 'Portuguese'];
+const DEFAULT_LANGUAGES = FULL_DEFAULT_LANGUAGES.map((l) => l.name);
 
 export const Dashboard: React.FC = () => {
   const { user, loading } = useAuth();
@@ -78,6 +79,7 @@ export const Dashboard: React.FC = () => {
 
   // Default view is now table view
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('table');
+  const [presetView, setPresetView] = useState<'standard' | 'detailed_eval' | 'workflow_hiring' | 'domain_agility'>('standard');
   
   // Table sorting states
   const [sortField, setSortField] = useState<keyof VendorProfile>('contactName');
@@ -102,6 +104,22 @@ export const Dashboard: React.FC = () => {
   const [formTier, setFormTier] = useState<'1' | '2' | '3'>('2');
   const [formStatus, setFormStatus] = useState('pending');
   const [formNdaUrl, setFormNdaUrl] = useState('');
+
+  // Detailed Evaluation Fields for New Intake
+  const [formCountry, setFormCountry] = useState('');
+  const [formTimeZone, setFormTimeZone] = useState('');
+  const [formAvailableStartDate, setFormAvailableStartDate] = useState('');
+  const [formWeeklyAvailability, setFormWeeklyAvailability] = useState<WeeklyAvailabilityOption | ''>('');
+  const [formOtherLanguages, setFormOtherLanguages] = useState('');
+  const [formMtqaExperienceYears, setFormMtqaExperienceYears] = useState<MtqaExperienceYears | ''>('');
+  const [formHandsOnExperienceAreas, setFormHandsOnExperienceAreas] = useState<string[]>([]);
+  const [formAgilitySelfAssessment, setFormAgilitySelfAssessment] = useState<AgilitySelfAssessment>({
+    qaPlatforms: null,
+    grammarStyle: null,
+    errorTagging: null,
+    policyFeedback: null
+  });
+  const [formErrorTaggingExperience, setFormErrorTaggingExperience] = useState<ErrorTaggingExpLevel | ''>('');
   
   // Selected multiple languages in form
   const [formLanguages, setFormLanguages] = useState<{ language: string; proficiency: WorkingLanguage['proficiency'] }[]>([]);
@@ -132,6 +150,22 @@ export const Dashboard: React.FC = () => {
   const [editHasSignedNda, setEditHasSignedNda] = useState(false);
   const [editLanguages, setEditLanguages] = useState<WorkingLanguage[]>([]);
   const [editConfirmedRate, setEditConfirmedRate] = useState('');
+
+  // Detailed Evaluation Fields for Edit Candidate
+  const [editCountry, setEditCountry] = useState('');
+  const [editTimeZone, setEditTimeZone] = useState('');
+  const [editAvailableStartDate, setEditAvailableStartDate] = useState('');
+  const [editWeeklyAvailability, setEditWeeklyAvailability] = useState<WeeklyAvailabilityOption | ''>('');
+  const [editOtherLanguages, setEditOtherLanguages] = useState('');
+  const [editMtqaExperienceYears, setEditMtqaExperienceYears] = useState<MtqaExperienceYears | ''>('');
+  const [editHandsOnExperienceAreas, setEditHandsOnExperienceAreas] = useState<string[]>([]);
+  const [editAgilitySelfAssessment, setEditAgilitySelfAssessment] = useState<AgilitySelfAssessment>({
+    qaPlatforms: null,
+    grammarStyle: null,
+    errorTagging: null,
+    policyFeedback: null
+  });
+  const [editErrorTaggingExperience, setEditErrorTaggingExperience] = useState<ErrorTaggingExpLevel | ''>('');
 
   // Applications Multi-Link States
   const [applicationsList, setApplicationsList] = useState<ApplicationConfig[]>([]);
@@ -630,6 +664,22 @@ export const Dashboard: React.FC = () => {
     setEditHasSignedNda(vendor.hasSignedNda);
     setEditLanguages([...vendor.workingLanguages]);
     setEditConfirmedRate(vendor.confirmedRate.toString());
+
+    // Populate Detailed Evaluation fields for edit mode
+    setEditCountry(vendor.country || '');
+    setEditTimeZone(vendor.timeZone || '');
+    setEditAvailableStartDate(vendor.availableStartDate || '');
+    setEditWeeklyAvailability(vendor.weeklyAvailability || '');
+    setEditOtherLanguages(vendor.otherLanguages || '');
+    setEditMtqaExperienceYears(vendor.mtqaExperienceYears || '');
+    setEditHandsOnExperienceAreas(vendor.handsOnExperienceAreas || []);
+    setEditAgilitySelfAssessment(vendor.agilitySelfAssessment || {
+      qaPlatforms: null,
+      grammarStyle: null,
+      errorTagging: null,
+      policyFeedback: null
+    });
+    setEditErrorTaggingExperience(vendor.errorTaggingExperience || '');
     setIsEditing(true);
   };
 
@@ -673,6 +723,15 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
       ndaUrl: editNdaUrl.trim(),
       hasSignedNda: editHasSignedNda,
       workingLanguages: editLanguages.length > 0 ? editLanguages : [{ language: 'English', proficiency: 'working' }],
+      country: editCountry,
+      timeZone: editTimeZone,
+      availableStartDate: editAvailableStartDate,
+      weeklyAvailability: editWeeklyAvailability,
+      otherLanguages: editOtherLanguages,
+      mtqaExperienceYears: editMtqaExperienceYears,
+      handsOnExperienceAreas: editHandsOnExperienceAreas,
+      agilitySelfAssessment: editAgilitySelfAssessment,
+      errorTaggingExperience: editErrorTaggingExperience,
       updatedAt: new Date().toISOString()
     };
 
@@ -785,6 +844,15 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
       resumeName: uploadedResumeName || '',
       hasSignedNda: false,
       stageStatus: 'started',
+      country: formCountry,
+      timeZone: formTimeZone,
+      availableStartDate: formAvailableStartDate,
+      weeklyAvailability: formWeeklyAvailability,
+      otherLanguages: formOtherLanguages,
+      mtqaExperienceYears: formMtqaExperienceYears,
+      handsOnExperienceAreas: formHandsOnExperienceAreas,
+      agilitySelfAssessment: formAgilitySelfAssessment,
+      errorTaggingExperience: formErrorTaggingExperience,
       submittedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -1294,6 +1362,54 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
             )}
           </div>
           
+          {/* View Switcher Presets */}
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-bg-dark p-1 rounded-2xl border border-slate-200/50 dark:border-border-dark overflow-x-auto">
+            <button
+              type="button"
+              onClick={() => setPresetView('standard')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                presetView === 'standard'
+                  ? 'bg-white dark:bg-card-dark text-slate-900 dark:text-white shadow-xs'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              Standard View
+            </button>
+            <button
+              type="button"
+              onClick={() => setPresetView('detailed_eval')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                presetView === 'detailed_eval'
+                  ? 'bg-white dark:bg-card-dark text-primary shadow-xs'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              Full Detailed View
+            </button>
+            <button
+              type="button"
+              onClick={() => setPresetView('workflow_hiring')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                presetView === 'workflow_hiring'
+                  ? 'bg-white dark:bg-card-dark text-emerald-600 dark:text-emerald-400 shadow-xs'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              Workflow & Hiring View
+            </button>
+            <button
+              type="button"
+              onClick={() => setPresetView('domain_agility')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                presetView === 'domain_agility'
+                  ? 'bg-white dark:bg-card-dark text-purple-600 dark:text-purple-400 shadow-xs'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              All Fields View
+            </button>
+          </div>
+          
           <button
             type="button"
             onClick={() => setIsCopyLinkModalOpen(true)}
@@ -1592,44 +1708,67 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                         <ArrowUpDown className="w-3.5 h-3.5" />
                       </div>
                     </th>
-                    <th className="p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors" onClick={() => toggleSort('companyName')}>
-                      <div className="flex items-center gap-1.5">
-                        Company Name
-                        <ArrowUpDown className="w-3.5 h-3.5" />
-                      </div>
-                    </th>
-                    <th className="p-4">Languages</th>
-                    <th className="p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors" onClick={() => toggleSort('status')}>
-                      <div className="flex items-center gap-1.5">
-                        Linguist Status
-                        <ArrowUpDown className="w-3.5 h-3.5" />
-                      </div>
-                    </th>
-                    {/* Quick stage transition column inside Pipeline View table */}
-                    <th className="p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors" onClick={() => toggleSort('stage')}>
-                      <div className="flex items-center gap-1.5">
-                        Workflow Stage
-                        <ArrowUpDown className="w-3.5 h-3.5" />
-                      </div>
-                    </th>
-                    <th className="p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors">
-                      <div className="flex items-center gap-1.5">
-                        Stage Progress
-                      </div>
-                    </th>
-                    <th className="p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors text-center" onClick={() => toggleSort('hoursAvailable')}>
-                      <div className="flex items-center gap-1.5 justify-center">
-                        Hours
-                        <ArrowUpDown className="w-3.5 h-3.5" />
-                      </div>
-                    </th>
-                    <th className="p-4">NDA</th>
-                    <th className="p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors text-right pr-6" onClick={() => toggleSort('confirmedRate')}>
-                      <div className="flex items-center gap-1.5 justify-end">
-                        Agreed Rate
-                        <ArrowUpDown className="w-3.5 h-3.5" />
-                      </div>
-                    </th>
+
+                    {presetView === 'standard' && (
+                      <>
+                        <th className="p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors" onClick={() => toggleSort('companyName')}>Company Name</th>
+                        <th className="p-4">Languages</th>
+                        <th className="p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors" onClick={() => toggleSort('status')}>Linguist Status</th>
+                        <th className="p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors" onClick={() => toggleSort('stage')}>Workflow Stage</th>
+                        <th className="p-4">Stage Progress</th>
+                        <th className="p-4 text-center">Hours</th>
+                        <th className="p-4">NDA</th>
+                        <th className="p-4 text-right pr-6 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors" onClick={() => toggleSort('confirmedRate')}>Agreed Rate</th>
+                      </>
+                    )}
+
+                    {presetView === 'detailed_eval' && (
+                      <>
+                        <th className="p-4">Country & Timezone</th>
+                        <th className="p-4">MTQA Exp (Years)</th>
+                        <th className="p-4">Technical Agility Avg</th>
+                        <th className="p-4">Error-Tagging Exp</th>
+                        <th className="p-4">Start Date</th>
+                        <th className="p-4">Availability</th>
+                        <th className="p-4 text-right pr-6">Full Profile</th>
+                      </>
+                    )}
+
+                    {presetView === 'workflow_hiring' && (
+                      <>
+                        <th className="p-4">Workflow Stage</th>
+                        <th className="p-4">Stage Progress</th>
+                        <th className="p-4">Available Start Date</th>
+                        <th className="p-4">Weekly Availability</th>
+                        <th className="p-4">NDA Verification</th>
+                        <th className="p-4">Intake Application</th>
+                        <th className="p-4 text-right pr-6">Actions</th>
+                      </>
+                    )}
+
+                    {presetView === 'domain_agility' && (
+                      <>
+                        <th className="p-4">Company</th>
+                        <th className="p-4">Email Addresses</th>
+                        <th className="p-4">Country & Timezone</th>
+                        <th className="p-4">Working Languages</th>
+                        <th className="p-4">Other Languages</th>
+                        <th className="p-4">Services</th>
+                        <th className="p-4">Status</th>
+                        <th className="p-4">Workflow Stage</th>
+                        <th className="p-4">Stage Progress</th>
+                        <th className="p-4">Available Start Date</th>
+                        <th className="p-4">Weekly Capacity</th>
+                        <th className="p-4">MTQA Exp Years</th>
+                        <th className="p-4">Hands-On Domain Badges</th>
+                        <th className="p-4">Taxonomy Exp</th>
+                        <th className="p-4">Agility Ratings (QA/Grammar/Tags/Policy)</th>
+                        <th className="p-4">Portfolio Links</th>
+                        <th className="p-4">NDA Verification</th>
+                        <th className="p-4">Agreed Rate</th>
+                        <th className="p-4 text-right pr-6">Full Profile</th>
+                      </>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-white/5">
@@ -1638,75 +1777,339 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                     const statusColorClass = statusConf 
                       ? STATUS_COLORS_MAP[statusConf.color] || STATUS_COLORS_MAP.gray
                       : STATUS_COLORS_MAP.gray;
-                      
+                    
+                    const agilityScores = candidate.agilitySelfAssessment 
+                      ? Object.values(candidate.agilitySelfAssessment) 
+                      : [];
+                    const agilityAvg = agilityScores.length > 0
+                      ? (agilityScores.reduce((a, b) => a + b, 0) / agilityScores.length).toFixed(1)
+                      : null;
+
                     return (
                       <tr 
                         key={candidate.id}
                         className="hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                        onClick={() => setSelectedVendor(candidate)}
                       >
-                        <td className="p-4 pl-6 font-bold text-slate-900 dark:text-white" onClick={() => setSelectedVendor(candidate)}>
-                          {candidate.contactName}
-                        </td>
-                        <td className="p-4 text-slate-500 dark:text-slate-400 font-medium" onClick={() => setSelectedVendor(candidate)}>
-                          {candidate.companyName || <span className="text-slate-400 italic">Individual</span>}
-                        </td>
-                        <td className="p-4" onClick={() => setSelectedVendor(candidate)}>
-                          <div className="flex flex-wrap gap-1 max-w-[200px]">
-                            {Array.isArray(candidate.workingLanguages) && candidate.workingLanguages.map((l, i) => (
-                              <span key={i} className="text-[10px] bg-primary/10 text-primary py-0.5 px-2 rounded-md font-semibold">
-                                {typeof l === 'string' ? l : (l?.language || 'N/A')}
-                              </span>
-                            ))}
+                        <td className="p-4 pl-6 font-bold text-slate-900 dark:text-white">
+                          <div>
+                            <span>{candidate.contactName}</span>
+                            {candidate.email && (
+                              <span className="text-[10px] text-slate-400 font-mono block font-normal">{candidate.email}</span>
+                            )}
                           </div>
                         </td>
-                        <td className="p-4" onClick={() => setSelectedVendor(candidate)}>
-                          <span className={`inline-flex px-2 py-0.5 border text-[9px] font-bold rounded-lg uppercase tracking-wider ${statusColorClass}`}>
-                            {(candidate.status || 'pending').toString().replace('_', ' ')}
-                          </span>
-                        </td>
-                        {/* Interactive dropdown stage selector in table row */}
-                        <td className="p-4">
-                          <select
-                            value={candidate.stage}
-                            onChange={(e) => handleStageChangeRequest(candidate.id, e.target.value as WorkflowStage)}
-                            onClick={(e) => e.stopPropagation()} // Stop drawer triggers
-                            className="p-1.5 text-xs font-bold bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl dark:text-white cursor-pointer focus:outline-none"
-                          >
-                            {stages.map((stg) => (
-                              <option key={stg.id} value={stg.id}>{stg.name}</option>
-                            ))}
-                          </select>
-                        </td>
-                        {/* Interactive Stage Progress Selector */}
-                        <td className="p-4" onClick={(e) => e.stopPropagation()}>
-                          {renderStageStatusSelector(candidate)}
-                        </td>
-                        <td className="p-4 text-center font-bold text-slate-700 dark:text-slate-300" onClick={() => setSelectedVendor(candidate)}>
-                          {candidate.hoursAvailable ? `${candidate.hoursAvailable}h/wk` : 'N/A'}
-                        </td>
-                        {/* Direct NDA link support */}
-                        <td className="p-4" onClick={(e) => e.stopPropagation()}>
-                          {candidate.hasSignedNda ? (
-                            candidate.ndaUrl ? (
-                              <a 
-                                href={candidate.ndaUrl} 
-                                target="_blank" 
-                                rel="noreferrer" 
-                                className="inline-flex items-center gap-1 text-emerald-600 hover:text-emerald-500 font-bold text-xs"
+
+                        {/* Standard View Cells */}
+                        {presetView === 'standard' && (
+                          <>
+                            <td className="p-4 text-slate-500 dark:text-slate-400 font-medium">
+                              {candidate.companyName || <span className="text-slate-400 italic">Individual</span>}
+                            </td>
+                            <td className="p-4">
+                              <div className="flex flex-wrap gap-1 max-w-[200px]">
+                                {Array.isArray(candidate.workingLanguages) && candidate.workingLanguages.map((l, i) => (
+                                  <span key={i} className="text-[10px] bg-primary/10 text-primary py-0.5 px-2 rounded-md font-semibold">
+                                    {typeof l === 'string' ? l : (l?.language || 'N/A')}
+                                  </span>
+                                ))}
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              <span className={`inline-flex px-2 py-0.5 border text-[9px] font-bold rounded-lg uppercase tracking-wider ${statusColorClass}`}>
+                                {(candidate.status || 'pending').toString().replace('_', ' ')}
+                              </span>
+                            </td>
+                            <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                              <select
+                                value={candidate.stage}
+                                onChange={(e) => handleStageChangeRequest(candidate.id, e.target.value as WorkflowStage)}
+                                className="p-1.5 text-xs font-bold bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl dark:text-white cursor-pointer focus:outline-none"
                               >
-                                <FileCheck className="w-4 h-4" />
-                                Link
-                              </a>
-                            ) : (
-                              <span className="text-emerald-600 font-semibold text-xs">Signed</span>
-                            )
-                          ) : (
-                            <span className="text-rose-600 text-xs font-semibold">Missing</span>
-                          )}
-                        </td>
-                        <td className="p-4 text-right pr-6 font-extrabold text-slate-950 dark:text-white" onClick={() => setSelectedVendor(candidate)}>
-                          {candidate.confirmedRate > 0 ? `$${candidate.confirmedRate}/hr` : 'Negotiating'}
-                        </td>
+                                {stages.map((stg) => (
+                                  <option key={stg.id} value={stg.id}>{stg.name}</option>
+                                ))}
+                              </select>
+                            </td>
+                            <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                              {renderStageStatusSelector(candidate)}
+                            </td>
+                            <td className="p-4 text-center font-bold text-slate-700 dark:text-slate-300">
+                              {candidate.hoursAvailable ? `${candidate.hoursAvailable}h/wk` : 'N/A'}
+                            </td>
+                            <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                              {candidate.hasSignedNda ? (
+                                candidate.ndaUrl ? (
+                                  <a 
+                                    href={candidate.ndaUrl} 
+                                    target="_blank" 
+                                    rel="noreferrer" 
+                                    className="inline-flex items-center gap-1 text-emerald-600 hover:text-emerald-500 font-bold text-xs"
+                                  >
+                                    <FileCheck className="w-4 h-4" />
+                                    Link
+                                  </a>
+                                ) : (
+                                  <span className="text-emerald-600 font-semibold text-xs">Signed</span>
+                                )
+                              ) : (
+                                <span className="text-rose-600 text-xs font-semibold">Missing</span>
+                              )}
+                            </td>
+                            <td className="p-4 text-right pr-6 font-extrabold text-slate-950 dark:text-white">
+                              {candidate.confirmedRate > 0 ? `$${candidate.confirmedRate}/hr` : 'Negotiating'}
+                            </td>
+                          </>
+                        )}
+
+                        {/* Full Detailed Evaluation View Cells */}
+                        {presetView === 'detailed_eval' && (
+                          <>
+                            <td className="p-4 text-xs font-medium text-slate-700 dark:text-slate-300">
+                              {candidate.country || candidate.timeZone ? (
+                                <div>
+                                  <span className="font-bold block">{candidate.country || 'N/A'}</span>
+                                  <span className="text-[10px] text-slate-400 font-mono block">{candidate.timeZone}</span>
+                                </div>
+                              ) : (
+                                <span className="text-slate-400 italic">Not specified</span>
+                              )}
+                            </td>
+                            <td className="p-4 text-xs font-bold text-slate-800 dark:text-slate-200">
+                              {candidate.mtqaExperienceYears ? (
+                                candidate.mtqaExperienceYears.replace('_to_', '–').replace('_plus', '+').replace('less_than_', '< ') + ' yrs'
+                              ) : candidate.mtPeExperience ? (
+                                candidate.mtPeExperience + ' yrs'
+                              ) : (
+                                <span className="text-slate-400 font-normal italic">N/A</span>
+                              )}
+                            </td>
+                            <td className="p-4">
+                              {agilityAvg ? (
+                                <span className={`px-2.5 py-1 rounded-full text-xs font-extrabold border ${
+                                  parseFloat(agilityAvg) >= 2.5 
+                                    ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/25' 
+                                    : 'bg-amber-500/15 text-amber-600 border-amber-500/25'
+                                }`}>
+                                  ★ {agilityAvg} / 3.0
+                                </span>
+                              ) : (
+                                <span className="text-slate-400 text-xs italic">Unrated</span>
+                              )}
+                            </td>
+                            <td className="p-4 text-xs font-medium text-slate-700 dark:text-slate-300">
+                              {candidate.errorTaggingExperience ? (
+                                <span className="capitalize font-bold text-primary">
+                                  {candidate.errorTaggingExperience.replace('_', ' ')}
+                                </span>
+                              ) : (
+                                <span className="text-slate-400 italic">N/A</span>
+                              )}
+                            </td>
+                            <td className="p-4 text-xs font-semibold text-slate-800 dark:text-slate-200">
+                              {candidate.availableStartDate || 'Immediate'}
+                            </td>
+                            <td className="p-4 text-xs font-semibold text-slate-800 dark:text-slate-200">
+                              {candidate.weeklyAvailability ? (
+                                candidate.weeklyAvailability.replace('_than_', ' ').replace('_to_', '–').replace('_plus', '+') + ' hrs/wk'
+                              ) : candidate.hoursAvailable ? (
+                                `${candidate.hoursAvailable} hrs/wk`
+                              ) : (
+                                'N/A'
+                              )}
+                            </td>
+                            <td className="p-4 text-right pr-6">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedVendor(candidate)}
+                                className="px-2.5 py-1 bg-primary/10 text-primary hover:bg-primary hover:text-white rounded-lg text-xs font-bold transition-colors"
+                              >
+                                Full View →
+                              </button>
+                            </td>
+                          </>
+                        )}
+
+                        {/* Workflow & Hiring View Cells */}
+                        {presetView === 'workflow_hiring' && (
+                          <>
+                            <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                              <select
+                                value={candidate.stage}
+                                onChange={(e) => handleStageChangeRequest(candidate.id, e.target.value as WorkflowStage)}
+                                className="p-1.5 text-xs font-bold bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl dark:text-white cursor-pointer focus:outline-none"
+                              >
+                                {stages.map((stg) => (
+                                  <option key={stg.id} value={stg.id}>{stg.name}</option>
+                                ))}
+                              </select>
+                            </td>
+                            <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                              {renderStageStatusSelector(candidate)}
+                            </td>
+                            <td className="p-4 text-xs font-bold text-slate-800 dark:text-slate-200">
+                              {candidate.availableStartDate || 'Immediate'}
+                            </td>
+                            <td className="p-4 text-xs font-bold text-slate-800 dark:text-slate-200">
+                              {candidate.weeklyAvailability ? (
+                                candidate.weeklyAvailability.replace('_than_', ' ').replace('_to_', '–').replace('_plus', '+') + ' hrs/wk'
+                              ) : (
+                                candidate.hoursAvailable ? `${candidate.hoursAvailable} hrs` : 'N/A'
+                              )}
+                            </td>
+                            <td className="p-4">
+                              {candidate.hasSignedNda ? (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/15 text-emerald-600 border border-emerald-500/20">🟢 Signed</span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-rose-500/15 text-rose-600 border border-rose-500/20">🔴 Missing</span>
+                              )}
+                            </td>
+                            <td className="p-4 text-xs font-medium text-slate-600 dark:text-slate-400">
+                              {candidate.applicationName || 'General Form'}
+                            </td>
+                            <td className="p-4 text-right pr-6">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedVendor(candidate)}
+                                className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold transition-colors"
+                              >
+                                Manage
+                              </button>
+                            </td>
+                          </>
+                        )}
+
+                        {/* Domain & Agility View Cells */}
+                        {presetView === 'domain_agility' && (
+                          <>
+                            <td className="p-4 text-slate-600 dark:text-slate-400 font-medium">
+                              {candidate.companyName || <span className="text-slate-400 italic">Individual</span>}
+                            </td>
+                            <td className="p-4 text-xs">
+                              <div className="font-semibold text-slate-800 dark:text-slate-200">{candidate.email}</div>
+                              {candidate.secondaryEmail && (
+                                <div className="text-[10px] text-slate-400 font-mono">Sec: {candidate.secondaryEmail}</div>
+                              )}
+                            </td>
+                            <td className="p-4 text-xs font-medium text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                              <div>{candidate.country || 'N/A'}</div>
+                              <div className="text-[10px] text-slate-400">{candidate.timeZone || 'N/A'}</div>
+                            </td>
+                            <td className="p-4">
+                              <div className="flex flex-wrap gap-1 max-w-[180px]">
+                                {Array.isArray(candidate.workingLanguages) && candidate.workingLanguages.map((l, i) => (
+                                  <span key={i} className="text-[10px] bg-primary/10 text-primary py-0.5 px-2 rounded-md font-semibold">
+                                    {typeof l === 'string' ? l : (l?.language || 'N/A')}
+                                  </span>
+                                ))}
+                              </div>
+                            </td>
+                            <td className="p-4 text-xs text-slate-600 dark:text-slate-400 max-w-[150px] truncate">
+                              {candidate.otherLanguages || <span className="text-slate-400 italic">None</span>}
+                            </td>
+                            <td className="p-4">
+                              <div className="flex flex-wrap gap-1 max-w-[160px]">
+                                {Array.isArray(candidate.services) && candidate.services.map((srv, i) => (
+                                  <span key={i} className="text-[9px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded font-medium">
+                                    {srv}
+                                  </span>
+                                ))}
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wide border ${statusColorClass}`}>
+                                {candidate.status}
+                              </span>
+                            </td>
+                            <td className="p-4 text-xs font-bold text-slate-800 dark:text-slate-200 capitalize">
+                              {candidate.stage}
+                            </td>
+                            <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                              {renderStageStatusSelector(candidate)}
+                            </td>
+                            <td className="p-4 text-xs font-bold text-slate-800 dark:text-slate-200">
+                              {candidate.availableStartDate || 'N/A'}
+                            </td>
+                            <td className="p-4 text-xs font-bold text-slate-800 dark:text-slate-200">
+                              {candidate.weeklyAvailability ? (
+                                candidate.weeklyAvailability.replace('_than_', ' ').replace('_to_', '–').replace('_plus', '+') + ' hrs/wk'
+                              ) : (
+                                candidate.hoursAvailable ? `${candidate.hoursAvailable} hrs/wk` : 'N/A'
+                              )}
+                            </td>
+                            <td className="p-4 text-xs font-extrabold text-slate-800 dark:text-slate-200">
+                              {candidate.mtqaExperienceYears ? candidate.mtqaExperienceYears.replace('_to_', '–').replace('_plus', '+').replace('_', ' ') : 'N/A'}
+                            </td>
+                            <td className="p-4">
+                              {candidate.handsOnExperienceAreas && candidate.handsOnExperienceAreas.length > 0 ? (
+                                <div className="flex flex-wrap gap-1 max-w-[220px]">
+                                  {candidate.handsOnExperienceAreas.map((area, i) => (
+                                    <span key={i} className="text-[9px] font-extrabold bg-purple-500/15 text-purple-600 dark:text-purple-400 py-0.5 px-2 rounded-md border border-purple-500/20">
+                                      {area}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-slate-400 text-xs italic">Unspecified</span>
+                              )}
+                            </td>
+                            <td className="p-4 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                              {candidate.errorTaggingExperience ? (
+                                <span className="capitalize">{candidate.errorTaggingExperience.replace('_', ' ')}</span>
+                              ) : (
+                                <span className="text-slate-400 italic">N/A</span>
+                              )}
+                            </td>
+                            <td className="p-4">
+                              {candidate.agilitySelfAssessment ? (
+                                <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold">
+                                  <span className="px-1.5 py-0.5 bg-blue-500/10 text-blue-600 rounded">QA: {candidate.agilitySelfAssessment.qaPlatforms || 0}/3</span>
+                                  <span className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-600 rounded">Grammar: {candidate.agilitySelfAssessment.grammarStyle || 0}/3</span>
+                                  <span className="px-1.5 py-0.5 bg-amber-500/10 text-amber-600 rounded">Tags: {candidate.agilitySelfAssessment.errorTagging || 0}/3</span>
+                                  <span className="px-1.5 py-0.5 bg-purple-500/10 text-purple-600 rounded">Policy: {candidate.agilitySelfAssessment.policyFeedback || 0}/3</span>
+                                </div>
+                              ) : (
+                                <span className="text-slate-400 text-xs italic">Unrated</span>
+                              )}
+                            </td>
+                            <td className="p-4 text-xs">
+                              <div className="flex flex-col gap-1">
+                                {candidate.prozProfile && (
+                                  <a href={candidate.prozProfile} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-primary hover:underline text-[10px] font-bold">
+                                    ProZ Profile ↗
+                                  </a>
+                                )}
+                                {candidate.linkedInProfile && (
+                                  <a href={candidate.linkedInProfile} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-primary hover:underline text-[10px] font-bold">
+                                    LinkedIn ↗
+                                  </a>
+                                )}
+                                {!candidate.prozProfile && !candidate.linkedInProfile && (
+                                  <span className="text-slate-400 italic">None</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              {candidate.hasSignedNda ? (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/15 text-emerald-600 border border-emerald-500/20">🟢 Signed</span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-rose-500/15 text-rose-600 border border-rose-500/20">🔴 Missing</span>
+                              )}
+                            </td>
+                            <td className="p-4 text-xs font-extrabold text-slate-900 dark:text-white">
+                              {candidate.confirmedRate > 0 ? `$${candidate.confirmedRate}/hr` : 'Negotiating'}
+                            </td>
+                            <td className="p-4 text-right pr-6">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedVendor(candidate)}
+                                className="px-3 py-1.5 bg-primary text-white hover:bg-primary-dark rounded-xl text-xs font-extrabold shadow-xs transition-all cursor-pointer"
+                              >
+                                Full View →
+                              </button>
+                            </td>
+                          </>
+                        )}
                       </tr>
                     );
                   })}
@@ -1733,40 +2136,51 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
             ></motion.div>
 
             <motion.div
-              initial={{ x: '100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-md bg-white dark:bg-card-dark border-l border-slate-200 dark:border-border-dark p-6 overflow-y-auto flex flex-col justify-between"
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="fixed inset-3 sm:inset-6 md:inset-8 lg:inset-10 z-50 bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-3xl shadow-2xl p-6 sm:p-8 overflow-y-auto flex flex-col justify-between"
             >
               <div className="space-y-6">
                 
-                {/* Drawer Header */}
+                {/* Modal Header */}
                 <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-4">
                   <div>
-                    <span className="text-[10px] text-slate-500 block uppercase font-bold tracking-wider">Candidate Profile Drawer</span>
-                    <h3 className="text-xl font-bold text-slate-900 dark:text-white mt-0.5">
-                      {isEditing ? `Editing ${selectedVendor.contactName}` : selectedVendor.contactName}
+                    <span className="text-[10px] text-primary block uppercase font-extrabold tracking-wider">Full Candidate Profile & Evaluation Suite</span>
+                    <h3 className="text-2xl font-extrabold text-slate-900 dark:text-white mt-0.5 flex items-center gap-2">
+                      {isEditing ? `Editing Profile: ${selectedVendor.contactName}` : selectedVendor.contactName}
+                      {selectedVendor.companyName && (
+                        <span className="text-sm font-semibold text-slate-400">({selectedVendor.companyName})</span>
+                      )}
                     </h3>
                   </div>
                   <div className="flex items-center gap-2">
                     {!isEditing && selectedVendor.workingLanguages && selectedVendor.workingLanguages.length > 1 && (
                       <button
                         onClick={() => setSplitPrompt({ vendor: selectedVendor, targetStage: selectedVendor.stage })}
-                        className="p-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer"
+                        className="px-3 py-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-xl text-xs font-extrabold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
                         title="Split candidate into separate language profiles"
                       >
                         <Grid className="w-3.5 h-3.5" />
                         Split Languages
                       </button>
                     )}
-                    {!isEditing && (
+                    {!isEditing ? (
                       <button
                         onClick={() => startEditingVendor(selectedVendor)}
-                        className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 cursor-pointer flex items-center gap-1.5 text-xs font-bold"
+                        className="px-4 py-2 bg-primary hover:bg-primary-dark text-white rounded-xl cursor-pointer flex items-center gap-1.5 text-xs font-extrabold shadow-md btn-animate transition-colors"
                       >
-                        <Edit2 className="w-3.5 h-3.5" />
-                        Edit Profile
+                        <Edit2 className="w-4 h-4" />
+                        Edit Candidate Profile
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setIsEditing(false)}
+                        className="px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl cursor-pointer text-xs font-bold transition-colors"
+                      >
+                        Cancel Editing
                       </button>
                     )}
                     <button 
@@ -1774,494 +2188,723 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                         setSelectedVendor(null);
                         setIsEditing(false);
                       }} 
-                      className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-slate-500 cursor-pointer"
+                      className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 text-slate-500 cursor-pointer transition-colors"
                     >
-                      <X className="w-5 h-5" />
+                      <X className="w-6 h-6" />
                     </button>
                   </div>
                 </div>
 
                 {isEditing ? (
                   /* Form: EDIT ALL CANDIDATE FIELDS */
-                  <form id="edit-vendor-form" onSubmit={handleSaveEdit} className="space-y-4 text-xs font-semibold">
+                  <form id="edit-vendor-form" onSubmit={handleSaveEdit} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-xs font-semibold">
                     
-                    {/* Full Name */}
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Specialist Full Name</label>
-                      <input
-                        type="text"
-                        required
-                        value={editContactName}
-                        onChange={(e) => setEditContactName(e.target.value)}
-                        className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary dark:text-white"
-                      />
-                    </div>
+                    {/* Column 1: Core Contact & Location */}
+                    <div className="space-y-4 bg-slate-50 dark:bg-bg-dark p-4.5 rounded-2xl border border-slate-200/50 dark:border-white/5">
+                      <h4 className="text-xs font-extrabold text-primary uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-200/40 dark:border-white/5 pb-2">
+                        <User className="w-4 h-4" /> 1. Core Contact & Location
+                      </h4>
 
-                    {/* Company Name */}
-                    <div className="space-y-1">
-                      <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Company Name (Optional)</label>
-                      <input
-                        type="text"
-                        value={editCompanyName}
-                        onChange={(e) => setEditCompanyName(e.target.value)}
-                        className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary dark:text-white"
-                      />
-                    </div>
-
-                    {/* Email and Google Workspace Verification */}
-                    <div className="space-y-2 p-3.5 bg-slate-50 dark:bg-bg-dark rounded-2xl border border-slate-200/20 dark:border-white/5">
+                      {/* Full Name */}
                       <div className="space-y-1">
-                        <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Primary Contact Email</label>
+                        <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Specialist Full Name</label>
                         <input
-                          type="email"
+                          type="text"
                           required
-                          value={editEmail}
-                          onChange={(e) => setEditEmail(e.target.value)}
+                          value={editContactName}
+                          onChange={(e) => setEditContactName(e.target.value)}
                           className="w-full p-2.5 text-xs bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary dark:text-white"
                         />
                       </div>
-                      
-                      <div className="flex items-center gap-2 py-1 select-none">
+
+                      {/* Company Name */}
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Company Name (Optional)</label>
                         <input
-                          type="checkbox"
-                          id="edit-is-gmail"
-                          checked={editIsGmail}
-                          onChange={(e) => setEditIsGmail(e.target.checked)}
-                          className="w-4 h-4 rounded text-primary focus:ring-primary bg-slate-50 cursor-pointer"
+                          type="text"
+                          value={editCompanyName}
+                          onChange={(e) => setEditCompanyName(e.target.value)}
+                          className="w-full p-2.5 text-xs bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary dark:text-white"
                         />
-                        <label htmlFor="edit-is-gmail" className="text-slate-700 dark:text-slate-300 cursor-pointer font-bold">
-                          This is a Gmail or Google Workspace Account
-                        </label>
                       </div>
 
-                      {!editIsGmail && (
-                        <div className="space-y-1.5 pt-1.5 border-t border-slate-200/40">
-                          <label className="text-[10px] text-primary uppercase tracking-wider block">Secondary Google Account Email</label>
+                      {/* Email and Google Workspace Verification */}
+                      <div className="space-y-2 p-3 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50 dark:border-white/5">
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Primary Contact Email</label>
                           <input
                             type="email"
                             required
-                            value={editSecondaryEmail}
-                            onChange={(e) => setEditSecondaryEmail(e.target.value)}
-                            placeholder="e.g. user.auth@gmail.com"
-                            className="w-full p-2.5 text-xs bg-white dark:bg-card-dark border border-primary/20 rounded-xl focus:outline-none dark:text-white"
+                            value={editEmail}
+                            onChange={(e) => setEditEmail(e.target.value)}
+                            className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary dark:text-white"
                           />
                         </div>
-                      )}
-                    </div>
+                        
+                        <div className="flex items-center gap-2 py-1 select-none">
+                          <input
+                            type="checkbox"
+                            id="edit-is-gmail"
+                            checked={editIsGmail}
+                            onChange={(e) => setEditIsGmail(e.target.checked)}
+                            className="w-4 h-4 rounded text-primary focus:ring-primary bg-slate-50 cursor-pointer"
+                          />
+                          <label htmlFor="edit-is-gmail" className="text-slate-700 dark:text-slate-300 cursor-pointer font-bold">
+                            Gmail / Google Account
+                          </label>
+                        </div>
 
-                    {/* Phone & Hours */}
-                    <div className="grid grid-cols-2 gap-4">
+                        {!editIsGmail && (
+                          <div className="space-y-1.5 pt-1.5 border-t border-slate-200/40">
+                            <label className="text-[10px] text-primary uppercase tracking-wider block">Secondary Google Account Email</label>
+                            <input
+                              type="email"
+                              required
+                              value={editSecondaryEmail}
+                              onChange={(e) => setEditSecondaryEmail(e.target.value)}
+                              placeholder="e.g. user.auth@gmail.com"
+                              className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-primary/20 rounded-xl focus:outline-none dark:text-white"
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Phone */}
                       <div className="space-y-1">
                         <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Phone Number</label>
                         <input
                           type="text"
                           value={editPhone}
                           onChange={(e) => setEditPhone(e.target.value)}
-                          className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none dark:text-white"
+                          className="w-full p-2.5 text-xs bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none dark:text-white"
                         />
                       </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Hours Available/wk</label>
-                        <input
-                          type="number"
-                          value={editHours}
-                          onChange={(e) => setEditHours(e.target.value)}
-                          className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none dark:text-white"
-                        />
-                      </div>
-                    </div>
 
-                    {/* MT PE Experience & Custom Status dropdown connected to settings statuses */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-slate-400 uppercase tracking-wider block">MT PE Experience</label>
-                        <select
-                          value={editExperience}
-                          onChange={(e) => setEditExperience(e.target.value as any)}
-                          className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none dark:text-white cursor-pointer"
-                        >
-                          <option value="1-3">1-3 years</option>
-                          <option value="3-5">3-5 years</option>
-                          <option value="5+">5+ years</option>
-                        </select>
-                      </div>
-                      
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Candidate Status</label>
-                        {/* Dynamic statuses list fetched from settings configuration */}
-                        <select
-                          value={editStatus}
-                          onChange={(e) => setEditStatus(e.target.value)}
-                          className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none dark:text-white cursor-pointer capitalize font-bold"
-                        >
-                          {activeStatuses.map((s) => (
-                            <option key={s.key} value={s.key}>{s.key.replace('_', ' ')}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* ProZ & LinkedIn Links */}
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-slate-400 uppercase tracking-wider block">ProZ Profile URL</label>
-                        <input
-                          type="text"
-                          value={editProz}
-                          onChange={(e) => setEditProz(e.target.value)}
-                          placeholder="proz.com/profile/username"
-                          className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-slate-400 uppercase tracking-wider block">LinkedIn Profile URL</label>
-                        <input
-                          type="text"
-                          value={editLinkedin}
-                          onChange={(e) => setEditLinkedin(e.target.value)}
-                          placeholder="linkedin.com/in/username"
-                          className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none"
-                        />
-                      </div>
-                    </div>
-
-                    {/* NDA links url & checkbox */}
-                    <div className="space-y-2 p-3 bg-slate-50 dark:bg-bg-dark rounded-2xl border border-slate-200/20 dark:border-white/5">
-                      <span className="text-[10px] text-slate-400 uppercase tracking-wider block">NDA Compliance Link</span>
-                      <div className="flex items-center gap-2 select-none mb-1">
-                        <input
-                          type="checkbox"
-                          id="edit-has-signed-nda"
-                          checked={editHasSignedNda}
-                          onChange={(e) => setEditHasSignedNda(e.target.checked)}
-                          className="w-4 h-4 rounded text-primary bg-slate-50 cursor-pointer"
-                        />
-                        <label htmlFor="edit-has-signed-nda" className="text-slate-700 dark:text-slate-300 font-bold cursor-pointer">
-                          Signed NDA Verified
-                        </label>
-                      </div>
-                      
-                      <div className="space-y-1">
-                        <label className="text-[9px] text-slate-400 uppercase block">Signed NDA PDF Contract URL</label>
-                        <input
-                          type="text"
-                          value={editNdaUrl}
-                          onChange={(e) => setEditNdaUrl(e.target.value)}
-                          placeholder="https://docusign.com/..."
-                          className="w-full p-2 bg-white dark:bg-card-dark border rounded-lg text-xs"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Working Languages */}
-                    <div className="space-y-3 p-4 bg-slate-50 dark:bg-bg-dark rounded-2xl border border-slate-200/20 dark:border-white/5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] text-slate-400 uppercase tracking-wider font-extrabold block">
-                          Working Languages
-                        </span>
-                        <span className="text-[9px] text-slate-400 font-mono">
-                          {editLanguages.length} Registered Pair(s)
-                        </span>
-                      </div>
-
-                      {/* Add new language pair */}
-                      <div className="flex gap-2">
-                        <select
-                          id="edit-lang-select"
-                          className="flex-1 p-2 text-xs bg-white dark:bg-card-dark border rounded-xl text-slate-900 dark:text-white font-bold"
-                        >
-                          {activeLanguages.map((l) => (
-                            <option key={l} value={l}>{l}</option>
-                          ))}
-                        </select>
-                        <select
-                          id="edit-prof-select"
-                          className="p-2 text-xs bg-white dark:bg-card-dark border rounded-xl text-slate-900 dark:text-white font-bold"
-                        >
-                          <option value="native">Native</option>
-                          <option value="bilingual">Bilingual</option>
-                          <option value="professional">Professional</option>
-                          <option value="working">Working</option>
-                        </select>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const lSelect = document.getElementById('edit-lang-select') as HTMLSelectElement;
-                            const pSelect = document.getElementById('edit-prof-select') as HTMLSelectElement;
-                            if (lSelect && pSelect) {
-                              handleAddLanguageToEdit(lSelect.value, pSelect.value as any);
-                            }
-                          }}
-                          className="py-1.5 px-3 bg-primary hover:bg-primary-dark text-white rounded-xl font-bold text-xs cursor-pointer btn-animate"
-                        >
-                          Add Pair
-                        </button>
-                      </div>
-
-                      {/* Working Languages Tags List */}
-                      <div className="flex flex-wrap gap-2 pt-1">
-                        {editLanguages.map((l) => (
-                          <div 
-                            key={l.language} 
-                            className="px-3 py-1.5 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50 dark:border-border-dark flex items-center gap-2 text-xs shadow-sm"
+                      {/* Country & Time Zone */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <label className="text-[9px] text-slate-500 uppercase block">Country of Residence</label>
+                          <select
+                            value={editCountry}
+                            onChange={(e) => setEditCountry(e.target.value)}
+                            className="w-full p-2 text-xs bg-white dark:bg-card-dark border rounded-lg dark:text-white"
                           >
-                            <span className="font-extrabold text-slate-900 dark:text-white">{l.language}</span>
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary capitalize border border-primary/20">
-                              {l.proficiency}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveLanguageFromEdit(l.language)}
-                              className="text-slate-400 hover:text-rose-500 font-extrabold ml-1 cursor-pointer text-sm"
-                              title="Remove Language Pair"
-                            >
-                              ×
-                            </button>
+                            <option value="">-- Select Country --</option>
+                            {COUNTRIES.map((c) => (
+                              <option key={c.code} value={c.name}>{c.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] text-slate-500 uppercase block">Time Zone</label>
+                          <select
+                            value={editTimeZone}
+                            onChange={(e) => setEditTimeZone(e.target.value)}
+                            className="w-full p-2 text-xs bg-white dark:bg-card-dark border rounded-lg dark:text-white"
+                          >
+                            <option value="">-- Select Time Zone --</option>
+                            {TIME_ZONES.map((tz) => (
+                              <option key={tz.value} value={tz.label}>{tz.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Column 2: Workflow, Scheduling & Rates */}
+                    <div className="space-y-4 bg-slate-50 dark:bg-bg-dark p-4.5 rounded-2xl border border-slate-200/50 dark:border-white/5">
+                      <h4 className="text-xs font-extrabold text-primary uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-200/40 dark:border-white/5 pb-2">
+                        <Clock className="w-4 h-4" /> 2. Workflow & Rates
+                      </h4>
+
+                      {/* Candidate Status & Classification Tier */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Candidate Status</label>
+                          <select
+                            value={editStatus}
+                            onChange={(e) => setEditStatus(e.target.value)}
+                            className="w-full p-2.5 text-xs bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none dark:text-white cursor-pointer capitalize font-bold"
+                          >
+                            {activeStatuses.map((s) => (
+                              <option key={s.key} value={s.key}>{s.key.replace('_', ' ')}</option>
+                            ))}
+                          </select>
+                        </div>
+                        
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Classification Tier</label>
+                          <select
+                            value={editTier}
+                            onChange={(e) => setEditTier(parseInt(e.target.value) as 1 | 2 | 3)}
+                            className="w-full p-2.5 text-xs bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none cursor-pointer font-bold"
+                          >
+                            <option value={1}>Tier 1 (Highest Quality)</option>
+                            <option value={2}>Tier 2 (Standard)</option>
+                            <option value={3}>Tier 3 (Budget/Emerging)</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Start Date & Weekly Availability */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-[9px] text-slate-500 uppercase block">Available Start Date</label>
+                          <input
+                            type="text"
+                            value={editAvailableStartDate}
+                            onChange={(e) => setEditAvailableStartDate(e.target.value)}
+                            placeholder="e.g. Immediately"
+                            className="w-full p-2.5 text-xs bg-white dark:bg-card-dark border rounded-xl dark:text-white font-medium"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] text-slate-500 uppercase block">Weekly Capacity</label>
+                          <select
+                            value={editWeeklyAvailability}
+                            onChange={(e) => setEditWeeklyAvailability(e.target.value as WeeklyAvailabilityOption)}
+                            className="w-full p-2.5 text-xs bg-white dark:bg-card-dark border rounded-xl dark:text-white font-medium"
+                          >
+                            <option value="">-- Select Capacity --</option>
+                            <option value="less_than_10">Less than 10 hrs/wk</option>
+                            <option value="up_to_15">Up to 15 hrs/wk</option>
+                            <option value="up_to_20">Up to 20 hrs/wk</option>
+                            <option value="more_than_20">20+ hrs/wk</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Negotiated Rates */}
+                      <div className="space-y-2 p-3 bg-white dark:bg-card-dark border border-slate-200/50 rounded-xl">
+                        <span className="text-[10px] text-slate-400 uppercase font-extrabold block">Commercial Rates ($/hr)</span>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="space-y-1">
+                            <label className="text-[9px] text-slate-400 uppercase block">Client Charge</label>
+                            <input
+                              type="number"
+                              value={editMlcRate}
+                              onChange={(e) => setEditMlcRate(e.target.value)}
+                              className="w-full p-2 bg-slate-50 dark:bg-bg-dark border rounded-lg text-xs font-bold"
+                            />
                           </div>
-                        ))}
+                          <div className="space-y-1">
+                            <label className="text-[9px] text-slate-400 uppercase block">Target Offer</label>
+                            <span className="w-full p-2 bg-slate-200/40 dark:bg-slate-800 rounded-lg text-xs font-bold block text-center leading-normal">
+                              ${Math.round((parseFloat(editMlcRate) || 0) * 0.9)}
+                            </span>
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] text-slate-400 uppercase block">Agreed Rate</label>
+                            <input
+                              type="number"
+                              value={editConfirmedRate}
+                              onChange={(e) => setEditConfirmedRate(e.target.value)}
+                              className="w-full p-2 bg-slate-50 dark:bg-bg-dark border border-primary/20 rounded-lg text-xs font-extrabold text-primary"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Portfolio & NDA URLs */}
+                      <div className="space-y-2 p-3 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50">
+                        <span className="text-[10px] text-slate-400 uppercase font-extrabold block">Portfolio & Compliance URLs</span>
+                        <div className="space-y-2">
+                          <input
+                            type="text"
+                            value={editProz}
+                            onChange={(e) => setEditProz(e.target.value)}
+                            placeholder="ProZ Profile URL"
+                            className="w-full p-2 text-xs bg-slate-50 dark:bg-bg-dark border rounded-lg"
+                          />
+                          <input
+                            type="text"
+                            value={editLinkedin}
+                            onChange={(e) => setEditLinkedin(e.target.value)}
+                            placeholder="LinkedIn Profile URL"
+                            className="w-full p-2 text-xs bg-slate-50 dark:bg-bg-dark border rounded-lg"
+                          />
+                          <div className="flex items-center gap-2 select-none pt-1">
+                            <input
+                              type="checkbox"
+                              id="edit-has-signed-nda"
+                              checked={editHasSignedNda}
+                              onChange={(e) => setEditHasSignedNda(e.target.checked)}
+                              className="w-4 h-4 rounded text-primary bg-slate-50 cursor-pointer"
+                            />
+                            <label htmlFor="edit-has-signed-nda" className="text-slate-700 dark:text-slate-300 font-bold cursor-pointer text-xs">
+                              Signed NDA Verified
+                            </label>
+                          </div>
+                          <input
+                            type="text"
+                            value={editNdaUrl}
+                            onChange={(e) => setEditNdaUrl(e.target.value)}
+                            placeholder="Signed NDA Document URL (e.g. DocuSign)"
+                            className="w-full p-2 text-xs bg-slate-50 dark:bg-bg-dark border rounded-lg"
+                          />
+                        </div>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Services Offered (Comma Separated)</label>
-                        <input
-                          type="text"
-                          value={editServices}
-                          onChange={(e) => setEditServices(e.target.value)}
-                          placeholder="e.g. Translation, Localization"
-                          className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Classification Tier</label>
-                        <select
-                          value={editTier}
-                          onChange={(e) => setEditTier(parseInt(e.target.value) as 1 | 2 | 3)}
-                          className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none cursor-pointer"
-                        >
-                          <option value={1}>Tier 1 (Highest Quality)</option>
-                          <option value={2}>Tier 2 (Standard)</option>
-                          <option value={3}>Tier 3 (Budget/Emerging)</option>
-                        </select>
-                      </div>
-                    </div>
+                    {/* Column 3: Languages & Evaluation Matrix */}
+                    <div className="space-y-4 bg-slate-50 dark:bg-bg-dark p-4.5 rounded-2xl border border-slate-200/50 dark:border-white/5">
+                      <h4 className="text-xs font-extrabold text-primary uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-200/40 dark:border-white/5 pb-2">
+                        <Award className="w-4 h-4" /> 3. Evaluation & Agility Matrix
+                      </h4>
 
-                    {/* Rates Edit fields */}
-                    <div className="grid grid-cols-3 gap-2 p-3 bg-slate-50 dark:bg-bg-dark border border-slate-200/20 rounded-2xl">
-                      <div className="space-y-1">
-                        <label className="text-[9px] text-slate-400 uppercase block">Client Charge ($/hr)</label>
-                        <input
-                          type="number"
-                          value={editMlcRate}
-                          onChange={(e) => setEditMlcRate(e.target.value)}
-                          className="w-full p-2 bg-white dark:bg-card-dark border rounded-lg text-xs"
-                        />
+                      {/* Working Languages */}
+                      <div className="space-y-2 p-3 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] text-slate-400 uppercase tracking-wider font-extrabold block">
+                            Working Languages
+                          </span>
+                          <span className="text-[9px] text-slate-400 font-mono">
+                            {editLanguages.length} Pair(s)
+                          </span>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <select
+                            id="edit-lang-select"
+                            className="flex-1 p-2 text-xs bg-slate-50 dark:bg-bg-dark border rounded-xl font-bold"
+                          >
+                            {activeLanguages.map((l) => (
+                              <option key={l} value={l}>{l}</option>
+                            ))}
+                          </select>
+                          <select
+                            id="edit-prof-select"
+                            className="p-2 text-xs bg-slate-50 dark:bg-bg-dark border rounded-xl font-bold"
+                          >
+                            <option value="native">Native</option>
+                            <option value="bilingual">Bilingual</option>
+                            <option value="professional">Professional</option>
+                            <option value="working">Working</option>
+                          </select>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const lSelect = document.getElementById('edit-lang-select') as HTMLSelectElement;
+                              const pSelect = document.getElementById('edit-prof-select') as HTMLSelectElement;
+                              if (lSelect && pSelect) {
+                                handleAddLanguageToEdit(lSelect.value, pSelect.value as any);
+                              }
+                            }}
+                            className="py-1.5 px-3 bg-primary hover:bg-primary-dark text-white rounded-xl font-bold text-xs cursor-pointer btn-animate"
+                          >
+                            Add
+                          </button>
+                        </div>
+
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                          {editLanguages.map((l) => (
+                            <div 
+                              key={l.language} 
+                              className="px-2.5 py-1 bg-slate-50 dark:bg-bg-dark rounded-lg border border-slate-200/50 flex items-center gap-1.5 text-xs"
+                            >
+                              <span className="font-extrabold">{l.language}</span>
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-primary/10 text-primary capitalize">
+                                {l.proficiency}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveLanguageFromEdit(l.language)}
+                                className="text-slate-400 hover:text-rose-500 font-extrabold ml-1 cursor-pointer"
+                              >
+                                ×
+                              </button>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <div className="space-y-1">
-                        <label className="text-[9px] text-slate-400 uppercase block">Target Offer ($/hr)</label>
-                        <span className="w-full p-2 bg-slate-200/40 dark:bg-slate-800 rounded-lg text-xs font-bold block text-center leading-normal">
-                          {Math.round((parseFloat(editMlcRate) || 0) * 0.9)}
-                        </span>
+
+                      {/* MTQA Years & Taxonomy Exp */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <label className="text-[9px] text-slate-500 uppercase block">MTQA / MTPE Years</label>
+                          <select
+                            value={editMtqaExperienceYears}
+                            onChange={(e) => setEditMtqaExperienceYears(e.target.value as MtqaExperienceYears)}
+                            className="w-full p-2 text-xs bg-white dark:bg-card-dark border rounded-lg dark:text-white"
+                          >
+                            <option value="">-- Select MTQA Exp --</option>
+                            <option value="less_than_1">Less than 1 year</option>
+                            <option value="1_year">1 year</option>
+                            <option value="1_to_3">1–3 years</option>
+                            <option value="3_to_5">3–5 years</option>
+                            <option value="5_plus">5+ years</option>
+                          </select>
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[9px] text-slate-500 uppercase block">Taxonomy Exp</label>
+                          <select
+                            value={editErrorTaggingExperience}
+                            onChange={(e) => setEditErrorTaggingExperience(e.target.value as ErrorTaggingExpLevel)}
+                            className="w-full p-2 text-xs bg-white dark:bg-card-dark border rounded-lg dark:text-white"
+                          >
+                            <option value="">-- Select Taxonomy Exp --</option>
+                            <option value="extensive">Extensive Experience</option>
+                            <option value="basic">Basic Experience</option>
+                            <option value="none_learning">None, Quick to Learn</option>
+                          </select>
+                        </div>
                       </div>
-                      <div className="space-y-1">
-                        <label className="text-[9px] text-slate-400 uppercase block">Confirmed Rate ($/hr)</label>
-                        <input
-                          type="number"
-                          value={editConfirmedRate}
-                          onChange={(e) => setEditConfirmedRate(e.target.value)}
-                          className="w-full p-2 bg-white dark:bg-card-dark border border-primary/20 rounded-lg text-xs font-bold text-primary"
-                        />
+
+                      {/* Hands-On Specialization Checkboxes */}
+                      <div className="space-y-1 p-3 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50">
+                        <label className="text-[9px] text-slate-400 uppercase font-extrabold block">Proven Hands-On Specializations</label>
+                        <div className="space-y-1.5 pt-1">
+                          {[
+                            'Machine Translation Quality Assurance (MTQA)',
+                            'Machine Translation Post-Editing (MTPE)',
+                            'AI Training Data Annotation',
+                            'PII Safety Auditing',
+                            'Content Safety / Policy Enforcement Auditing',
+                            'General Localization & Translation'
+                          ].map((area) => (
+                            <label key={area} className="flex items-center gap-2 text-[11px] text-slate-700 dark:text-slate-300 font-medium cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={editHandsOnExperienceAreas.includes(area)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setEditHandsOnExperienceAreas([...editHandsOnExperienceAreas, area]);
+                                  } else {
+                                    setEditHandsOnExperienceAreas(editHandsOnExperienceAreas.filter((a) => a !== area));
+                                  }
+                                }}
+                                className="w-3.5 h-3.5 rounded text-primary border-slate-300"
+                              />
+                              {area}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Agility Ratings 1-3 */}
+                      <div className="space-y-1.5 p-3 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50">
+                        <label className="text-[9px] text-slate-400 uppercase font-extrabold block">Technical Agility Ratings (1-3 Scale)</label>
+                        <div className="grid grid-cols-2 gap-2 text-[10px]">
+                          {[
+                            { key: 'qaPlatforms', label: 'QA Platforms' },
+                            { key: 'grammarStyle', label: 'Grammar & Style' },
+                            { key: 'errorTagging', label: 'Error Tagging' },
+                            { key: 'policyFeedback', label: 'Policy Feedback' }
+                          ].map((metric) => (
+                            <div key={metric.key} className="p-1.5 bg-slate-50 dark:bg-bg-dark rounded-lg border border-slate-200/50">
+                              <span className="block text-slate-500 font-bold mb-1">{metric.label}</span>
+                              <div className="flex gap-1">
+                                {[1, 2, 3].map((num) => (
+                                  <button
+                                    key={num}
+                                    type="button"
+                                    onClick={() => setEditAgilitySelfAssessment({
+                                      ...editAgilitySelfAssessment,
+                                      [metric.key]: num
+                                    })}
+                                    className={`flex-1 py-0.5 rounded text-[9px] font-extrabold ${
+                                      editAgilitySelfAssessment[metric.key as keyof AgilitySelfAssessment] === num
+                                        ? 'bg-primary text-white'
+                                        : 'bg-white dark:bg-card-dark text-slate-600 dark:text-slate-400 border'
+                                    }`}
+                                  >
+                                    {num}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
 
                   </form>
                 ) : (
-                  /* Display details drawer view */
-                  <div className="space-y-6 text-sm">
-                    {/* Status Badge mapping config colors */}
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Candidate Current Status</span>
-                      {(() => {
-                        const statusConf = activeStatuses.find(s => s.key === selectedVendor.status);
-                        const statusColorClass = statusConf 
-                          ? STATUS_COLORS_MAP[statusConf.color] || STATUS_COLORS_MAP.gray
-                          : STATUS_COLORS_MAP.gray;
-                        return (
-                          <span className={`px-2.5 py-0.5 border text-xs font-bold rounded-lg uppercase tracking-wider ${statusColorClass}`}>
-                            {selectedVendor.status.replace('_', ' ')}
-                          </span>
-                        );
-                      })()}
-                    </div>
+                  /* Display details full-screen modal view (3-Column Layout) */
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-sm">
+                    
+                    {/* Column 1: Core Contact & Location */}
+                    <div className="space-y-5 bg-slate-50 dark:bg-bg-dark p-5 rounded-2xl border border-slate-200/50 dark:border-white/5 flex flex-col justify-between">
+                      <div className="space-y-4">
+                        <h4 className="text-xs font-extrabold text-primary uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-200/40 dark:border-white/5 pb-2">
+                          <User className="w-4 h-4" /> Identity & Contact Profile
+                        </h4>
 
-                    {/* Signed NDA verified status and Direct link */}
-                    <div className="flex flex-col gap-2 p-3.5 bg-slate-50 dark:bg-bg-dark border border-slate-200/20 dark:border-white/5 rounded-2xl">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <FileCheck className={`w-5 h-5 ${selectedVendor.hasSignedNda ? 'text-emerald-500' : 'text-slate-400'}`} />
+                        <div className="space-y-3 text-xs">
                           <div>
-                            <span className="text-xs font-bold text-slate-900 dark:text-white">Non-Disclosure Agreement</span>
-                            <span className="text-[10px] text-slate-500 block">{selectedVendor.hasSignedNda ? 'Signed NDA Verified' : 'NDA Missing / Required'}</span>
+                            <span className="text-[10px] text-slate-400 uppercase font-bold block">Specialist Full Name</span>
+                            <span className="text-base font-extrabold text-slate-900 dark:text-white block">{selectedVendor.contactName}</span>
+                          </div>
+
+                          <div>
+                            <span className="text-[10px] text-slate-400 uppercase font-bold block">Company Entity</span>
+                            <span className="font-semibold text-slate-700 dark:text-slate-300 block">{selectedVendor.companyName || 'Individual Freelancer'}</span>
+                          </div>
+
+                          <div>
+                            <span className="text-[10px] text-slate-400 uppercase font-bold block">Primary Email</span>
+                            <span className="font-extrabold text-slate-900 dark:text-white block">{selectedVendor.email}</span>
+                          </div>
+
+                          {selectedVendor.secondaryEmail && (
+                            <div>
+                              <span className="text-[10px] text-primary uppercase font-bold block">Secondary Google Account</span>
+                              <span className="font-bold text-primary block">{selectedVendor.secondaryEmail}</span>
+                            </div>
+                          )}
+
+                          <div>
+                            <span className="text-[10px] text-slate-400 uppercase font-bold block">Phone Number</span>
+                            <span className="font-semibold text-slate-700 dark:text-slate-300 block">{selectedVendor.phone || 'Unspecified'}</span>
+                          </div>
+
+                          <div className="pt-2 border-t border-slate-200/40">
+                            <span className="text-[10px] text-slate-400 uppercase font-bold block">Country of Residence</span>
+                            <span className="font-extrabold text-slate-900 dark:text-white block">{selectedVendor.country || 'Unspecified'}</span>
+                          </div>
+
+                          <div>
+                            <span className="text-[10px] text-slate-400 uppercase font-bold block">Primary Time Zone</span>
+                            <span className="font-semibold text-slate-700 dark:text-slate-300 block">{selectedVendor.timeZone || 'Unspecified'}</span>
                           </div>
                         </div>
                       </div>
-                      
-                      {selectedVendor.ndaUrl && (
-                        <div className="pt-2 border-t border-slate-200/40">
+
+                      {/* NDA Compliance Section */}
+                      <div className="p-3.5 bg-white dark:bg-card-dark border border-slate-200/50 rounded-xl space-y-2 mt-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] text-slate-400 font-bold uppercase">NDA Status</span>
+                          {selectedVendor.hasSignedNda ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/15 text-emerald-600 border border-emerald-500/20">🟢 Signed Verified</span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-rose-500/15 text-rose-600 border border-rose-500/20">🔴 Missing</span>
+                          )}
+                        </div>
+                        {selectedVendor.ndaUrl && (
                           <a 
                             href={selectedVendor.ndaUrl} 
                             target="_blank" 
                             rel="noreferrer" 
                             className="inline-flex items-center gap-1.5 text-primary font-bold hover:underline text-xs"
                           >
-                            <ExternalLink className="w-4 h-4 text-primary" />
-                            Open Signed NDA PDF Document
+                            <ExternalLink className="w-4 h-4" />
+                            View Signed NDA Document ↗
                           </a>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Column 2: Workflow, Scheduling & Rates */}
+                    <div className="space-y-5 bg-slate-50 dark:bg-bg-dark p-5 rounded-2xl border border-slate-200/50 dark:border-white/5 flex flex-col justify-between">
+                      <div className="space-y-4">
+                        <h4 className="text-xs font-extrabold text-primary uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-200/40 dark:border-white/5 pb-2">
+                          <Clock className="w-4 h-4" /> Workflow Stage & Commercials
+                        </h4>
+
+                        {/* Current Status Badge & Tier */}
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="text-[10px] text-slate-400 uppercase font-bold block">Current Status</span>
+                            {(() => {
+                              const statusConf = activeStatuses.find(s => s.key === selectedVendor.status);
+                              const statusColorClass = statusConf 
+                                ? STATUS_COLORS_MAP[statusConf.color] || STATUS_COLORS_MAP.gray
+                                : STATUS_COLORS_MAP.gray;
+                              return (
+                                <span className={`px-2.5 py-0.5 border text-xs font-bold rounded-lg uppercase tracking-wider ${statusColorClass}`}>
+                                  {selectedVendor.status.replace('_', ' ')}
+                                </span>
+                              );
+                            })()}
+                          </div>
+                          <div className="text-right">
+                            <span className="text-[10px] text-slate-400 uppercase font-bold block">Classification Tier</span>
+                            <span className="font-extrabold text-slate-800 dark:text-slate-200">Tier {selectedVendor.classificationTier || 2}</span>
+                          </div>
+                        </div>
+
+                        {/* Workflow Stage Selector */}
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Workflow Pipeline Stage</label>
+                          <select
+                            value={selectedVendor.stage}
+                            onChange={(e) => handleStageChangeRequest(selectedVendor.id, e.target.value as WorkflowStage)}
+                            className="w-full pl-3 pr-8 py-2.5 text-xs font-bold bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-xl dark:text-white cursor-pointer focus:outline-none"
+                          >
+                            {stages.map((stg) => (
+                              <option key={stg.id} value={stg.id}>{stg.name}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Stage Progress Selector */}
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Stage Progress</label>
+                          <div className="w-full">
+                            {renderStageStatusSelector(selectedVendor)}
+                          </div>
+                        </div>
+
+                        {/* Scheduling */}
+                        <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-200/40">
+                          <div>
+                            <span className="text-[10px] text-slate-400 uppercase font-bold block">Start Availability</span>
+                            <span className="font-extrabold text-slate-900 dark:text-white block">{selectedVendor.availableStartDate || 'Immediate'}</span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] text-slate-400 uppercase font-bold block">Weekly Capacity</span>
+                            <span className="font-extrabold text-slate-900 dark:text-white block">
+                              {selectedVendor.weeklyAvailability ? (
+                                selectedVendor.weeklyAvailability.replace('_than_', ' ').replace('_to_', '–').replace('_plus', '+') + ' hrs/wk'
+                              ) : selectedVendor.hoursAvailable ? (
+                                `${selectedVendor.hoursAvailable} hrs/wk`
+                              ) : (
+                                'Unspecified'
+                              )}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Commercial Rates Summary */}
+                        <div className="bg-white dark:bg-card-dark rounded-xl p-3.5 border border-slate-200/50 space-y-2">
+                          <span className="text-[10px] text-slate-400 uppercase font-extrabold block">Commercial Rates</span>
+                          <div className="grid grid-cols-3 gap-2 text-center">
+                            <div>
+                              <span className="text-[9px] text-slate-500 block">Client Charge</span>
+                              <span className="font-bold text-slate-800 dark:text-white">${selectedVendor.mlcHourlyRate}/hr</span>
+                            </div>
+                            <div>
+                              <span className="text-[9px] text-slate-500 block">Target Offer</span>
+                              <span className="font-bold text-slate-800 dark:text-white">${selectedVendor.adjustedRate}/hr</span>
+                            </div>
+                            <div className="bg-primary/10 border border-primary/20 rounded-lg p-1">
+                              <span className="text-[9px] text-primary block font-extrabold">Agreed Rate</span>
+                              <span className="font-extrabold text-primary">${selectedVendor.confirmedRate}/hr</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Application Intake Source Campaign */}
+                      {selectedVendor.applicationName && (
+                        <div className="p-3 bg-primary/5 dark:bg-primary/10 rounded-xl border border-primary/20 flex items-center justify-between text-xs mt-4">
+                          <div className="flex items-center gap-2">
+                            <Layers className="w-4 h-4 text-primary shrink-0" />
+                            <div>
+                              <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Intake Campaign</span>
+                              <span className="font-extrabold text-slate-900 dark:text-white">{selectedVendor.applicationName}</span>
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>
 
-                    {/* Stage selector dropdown inside sidebar details */}
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Workflow Stage</label>
-                      <select
-                        value={selectedVendor.stage}
-                        onChange={(e) => handleStageChangeRequest(selectedVendor.id, e.target.value as WorkflowStage)}
-                        className="w-full pl-3 pr-8 py-2.5 text-xs font-bold bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl dark:text-white cursor-pointer focus:outline-none"
-                      >
-                        {stages.map((stg) => (
-                          <option key={stg.id} value={stg.id}>{stg.name}</option>
-                        ))}
-                      </select>
-                    </div>
+                    {/* Column 3: Languages, Services & Evaluation Matrix */}
+                    <div className="space-y-5 bg-slate-50 dark:bg-bg-dark p-5 rounded-2xl border border-slate-200/50 dark:border-white/5 flex flex-col justify-between">
+                      <div className="space-y-4">
+                        <h4 className="text-xs font-extrabold text-primary uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-200/40 dark:border-white/5 pb-2">
+                          <Award className="w-4 h-4" /> Languages & Agility Evaluation
+                        </h4>
 
-                    {/* Stage Progress toggle inside sidebar details */}
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Stage Progress & Status</label>
-                      <div className="w-full">
-                        {renderStageStatusSelector(selectedVendor)}
-                      </div>
-                    </div>
-
-                    {/* Application Intake Source */}
-                    {selectedVendor.applicationName && (
-                      <div className="p-3 bg-primary/5 dark:bg-primary/10 rounded-2xl border border-primary/20 flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-2">
-                          <Layers className="w-4 h-4 text-primary shrink-0" />
-                          <div>
-                            <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Application Intake Source</span>
-                            <span className="font-extrabold text-slate-900 dark:text-white">{selectedVendor.applicationName}</span>
+                        {/* Working Languages */}
+                        <div className="space-y-2 p-3 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-slate-400 uppercase font-bold">Working Languages</span>
+                            <span className="text-[9px] text-slate-400 font-mono">{(selectedVendor.workingLanguages || []).length} Pair(s)</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {Array.isArray(selectedVendor.workingLanguages) && selectedVendor.workingLanguages.map((l, idx) => {
+                              const langName = typeof l === 'string' ? l : (l?.language || 'Primary');
+                              const prof = typeof l === 'string' ? 'working' : (l?.proficiency || 'working');
+                              return (
+                                <span key={idx} className="px-2.5 py-1 bg-primary/10 text-primary rounded-lg text-xs font-bold border border-primary/20">
+                                  {langName} ({prof})
+                                </span>
+                              );
+                            })}
                           </div>
                         </div>
-                      </div>
-                    )}
 
-                    {/* Working Languages Summary */}
-                    <div className="space-y-3 p-4 bg-slate-50 dark:bg-bg-dark rounded-2xl border border-slate-200/20 dark:border-white/5">
-                      <div className="flex items-center justify-between">
-                        <h5 className="font-bold text-xs text-slate-400 uppercase tracking-wider">
-                          Working Languages
-                        </h5>
-                        <span className="text-[10px] text-slate-400 font-mono">
-                          {(selectedVendor.workingLanguages || []).length} Registered Pair(s)
-                        </span>
-                      </div>
-
-                      <div className="flex flex-wrap gap-2">
-                        {Array.isArray(selectedVendor.workingLanguages) && selectedVendor.workingLanguages.map((l, idx) => {
-                          const langName = typeof l === 'string' ? l : (l?.language || 'Primary Language');
-                          const prof = typeof l === 'string' ? 'working' : (l?.proficiency || 'working');
-                          return (
-                            <div 
-                              key={langName + idx} 
-                              className="px-3 py-2 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50 dark:border-border-dark flex items-center gap-2 text-xs shadow-sm"
-                            >
-                              <span className="font-extrabold text-slate-900 dark:text-white">{langName}</span>
-                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary capitalize border border-primary/20">
-                                {prof}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Rates negotiation values */}
-                    <div className="space-y-3">
-                      <h5 className="font-bold text-xs text-slate-400 uppercase tracking-wider">Negotiated Rates</h5>
-                      <div className="bg-slate-50 dark:bg-bg-dark rounded-2xl p-4 border border-slate-100 dark:border-white/5 space-y-3">
-                        <div className="grid grid-cols-3 gap-4 text-center">
-                          <div>
-                            <span className="text-[9px] text-slate-500 block font-medium">Charge Rate</span>
-                            <span className="font-bold text-slate-800 dark:text-white">${selectedVendor.mlcHourlyRate}/hr</span>
-                          </div>
-                          <div>
-                            <span className="text-[9px] text-slate-500 block font-medium">Target Rate</span>
-                            <span className="font-bold text-slate-800 dark:text-white">${selectedVendor.adjustedRate}/hr</span>
-                          </div>
-                          <div className="bg-primary/10 border border-primary/20 rounded-xl p-1">
-                            <span className="text-[9px] text-primary block font-extrabold">Agreed Rate</span>
-                            <span className="font-extrabold text-primary">${selectedVendor.confirmedRate}/hr</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Specialist Attributes */}
-                    <div className="space-y-3">
-                      <h5 className="font-bold text-xs text-slate-400 uppercase tracking-wider font-semibold">Specialist Attributes</h5>
-                      <div className="bg-slate-50 dark:bg-bg-dark rounded-2xl p-4 border border-slate-100 dark:border-white/5 space-y-2.5 text-xs text-slate-600 dark:text-slate-300">
-                        <div className="flex justify-between">
-                          <span>Primary Email:</span>
-                          <span className="font-bold">{selectedVendor.email}</span>
-                        </div>
-                        
-                        {selectedVendor.secondaryEmail && (
-                          <div className="flex justify-between">
-                            <span>Secondary Google Acc:</span>
-                            <span className="font-bold text-primary">{selectedVendor.secondaryEmail}</span>
+                        {/* Other Languages */}
+                        {selectedVendor.otherLanguages && (
+                          <div className="text-xs">
+                            <span className="text-[10px] text-slate-400 uppercase font-bold block">Other Languages Handled</span>
+                            <span className="font-semibold text-slate-700 dark:text-slate-300 block bg-white dark:bg-card-dark p-2 rounded-lg border">{selectedVendor.otherLanguages}</span>
                           </div>
                         )}
 
-                        <div className="flex justify-between">
-                          <span>Weekly Available Hours:</span>
-                          <span className="font-bold">{selectedVendor.hoursAvailable ? `${selectedVendor.hoursAvailable} hrs` : 'Unspecified'}</span>
-                        </div>
-                        
-                        <div className="flex justify-between">
-                          <span>MT Post-Editing Exp:</span>
-                          <span className="font-bold">{selectedVendor.mtPeExperience ? `${selectedVendor.mtPeExperience} years` : 'Unspecified'}</span>
-                        </div>
-
-                        {selectedVendor.prozProfile && (
-                          <div className="flex justify-between">
-                            <span>ProZ Profile:</span>
-                            <a href={selectedVendor.prozProfile} target="_blank" rel="noreferrer" className="text-primary font-bold hover:underline">View ProZ Portfolio</a>
-                          </div>
-                        )}
-
-                        {selectedVendor.linkedInProfile && (
-                          <div className="flex justify-between">
-                            <span>LinkedIn Profile:</span>
-                            <a href={selectedVendor.linkedInProfile} target="_blank" rel="noreferrer" className="text-primary font-bold hover:underline flex items-center gap-1">
-                              <ExternalLink className="w-3.5 h-3.5" />
-                              View LinkedIn
-                            </a>
-                          </div>
-                        )}
-
-                        {selectedVendor.resumeName && (
-                          <div className="flex justify-between items-center pt-1.5 border-t border-slate-200/40 dark:border-white/5">
-                            <span>Resume File:</span>
-                            <span className="inline-flex items-center gap-1.5 text-primary font-bold bg-primary/5 py-1 px-2.5 rounded-lg border border-primary/10">
-                              <UploadCloud className="w-3.5 h-3.5" />
-                              {selectedVendor.resumeName}
+                        {/* MTQA Experience Years & Taxonomy Level */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <span className="text-[10px] text-slate-400 uppercase font-bold block">MTQA / MTPE Exp</span>
+                            <span className="font-extrabold text-slate-900 dark:text-white block">
+                              {selectedVendor.mtqaExperienceYears ? selectedVendor.mtqaExperienceYears.replace('_to_', '–').replace('_plus', '+').replace('less_than_', '< ') : selectedVendor.mtPeExperience || 'Unspecified'}
                             </span>
                           </div>
+                          <div>
+                            <span className="text-[10px] text-slate-400 uppercase font-bold block">Taxonomy Exp</span>
+                            <span className="font-bold text-primary block capitalize">
+                              {selectedVendor.errorTaggingExperience ? selectedVendor.errorTaggingExperience.replace('_', ' ') : 'Unspecified'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Hands-On Badges */}
+                        {selectedVendor.handsOnExperienceAreas && selectedVendor.handsOnExperienceAreas.length > 0 && (
+                          <div className="space-y-1">
+                            <span className="text-[10px] text-slate-400 uppercase font-bold block">Proven Specializations</span>
+                            <div className="flex flex-wrap gap-1">
+                              {selectedVendor.handsOnExperienceAreas.map((area) => (
+                                <span key={area} className="px-2 py-0.5 rounded text-[9px] font-extrabold bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                                  {area}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
                         )}
+
+                        {/* Technical Agility 1-3 Matrix */}
+                        {selectedVendor.agilitySelfAssessment && (
+                          <div className="space-y-1.5 p-3 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50">
+                            <span className="text-[10px] text-slate-400 uppercase font-extrabold block">Technical Agility Ratings (1–3 Scale)</span>
+                            <div className="grid grid-cols-2 gap-2 text-[10px]">
+                              <div className="p-1.5 bg-slate-50 dark:bg-bg-dark rounded-lg">
+                                <span className="text-slate-400 block text-[9px]">QA Platforms</span>
+                                <span className="font-extrabold text-blue-600">★ {selectedVendor.agilitySelfAssessment.qaPlatforms || 0} / 3</span>
+                              </div>
+                              <div className="p-1.5 bg-slate-50 dark:bg-bg-dark rounded-lg">
+                                <span className="text-slate-400 block text-[9px]">Grammar/Style</span>
+                                <span className="font-extrabold text-emerald-600">★ {selectedVendor.agilitySelfAssessment.grammarStyle || 0} / 3</span>
+                              </div>
+                              <div className="p-1.5 bg-slate-50 dark:bg-bg-dark rounded-lg">
+                                <span className="text-slate-400 block text-[9px]">Error Tagging</span>
+                                <span className="font-extrabold text-amber-600">★ {selectedVendor.agilitySelfAssessment.errorTagging || 0} / 3</span>
+                              </div>
+                              <div className="p-1.5 bg-slate-50 dark:bg-bg-dark rounded-lg">
+                                <span className="text-slate-400 block text-[9px]">Policy Feedback</span>
+                                <span className="font-extrabold text-purple-600">★ {selectedVendor.agilitySelfAssessment.policyFeedback || 0} / 3</span>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Links & Attachments */}
+                        <div className="flex flex-wrap gap-2 text-xs pt-1">
+                          {selectedVendor.prozProfile && (
+                            <a href={selectedVendor.prozProfile} target="_blank" rel="noreferrer" className="px-2.5 py-1 bg-white dark:bg-card-dark border rounded-lg text-primary font-bold hover:underline">
+                              ProZ Profile ↗
+                            </a>
+                          )}
+                          {selectedVendor.linkedInProfile && (
+                            <a href={selectedVendor.linkedInProfile} target="_blank" rel="noreferrer" className="px-2.5 py-1 bg-white dark:bg-card-dark border rounded-lg text-primary font-bold hover:underline">
+                              LinkedIn ↗
+                            </a>
+                          )}
+                        </div>
                       </div>
                     </div>
+
                   </div>
                 )}
               </div>
@@ -2522,6 +3165,183 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                       placeholder="Signed NDA document URL (e.g. DocuSign)"
                       className="w-full p-2 border rounded-lg text-xs bg-white dark:bg-card-dark"
                     />
+                  </div>
+
+                  {/* Comprehensive Evaluation Fields */}
+                  <div className="space-y-3 p-3.5 bg-primary/5 rounded-2xl border border-primary/20">
+                    <span className="text-[10px] text-primary uppercase font-extrabold tracking-wider block flex items-center gap-1">
+                      <Sparkles className="w-3.5 h-3.5" /> Detailed Evaluation & Location Profile
+                    </span>
+
+                    {/* Country & Time Zone */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <label className="text-[9px] text-slate-500 uppercase block">Country of Residence</label>
+                        <select
+                          value={formCountry}
+                          onChange={(e) => setFormCountry(e.target.value)}
+                          className="w-full p-2 text-xs bg-white dark:bg-card-dark border rounded-lg dark:text-white"
+                        >
+                          <option value="">-- Select Country --</option>
+                          {COUNTRIES.map((c) => (
+                            <option key={c.code} value={c.name}>{c.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] text-slate-500 uppercase block">Time Zone</label>
+                        <select
+                          value={formTimeZone}
+                          onChange={(e) => setFormTimeZone(e.target.value)}
+                          className="w-full p-2 text-xs bg-white dark:bg-card-dark border rounded-lg dark:text-white"
+                        >
+                          <option value="">-- Select Time Zone --</option>
+                          {TIME_ZONES.map((tz) => (
+                            <option key={tz.value} value={tz.label}>{tz.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Start Date & Weekly Availability */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <label className="text-[9px] text-slate-500 uppercase block">Available Start Date</label>
+                        <input
+                          type="text"
+                          value={formAvailableStartDate}
+                          onChange={(e) => setFormAvailableStartDate(e.target.value)}
+                          placeholder="e.g. Immediately"
+                          className="w-full p-2 text-xs bg-white dark:bg-card-dark border rounded-lg dark:text-white"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] text-slate-500 uppercase block">Weekly Availability</label>
+                        <select
+                          value={formWeeklyAvailability}
+                          onChange={(e) => setFormWeeklyAvailability(e.target.value as WeeklyAvailabilityOption)}
+                          className="w-full p-2 text-xs bg-white dark:bg-card-dark border rounded-lg dark:text-white"
+                        >
+                          <option value="">-- Select Capacity --</option>
+                          <option value="less_than_10">Less than 10 hrs/week</option>
+                          <option value="up_to_15">Up to 15 hrs/week</option>
+                          <option value="up_to_20">Up to 20 hrs/week</option>
+                          <option value="more_than_20">20+ hrs/week</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Other Languages */}
+                    <div className="space-y-1">
+                      <label className="text-[9px] text-slate-500 uppercase block">Other Working Languages Handled</label>
+                      <input
+                        type="text"
+                        value={formOtherLanguages}
+                        onChange={(e) => setFormOtherLanguages(e.target.value)}
+                        placeholder="e.g. French (Canadian), Catalan"
+                        className="w-full p-2 text-xs bg-white dark:bg-card-dark border rounded-lg dark:text-white"
+                      />
+                    </div>
+
+                    {/* MTQA Specific Experience Years & Error Tagging */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1">
+                        <label className="text-[9px] text-slate-500 uppercase block">MTQA / MTPE Years</label>
+                        <select
+                          value={formMtqaExperienceYears}
+                          onChange={(e) => setFormMtqaExperienceYears(e.target.value as MtqaExperienceYears)}
+                          className="w-full p-2 text-xs bg-white dark:bg-card-dark border rounded-lg dark:text-white"
+                        >
+                          <option value="">-- Select MTQA Exp --</option>
+                          <option value="less_than_1">Less than 1 year</option>
+                          <option value="1_year">1 year</option>
+                          <option value="1_to_3">1–3 years</option>
+                          <option value="3_to_5">3–5 years</option>
+                          <option value="5_plus">5+ years</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[9px] text-slate-500 uppercase block">Taxonomy Experience</label>
+                        <select
+                          value={formErrorTaggingExperience}
+                          onChange={(e) => setFormErrorTaggingExperience(e.target.value as ErrorTaggingExpLevel)}
+                          className="w-full p-2 text-xs bg-white dark:bg-card-dark border rounded-lg dark:text-white"
+                        >
+                          <option value="">-- Select Taxonomy Exp --</option>
+                          <option value="extensive">Extensive Experience</option>
+                          <option value="basic">Basic Experience</option>
+                          <option value="none_learning">None, Quick to Learn</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Hands-On Domain Checkboxes */}
+                    <div className="space-y-1 pt-1">
+                      <label className="text-[9px] text-slate-500 uppercase block">Proven Hands-On Experience</label>
+                      <div className="space-y-1">
+                        {[
+                          'Machine Translation Quality Assurance (MTQA)',
+                          'Machine Translation Post-Editing (MTPE)',
+                          'AI Training Data Annotation',
+                          'PII Safety Auditing',
+                          'Content Safety / Policy Enforcement Auditing',
+                          'General Localization & Translation'
+                        ].map((area) => (
+                          <label key={area} className="flex items-center gap-2 text-[11px] text-slate-700 dark:text-slate-300 font-medium cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={formHandsOnExperienceAreas.includes(area)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setFormHandsOnExperienceAreas([...formHandsOnExperienceAreas, area]);
+                                } else {
+                                  setFormHandsOnExperienceAreas(formHandsOnExperienceAreas.filter((a) => a !== area));
+                                }
+                              }}
+                              className="w-3.5 h-3.5 rounded text-primary border-slate-300"
+                            />
+                            {area}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Agility Ratings 1-3 */}
+                    <div className="space-y-1.5 pt-1 border-t border-primary/10">
+                      <label className="text-[9px] text-slate-500 uppercase block font-bold">Agility Ratings (1-Beginner to 3-Expert)</label>
+                      <div className="grid grid-cols-2 gap-2 text-[10px]">
+                        {[
+                          { key: 'qaPlatforms', label: 'QA Platforms' },
+                          { key: 'grammarStyle', label: 'Grammar & Style' },
+                          { key: 'errorTagging', label: 'Error Tagging' },
+                          { key: 'policyFeedback', label: 'Policy Feedback' }
+                        ].map((metric) => (
+                          <div key={metric.key} className="p-1.5 bg-white dark:bg-card-dark rounded-lg border border-slate-200/50">
+                            <span className="block text-slate-500 font-bold mb-1">{metric.label}</span>
+                            <div className="flex gap-1">
+                              {[1, 2, 3].map((num) => (
+                                <button
+                                  key={num}
+                                  type="button"
+                                  onClick={() => setFormAgilitySelfAssessment({
+                                    ...formAgilitySelfAssessment,
+                                    [metric.key]: num
+                                  })}
+                                  className={`flex-1 py-0.5 rounded text-[9px] font-extrabold ${
+                                    formAgilitySelfAssessment[metric.key as keyof AgilitySelfAssessment] === num
+                                      ? 'bg-primary text-white'
+                                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                                  }`}
+                                >
+                                  {num}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
 
                   {/* Resume Upload simulation */}
