@@ -1,133 +1,28 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import type { VendorProfile, WorkflowStage, WorkingLanguage, StatusConfig, WorkflowAction, EmailTemplate, TestRecord } from '../types';
+import type { VendorProfile, WorkflowStage, WorkingLanguage, StatusConfig, WorkflowAction, EmailTemplate, TestRecord, WorkflowStageConfig, SlaNudgeConfig, StageProgressConfig, ApplicationConfig } from '../types';
+import { getActiveSortedLanguages, DEFAULT_STAGE_PROGRESS_OPTIONS, getStageProgressStyle, getStageProgressTextColor } from '../types';
 import { 
-  Plus, Search, Filter, ShieldAlert, X, 
-  FileText, Check, UploadCloud, Grid, List, ArrowUpDown,
-  FileCheck, Info, ExternalLink, Edit2, AlertTriangle, Download
+  Plus, Search, ShieldAlert, X, ChevronDown,
+  FileText, Check, Copy, UploadCloud, Grid, List, ArrowUpDown,
+  FileCheck, Info, ExternalLink, Edit2, AlertTriangle, Download, Trash2, Mail, Link as LinkIcon, Layers
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { collection, getDocs, doc, setDoc, getDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, getDoc, onSnapshot, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../AuthContext';
+import { seed10DummyVendors, SEEDED_DUMMY_VENDORS } from '../seedVendors';
 
-// Mock candidates list matching expanded profile attributes with new 7 stages
-const INITIAL_VENDORS_MOCK: VendorProfile[] = [
-  {
-    id: 'v-1',
-    companyName: 'Apex Translations LLC',
-    contactName: 'Carlos Santillan',
-    email: 'carlos@apextrans.com',
-    phone: '+1 (555) 123-4567',
-    status: 'approved',
-    category: 'active',
-    stage: 'ready_for_pm',
-    services: ['Translation', 'Localization'],
-    workingLanguages: [
-      { language: 'Spanish', proficiency: 'native' },
-      { language: 'English', proficiency: 'professional' }
-    ],
-    classificationTier: 1,
-    source: 'external',
-    mlcHourlyRate: 45,
-    adjustedRate: 42,
-    confirmedRate: 45,
-    isGmail: false,
-    secondaryEmail: 'carlos.santillan.mlc@gmail.com',
-    mtPeExperience: '5+',
-    prozProfile: 'https://proz.com/profile/carlos-trans',
-    linkedInProfile: 'https://linkedin.com/in/carlos-santillan',
-    hoursAvailable: 35,
-    hasSignedNda: true,
-    ndaUrl: 'https://mlconnections.com/nda/verify-cs-987.pdf',
-    resumeName: 'carlos_resume_2026.pdf',
-    submittedAt: '2026-07-20T10:00:00Z',
-    updatedAt: '2026-07-20T10:00:00Z'
-  },
-  {
-    id: 'v-2',
-    companyName: '',
-    contactName: 'Hana Tanaka',
-    email: 'hana@lingoglobe.jp',
-    phone: '+81 3 1234 5678',
-    status: 'pending',
-    category: 'unassigned',
-    stage: 'in_testing',
-    services: ['Interpretation', 'Subtitling'],
-    workingLanguages: [
-      { language: 'Japanese', proficiency: 'native' },
-      { language: 'English', proficiency: 'professional' }
-    ],
-    classificationTier: 2,
-    source: 'xtrf',
-    mlcHourlyRate: 60,
-    adjustedRate: 50,
-    confirmedRate: 0,
-    isGmail: true,
-    mtPeExperience: '3-5',
-    hoursAvailable: 20,
-    hasSignedNda: true,
-    ndaUrl: 'https://mlconnections.com/nda/verify-ht-554.pdf',
-    resumeName: 'hana_tanaka_cv.docx',
-    submittedAt: '2026-07-28T14:30:00Z',
-    updatedAt: '2026-07-28T14:30:00Z'
-  },
-  {
-    id: 'v-3',
-    companyName: 'Nordic Words',
-    contactName: 'Freja Lindstrom',
-    email: 'freja@nordicwords.se',
-    phone: '+46 8 123 45 67',
-    status: 'pending',
-    category: 'outreach',
-    stage: 'outreach',
-    services: ['Translation', 'Proofreading'],
-    workingLanguages: [
-      { language: 'Swedish', proficiency: 'native' },
-      { language: 'English', proficiency: 'professional' }
-    ],
-    classificationTier: 1,
-    source: 'external',
-    mlcHourlyRate: 50,
-    adjustedRate: 45,
-    confirmedRate: 0,
-    isGmail: true,
-    mtPeExperience: '1-3',
-    hoursAvailable: 15,
-    hasSignedNda: false,
-    submittedAt: '2026-07-30T09:15:00Z',
-    updatedAt: '2026-07-30T09:15:00Z'
-  },
-  {
-    id: 'v-4',
-    companyName: '',
-    contactName: 'Amara Diop',
-    email: 'amara@globalvoice.sn',
-    phone: '+221 33 123 45 67',
-    status: 'pending',
-    category: 'network',
-    stage: 'nda',
-    services: ['Transcription'],
-    workingLanguages: [
-      { language: 'Wolof', proficiency: 'native' },
-      { language: 'French', proficiency: 'bilingual' }
-    ],
-    classificationTier: 3,
-    source: 'xtrf',
-    mlcHourlyRate: 35,
-    adjustedRate: 30,
-    confirmedRate: 32,
-    isGmail: false,
-    secondaryEmail: 'amara.diop.work@gmail.com',
-    mtPeExperience: '5+',
-    prozProfile: 'https://proz.com/profile/amara-diop',
-    hoursAvailable: 40,
-    hasSignedNda: true,
-    ndaUrl: 'https://mlconnections.com/nda/verify-ad-122.pdf',
-    resumeName: 'amara_diop_resume.pdf',
-    submittedAt: '2026-07-15T08:00:00Z',
-    updatedAt: '2026-07-18T16:00:00Z'
-  }
+const DEFAULT_STAGES: WorkflowStageConfig[] = [
+  { id: 'outreach', name: 'Outreach', description: 'Initial contact and profile submission', order: 1 },
+  { id: 'nda', name: 'NDA Sign', description: 'Non-disclosure agreement verification', order: 2 },
+  { id: 'ready_for_testing', name: 'Ready for Testing', description: 'Vetted candidate queued for assessment', order: 3 },
+  { id: 'in_testing', name: 'In Testing', description: 'Active translation test evaluation', order: 4 },
+  { id: 'xtrf_onboarding', name: 'XTRF Onboarding', description: 'Portal account & system registration', order: 5 },
+  { id: 'ready_for_pm', name: 'Ready for PM', description: 'Compliance approved and available in PM Directory', order: 6 },
+  { id: 'dnu', name: 'DNU', description: 'Do Not Use / Disqualified candidate', order: 7 }
 ];
+
+
 
 export const STAGE_LABELS: Record<WorkflowStage, string> = {
   outreach: 'Outreach',
@@ -152,18 +47,30 @@ const STATUS_COLORS_MAP: Record<string, string> = {
   gray: 'bg-slate-500/15 text-slate-600 dark:text-slate-400 border-slate-500/20'
 };
 
+const DEFAULT_LANGUAGES = ['English', 'Spanish', 'German', 'Japanese', 'Mandarin', 'Swedish', 'Wolof', 'French', 'Portuguese'];
+
 export const Dashboard: React.FC = () => {
   const { user, loading } = useAuth();
   
-  // Settings configurations
-  const [activeLanguages, setActiveLanguages] = useState<string[]>([]);
+  // Settings & Workflow Stage configurations
+  const [stages, setStages] = useState<WorkflowStageConfig[]>(DEFAULT_STAGES);
+  const [activeLanguages, setActiveLanguages] = useState<string[]>(DEFAULT_LANGUAGES);
   const [activeStatuses, setActiveStatuses] = useState<StatusConfig[]>([]);
+  const [stageProgressOptions, setStageProgressOptions] = useState<StageProgressConfig[]>(DEFAULT_STAGE_PROGRESS_OPTIONS);
 
   const [vendors, setVendors] = useState<VendorProfile[]>([]);
   const [workflowActions, setWorkflowActions] = useState<WorkflowAction[]>([]);
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
   const [search, setSearch] = useState('');
-  const [stageFilter, setStageFilter] = useState<string>('all');
+  const [selectedStageFilters, setSelectedStageFilters] = useState<string[]>([]);
+  const [selectedLanguageFilters, setSelectedLanguageFilters] = useState<string[]>([]);
+  const [selectedStatusFilters, setSelectedStatusFilters] = useState<string[]>([]);
+  const [selectedAppFilters, setSelectedAppFilters] = useState<string[]>([]);
+  
+  // Dropdown open states for multi-select popovers
+  const [isLangDropdownOpen, setIsLangDropdownOpen] = useState(false);
+  const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
+  const [isAppDropdownOpen, setIsAppDropdownOpen] = useState(false);
   
   // Slide-out drawers
   const [selectedVendor, setSelectedVendor] = useState<VendorProfile | null>(null);
@@ -178,9 +85,6 @@ export const Dashboard: React.FC = () => {
   
   // Side Drawers / Modals
   const [isAddOpen, setIsAddOpen] = useState(false);
-
-  // XTRF import click banner alert
-  const [showXtrfAlert, setShowXtrfAlert] = useState(false);
 
   // Form Field States for New Intake
   const [formContactName, setFormContactName] = useState('');
@@ -201,7 +105,7 @@ export const Dashboard: React.FC = () => {
   
   // Selected multiple languages in form
   const [formLanguages, setFormLanguages] = useState<{ language: string; proficiency: WorkingLanguage['proficiency'] }[]>([]);
-  const [selectedLangToAdd, setSelectedLangToAdd] = useState('');
+  const [selectedLangToAdd, setSelectedLangToAdd] = useState('English');
   const [selectedProfToAdd, setSelectedProfToAdd] = useState<WorkingLanguage['proficiency']>('native');
 
   // Resume Upload simulation
@@ -226,8 +130,35 @@ export const Dashboard: React.FC = () => {
   const [editStatus, setEditStatus] = useState('');
   const [editNdaUrl, setEditNdaUrl] = useState('');
   const [editHasSignedNda, setEditHasSignedNda] = useState(false);
-  const [editLanguages, setEditLanguages] = useState<{ language: string; proficiency: WorkingLanguage['proficiency'] }[]>([]);
+  const [editLanguages, setEditLanguages] = useState<WorkingLanguage[]>([]);
   const [editConfirmedRate, setEditConfirmedRate] = useState('');
+
+  // Applications Multi-Link States
+  const [applicationsList, setApplicationsList] = useState<ApplicationConfig[]>([]);
+  const [isCopyLinkModalOpen, setIsCopyLinkModalOpen] = useState(false);
+  const [copiedAppSlug, setCopiedAppSlug] = useState<string | null>(null);
+
+  const [splitPrompt, setSplitPrompt] = useState<{ vendor: VendorProfile; targetStage: WorkflowStage } | null>(null);
+
+  const [slaNudgesConfig, setSlaNudgesConfig] = useState<SlaNudgeConfig>({
+    enabled: true,
+    mode: 'one_click',
+    ndaWaitDays: 3,
+    maxNudges: 2
+  });
+
+  const handleSendNdaNudge = (vendor: VendorProfile) => {
+    const ndaUrl = `https://mlc-vendor-recruitment.web.app/portal/nda/${vendor.id}`;
+    setPendingTransition({
+      vendorId: vendor.id,
+      targetStage: vendor.stage,
+      actionName: '1-Click SLA NDA Nudge Reminder',
+      templateName: 'NDA Signature Request',
+      recipientType: 'vendor',
+      previewSubject: `Reminder: Action Required - Sign NDA for Multilingual Connections (${vendor.contactName})`,
+      previewBody: `Hi ${vendor.contactName},\n\nWe noticed you haven't completed your Non-Disclosure Agreement (NDA) yet.\n\nPlease click the link below to review and sign your NDA online so we can move forward with your application:\n${ndaUrl}\n\nThank you,\nMLC Recruitment & Compliance Team`
+    });
+  };
 
   // Validation transition modal states
   const [pendingTransition, setPendingTransition] = useState<{
@@ -236,23 +167,101 @@ export const Dashboard: React.FC = () => {
     actionName: string;
     templateName: string;
     recipientType: string;
+    previewSubject: string;
+    previewBody: string;
+    matchedRule?: WorkflowAction;
   } | null>(null);
+
+  const handleConfirmSplitProfiles = async (vendor: VendorProfile) => {
+    try {
+      const now = new Date().toISOString();
+      
+      for (let i = 0; i < vendor.workingLanguages.length; i++) {
+        const lang = vendor.workingLanguages[i];
+        const newVendorId = `v-split-${Date.now()}-${i + 1}`;
+        
+        const splitVendor: VendorProfile = {
+          ...vendor,
+          id: newVendorId,
+          contactName: `${vendor.contactName} (${lang.language})`,
+          workingLanguages: [lang],
+          stage: vendor.stage,
+          stageStatus: vendor.stageStatus || 'started',
+          parentVendorId: vendor.id,
+          splitLanguage: lang.language,
+          updatedAt: now
+        };
+
+        await setDoc(doc(db, 'vendors', newVendorId), sanitizePayload(splitVendor));
+      }
+
+      await deleteDoc(doc(db, 'vendors', vendor.id));
+
+      const vendorSnap = await getDocs(collection(db, 'vendors'));
+      const updatedList: VendorProfile[] = [];
+      vendorSnap.forEach((doc) => updatedList.push(doc.data() as VendorProfile));
+      setVendors(updatedList);
+
+      setSplitPrompt(null);
+      if (selectedVendor?.id === vendor.id) {
+        setSelectedVendor(null);
+      }
+
+      alert(`Successfully split ${vendor.contactName} into ${vendor.workingLanguages.length} separate language candidate profiles!`);
+    } catch (err) {
+      console.error("Failed to split candidate profiles", err);
+      alert("Failed to split profiles: " + (err instanceof Error ? err.message : String(err)));
+    }
+  };
 
   // Load configurations and Firestore collections
   useEffect(() => {
     if (loading) return;
 
+    // Real-time listener for system config (stages, languages, statuses)
+    const unsubConfig = onSnapshot(doc(db, 'settings', 'global_config'), (snapshot) => {
+      if (snapshot.exists()) {
+        const config = snapshot.data();
+        if (config.stages && config.stages.length > 0) {
+          setStages(config.stages.sort((a: WorkflowStageConfig, b: WorkflowStageConfig) => a.order - b.order));
+        }
+        if (config.languages) {
+          setActiveLanguages(getActiveSortedLanguages(config.languages).map((l) => l.name));
+        }
+        if (config.statuses) {
+          setActiveStatuses(config.statuses);
+        }
+        if (config.stageProgressOptions && config.stageProgressOptions.length > 0) {
+          setStageProgressOptions(config.stageProgressOptions);
+        }
+        if (config.slaNudges) {
+          setSlaNudgesConfig(config.slaNudges);
+        }
+      }
+    }, (err) => {
+      console.error("Failed to subscribe to global_config in real-time:", err);
+    });
+
     const loadData = async () => {
       try {
-        // 1. Fetch system configs from Firestore
+        // 1. Initial system config check fallback
         const systemConfigSnap = await getDoc(doc(db, 'settings', 'global_config'));
         if (systemConfigSnap.exists()) {
           const config = systemConfigSnap.data();
+          if (config.stages && config.stages.length > 0) {
+            setStages(config.stages.sort((a: WorkflowStageConfig, b: WorkflowStageConfig) => a.order - b.order));
+          }
           if (config.languages) {
-            setActiveLanguages(config.languages);
+            setActiveLanguages(getActiveSortedLanguages(config.languages).map((l) => l.name));
           }
           if (config.statuses) {
             setActiveStatuses(config.statuses);
+          }
+          if (config.stageProgressOptions && config.stageProgressOptions.length > 0) {
+            setStageProgressOptions(config.stageProgressOptions);
+          }
+          if (config.slaNudges) {
+            setSlaNudgesConfig(config.slaNudges);
           }
         } else {
           // Fallback to local storage
@@ -260,7 +269,7 @@ export const Dashboard: React.FC = () => {
           const savedStatuses = localStorage.getItem('mlc_settings_statuses_v2');
           
           if (savedLangs) {
-            setActiveLanguages(JSON.parse(savedLangs));
+            setActiveLanguages(getActiveSortedLanguages(JSON.parse(savedLangs)).map((l) => l.name));
           } else {
             setActiveLanguages(['English', 'Spanish', 'German', 'Japanese', 'Mandarin', 'Swedish', 'Wolof', 'French', 'Portuguese']);
           }
@@ -288,11 +297,12 @@ export const Dashboard: React.FC = () => {
         if (vendorList.length > 0) {
           setVendors(vendorList);
         } else {
-          // Seed
-          for (const v of INITIAL_VENDORS_MOCK) {
-            await setDoc(doc(db, 'vendors', v.id), v);
-          }
-          setVendors(INITIAL_VENDORS_MOCK);
+          // Seed 10 rich dummy vendors into Cloud Firestore
+          await seed10DummyVendors();
+          const newSnap = await getDocs(collection(db, 'vendors'));
+          const seededList: VendorProfile[] = [];
+          newSnap.forEach((doc) => seededList.push(doc.data() as VendorProfile));
+          setVendors(seededList.length > 0 ? seededList : SEEDED_DUMMY_VENDORS);
         }
 
         // 3. Fetch Trigger Rules
@@ -314,11 +324,22 @@ export const Dashboard: React.FC = () => {
         if (templateList.length > 0) {
           setTemplates(templateList);
         }
+
+        // 5. Subscribe to Applications
+        onSnapshot(collection(db, 'applications'), (snapshot) => {
+          const list: ApplicationConfig[] = [];
+          snapshot.forEach((docSnap) => {
+            list.push({ id: docSnap.id, ...docSnap.data() } as ApplicationConfig);
+          });
+          setApplicationsList(list);
+        });
       } catch (err) {
         console.error("Dashboard failed to load database collections", err);
       }
     };
+
     loadData();
+    return () => unsubConfig();
   }, [loading, user]);
 
   useEffect(() => {
@@ -372,38 +393,129 @@ export const Dashboard: React.FC = () => {
 
 
 
-  // Stage change trigger with validation check
+  // Helper to evaluate workflow trigger rules with conditional precedence & fallback
+  const findMatchingActionRule = (candidate: VendorProfile, targetStage: WorkflowStage, rules: WorkflowAction[]) => {
+    const activeStageRules = rules.filter(
+      (act) => act.triggerStage === targetStage && act.isActive
+    );
+
+    // 1. Separate specific conditional rules from unconditional ('always') rules
+    const conditionalRules = activeStageRules.filter(r => r.operator !== 'always' && r.field);
+    const unconditionalRules = activeStageRules.filter(r => r.operator === 'always' || !r.field);
+
+    // 2. Evaluate conditional rules first
+    for (const rule of conditionalRules) {
+      if (!rule.field) continue;
+      const candidateVal = (candidate as any)[rule.field];
+      const targetVal = rule.value;
+
+      if (rule.operator === '==') {
+        if (String(candidateVal) === String(targetVal)) return rule;
+      } else if (rule.operator === '!=') {
+        if (String(candidateVal) !== String(targetVal)) return rule;
+      } else if (rule.operator === 'empty') {
+        if (candidateVal === undefined || candidateVal === null || candidateVal === '') return rule;
+      } else if (rule.operator === 'not_empty') {
+        if (candidateVal !== undefined && candidateVal !== null && candidateVal !== '') return rule;
+      }
+    }
+
+    // 3. Fallback to unconditional rule if no specific condition matched
+    if (unconditionalRules.length > 0) {
+      return unconditionalRules[0];
+    }
+
+    return null;
+  };
+
+  // Stage change trigger with validation check & rule evaluation
   const handleStageChangeRequest = (vendorId: string, nextStage: WorkflowStage) => {
     const candidate = vendors.find((v) => v.id === vendorId);
     if (!candidate) return;
 
-    // Look for matching action rule triggered on nextStage
-    const matchingAction = workflowActions.find(
-      (act) => act.triggerStage === nextStage && act.isActive
-    );
+    if ((nextStage === 'ready_for_testing' || nextStage === 'in_testing') && candidate.workingLanguages && candidate.workingLanguages.length > 1) {
+      setSplitPrompt({ vendor: candidate, targetStage: nextStage });
+      return;
+    }
 
-    if (matchingAction && matchingAction.actionType === 'send_email') {
+    const matchingAction = findMatchingActionRule(candidate, nextStage, workflowActions);
+
+    const hasEmail = matchingAction && matchingAction.templateId && matchingAction.templateId !== 'none';
+
+    if (matchingAction && hasEmail) {
       const template = templates.find((t) => t.id === matchingAction.templateId);
       const templateName = template ? template.name : 'Outbound Notification';
+
+      // Perform full merge-tag replacement for live preview & editing
+      const languagesStr = Array.isArray(candidate.workingLanguages) && candidate.workingLanguages.length > 0
+        ? candidate.workingLanguages.map((l) => `${l.language} (${l.proficiency})`).join(", ")
+        : "N/A";
+
+      const mergeValues: Record<string, string> = {
+        Vendor_Name:    candidate.contactName   || "Specialist",
+        Contact_Name:   candidate.contactName   || "Specialist",
+        Company_Name:   candidate.companyName   || "",
+        Email:          candidate.email         || "",
+        Language:       languagesStr,
+        Adjusted_Rate:  candidate.adjustedRate  ? `$${candidate.adjustedRate}` : "Negotiated",
+        Project_Link:   nextStage === 'nda' || candidate.stage === 'nda'
+          ? `https://mlc-vendor-recruitment.web.app/portal/nda/${candidate.id}`
+          : `https://mlc-vendor-recruitment.web.app/portal/onboarding/${candidate.id}`,
+        NDA_Status:     candidate.hasSignedNda  ? "NDA Verified" : "NDA Missing / Required",
+        Stage:          stages.find(s => s.id === nextStage)?.name || nextStage,
+        Status:         candidate.status        || "",
+      };
+
+      const replaceMergeTags = (text: string): string => {
+        let result = text;
+        Object.entries(mergeValues).forEach(([key, val]) => {
+          const tag = `{{${key}}}`;
+          while (result.includes(tag)) {
+            result = result.split(tag).join(val);
+          }
+        });
+        return result;
+      };
+
+      const rawSubject = template ? template.subject : 'Stage Transition Notification';
+      const rawBody = template ? template.body : 'Your candidate profile stage has been updated.';
+
+      const previewSubject = replaceMergeTags(rawSubject);
+      const previewBody = replaceMergeTags(rawBody);
+
       setPendingTransition({
         vendorId,
         targetStage: nextStage,
         actionName: matchingAction.name,
         templateName,
-        recipientType: matchingAction.recipientType === 'both' ? 'Vendor & MLC Copy' : matchingAction.recipientType.toUpperCase()
+        recipientType: matchingAction.recipientType === 'both' ? 'Vendor & MLC Copy' : matchingAction.recipientType.toUpperCase(),
+        previewSubject,
+        previewBody,
+        matchedRule: matchingAction
       });
     } else {
-      // Direct commit
-      commitStageChange(vendorId, nextStage);
+      // Direct commit with status update rule applied (no email attached)
+      commitStageChange(vendorId, nextStage, matchingAction || undefined, { sendEmail: false });
     }
   };
 
-  const commitStageChange = async (vendorId: string, nextStage: WorkflowStage) => {
+  const commitStageChange = async (
+    vendorId: string, 
+    nextStage: WorkflowStage, 
+    matchedRule?: WorkflowAction,
+    emailOptions?: { sendEmail: boolean; customSubject?: string; customBody?: string }
+  ) => {
     const existingVendor = vendors.find((v) => v.id === vendorId);
     if (!existingVendor) return;
 
     let newStatus = existingVendor.status;
-    if (nextStage === 'ready_for_pm') {
+    
+    // Apply rule status update if configured
+    if (matchedRule && matchedRule.updateStatus && matchedRule.updateStatus !== 'none') {
+      newStatus = matchedRule.updateStatus;
+    } else if (matchedRule && matchedRule.updateValue && matchedRule.updateValue !== 'none') {
+      newStatus = matchedRule.updateValue;
+    } else if (nextStage === 'ready_for_pm') {
       newStatus = 'approved';
     }
 
@@ -411,12 +523,19 @@ export const Dashboard: React.FC = () => {
       ...existingVendor,
       stage: nextStage,
       status: newStatus,
+      stageStatus: 'started', // Resets to started for the newly assigned stage
       updatedAt: new Date().toISOString()
     };
 
+    // Set suppressWorkflowEmail: true on vendor payload so Cloud Function won't double-send unedited template
+    const vendorPayload = sanitizePayload({
+      ...updatedVendor,
+      suppressWorkflowEmail: true
+    });
+
     try {
       // Save updated vendor in Firestore
-      await setDoc(doc(db, 'vendors', vendorId), updatedVendor);
+      await setDoc(doc(db, 'vendors', vendorId), vendorPayload);
 
       // Auto-provision test record if candidate transitions to testing stages
       if (nextStage === 'ready_for_testing' || nextStage === 'in_testing') {
@@ -424,9 +543,13 @@ export const Dashboard: React.FC = () => {
         const testDocRef = doc(db, 'tests', testId);
         const testDocSnap = await getDoc(testDocRef);
         if (!testDocSnap.exists()) {
+          const primaryLang = existingVendor.workingLanguages?.[0]?.language || 'Primary Language';
           const newTest: TestRecord = {
             id: testId,
             vendorId: vendorId,
+            vendorName: existingVendor.contactName,
+            language: primaryLang,
+            service: existingVendor.services?.[0] || 'Translation',
             projectNumber: `PR-${Math.floor(1000 + Math.random() * 9000)}-${vendorId.toUpperCase().slice(-2)}`,
             assignmentLink: `https://mlconnections.com/portal/assess-${vendorId}`,
             deadline: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
@@ -434,7 +557,41 @@ export const Dashboard: React.FC = () => {
             graderId: 'admin'
           };
           await setDoc(testDocRef, newTest);
+
+          const updatedLangs = (existingVendor.workingLanguages || []).map((l, idx) => {
+            if (idx === 0) {
+              return { ...l, testRequired: true, testStatus: 'pending' as const, testId };
+            }
+            return l;
+          });
+          await setDoc(doc(db, 'vendors', vendorId), { workingLanguages: updatedLangs }, { merge: true });
         }
+      }
+
+      // If user chose "Confirm & Send", queue the customized email in notifications collection
+      if (emailOptions?.sendEmail && matchedRule && matchedRule.templateId && matchedRule.templateId !== 'none') {
+        const tmpl = templates.find((t) => t.id === matchedRule.templateId);
+        const templateName = tmpl ? tmpl.name : 'Outbound Notification';
+        const subject = emailOptions.customSubject || (tmpl ? tmpl.subject : 'Stage Transition Notification');
+        const body = emailOptions.customBody || (tmpl ? tmpl.body : 'Your candidate profile stage has been updated.');
+
+        const notifId = `notif-${Date.now()}`;
+        const notifRecord = {
+          id: notifId,
+          vendorId: existingVendor.id,
+          vendorName: existingVendor.contactName,
+          vendorEmail: existingVendor.email,
+          actionName: matchedRule.name,
+          templateId: matchedRule.templateId,
+          templateName,
+          recipientType: matchedRule.recipientType,
+          status: 'queued',
+          subject,
+          body,
+          createdAt: new Date().toISOString()
+        };
+
+        await setDoc(doc(db, 'notifications', notifId), notifRecord);
       }
 
       // Update state locally
@@ -476,6 +633,16 @@ export const Dashboard: React.FC = () => {
     setIsEditing(true);
   };
 
+const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
+  const cleaned: Record<string, any> = {};
+  Object.keys(obj).forEach((key) => {
+    if (obj[key] !== undefined) {
+      cleaned[key] = obj[key];
+    }
+  });
+  return cleaned as T;
+};
+
   const handleSaveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedVendor) return;
@@ -490,28 +657,28 @@ export const Dashboard: React.FC = () => {
       contactName: editContactName.trim(),
       companyName: editCompanyName.trim(),
       email: editEmail.trim(),
-      secondaryEmail: editIsGmail ? undefined : editSecondaryEmail.trim(),
+      secondaryEmail: editIsGmail ? '' : editSecondaryEmail.trim(),
       isGmail: editIsGmail,
-      phone: editPhone.trim() || undefined,
-      hoursAvailable: parseInt(editHours) || undefined,
+      phone: editPhone.trim(),
+      hoursAvailable: parseInt(editHours) || 0,
       mtPeExperience: editExperience,
-      prozProfile: editProz.trim() || undefined,
-      linkedInProfile: editLinkedin.trim() || undefined,
+      prozProfile: editProz.trim(),
+      linkedInProfile: editLinkedin.trim(),
       services: editServices.split(',').map((s) => s.trim()).filter(Boolean),
       classificationTier: editTier,
       mlcHourlyRate: parseFloat(editMlcRate) || 0,
       adjustedRate: Math.round((parseFloat(editMlcRate) || 0) * 0.9),
       confirmedRate: parseFloat(editConfirmedRate) || 0,
       status: editStatus,
-      ndaUrl: editNdaUrl.trim() || undefined,
+      ndaUrl: editNdaUrl.trim(),
       hasSignedNda: editHasSignedNda,
       workingLanguages: editLanguages.length > 0 ? editLanguages : [{ language: 'English', proficiency: 'working' }],
       updatedAt: new Date().toISOString()
     };
 
     try {
-      // Save updated vendor in Firestore
-      await setDoc(doc(db, 'vendors', selectedVendor.id), updatedProfile);
+      const cleanPayload = sanitizePayload(updatedProfile);
+      await setDoc(doc(db, 'vendors', selectedVendor.id), cleanPayload);
 
       setVendors((prev) => prev.map((v) => v.id === selectedVendor.id ? updatedProfile : v));
       setSelectedVendor(updatedProfile);
@@ -521,6 +688,66 @@ export const Dashboard: React.FC = () => {
       console.error("Failed to commit profile edit to Firestore", err);
       alert("Failed to save changes: " + (err instanceof Error ? err.message : String(err)));
     }
+  };
+
+  const handleDeleteVendor = async (vendor: VendorProfile) => {
+    const confirmed = window.confirm(`Are you sure you want to permanently delete the profile for "${vendor.contactName}"? This action cannot be undone.`);
+    if (!confirmed) return;
+
+    try {
+      await deleteDoc(doc(db, 'vendors', vendor.id));
+      setVendors((prev) => prev.filter((v) => v.id !== vendor.id));
+      setSelectedVendor(null);
+      setIsEditing(false);
+      alert(`Candidate profile "${vendor.contactName}" deleted successfully.`);
+    } catch (err) {
+      console.error("Failed to delete candidate profile from Firestore", err);
+      alert("Failed to delete profile: " + (err instanceof Error ? err.message : String(err)));
+    }
+  };
+
+  const handleUpdateStageStatus = async (
+    vendorId: string, 
+    newStageStatus: 'started' | 'completed' | 'failed' | 'non_responsive'
+  ) => {
+    const candidate = vendors.find((v) => v.id === vendorId);
+    if (!candidate) return;
+
+    const updatedCandidate: VendorProfile = {
+      ...candidate,
+      stageStatus: newStageStatus,
+      updatedAt: new Date().toISOString()
+    };
+
+    try {
+      await setDoc(doc(db, 'vendors', vendorId), sanitizePayload(updatedCandidate));
+      setVendors((prev) => prev.map((v) => v.id === vendorId ? updatedCandidate : v));
+      setSelectedVendor((prev) => prev && prev.id === vendorId ? updatedCandidate : prev);
+    } catch (err) {
+      console.error("Failed to update stage status in Firestore", err);
+    }
+  };
+
+  const renderStageStatusSelector = (candidate: VendorProfile) => {
+    const currentStatus = candidate.stageStatus || 'started';
+    const matchedOpt = stageProgressOptions.find((o) => o.key === currentStatus);
+    const statusStyle = getStageProgressStyle(matchedOpt?.color, currentStatus);
+
+    return (
+      <div className="relative inline-flex items-center" onClick={(e) => e.stopPropagation()}>
+        <select
+          value={currentStatus}
+          onChange={(e) => handleUpdateStageStatus(candidate.id, e.target.value as any)}
+          className={`py-1 pl-2 pr-6 text-[10px] font-extrabold border rounded-lg cursor-pointer focus:outline-none font-sans appearance-none ${statusStyle}`}
+          title="Click to update Stage Progress status"
+        >
+          {stageProgressOptions.map((opt) => (
+            <option key={opt.key} value={opt.key}>{opt.label}</option>
+          ))}
+        </select>
+        <span className="w-1.5 h-1.5 rounded-full absolute right-2 pointer-events-none bg-current"></span>
+      </div>
+    );
   };
 
   const handleDirectSubmit = async (e: React.FormEvent) => {
@@ -537,8 +764,8 @@ export const Dashboard: React.FC = () => {
       companyName: formCompanyName.trim(),
       contactName: formContactName.trim(),
       email: formEmail.trim(),
-      secondaryEmail: formIsGmail ? undefined : formSecondaryEmail.trim(),
-      phone: formPhone.trim() || undefined,
+      secondaryEmail: formIsGmail ? '' : formSecondaryEmail.trim(),
+      phone: formPhone.trim(),
       isGmail: formIsGmail,
       workingLanguages: formLanguages.length > 0 ? formLanguages : [{ language: 'English', proficiency: 'working' }],
       services: formServices.split(',').map((s) => s.trim()).filter(Boolean),
@@ -550,20 +777,21 @@ export const Dashboard: React.FC = () => {
       adjustedRate: Math.round((parseFloat(formMlcRate) || 0) * 0.9),
       confirmedRate: 0,
       status: formStatus,
-      hoursAvailable: parseInt(formHours) || undefined,
+      hoursAvailable: parseInt(formHours) || 0,
       mtPeExperience: formExperience,
-      prozProfile: formProz.trim() || undefined,
-      linkedInProfile: formLinkedin.trim() || undefined,
-      ndaUrl: formNdaUrl.trim() || undefined,
-      resumeName: uploadedResumeName || undefined,
+      prozProfile: formProz.trim(),
+      linkedInProfile: formLinkedin.trim(),
+      ndaUrl: formNdaUrl.trim(),
+      resumeName: uploadedResumeName || '',
       hasSignedNda: false,
+      stageStatus: 'started',
       submittedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
 
     try {
-      // Save new vendor in Firestore
-      await setDoc(doc(db, 'vendors', newLead.id), newLead);
+      const cleanPayload = sanitizePayload(newLead);
+      await setDoc(doc(db, 'vendors', newLead.id), cleanPayload);
 
       setVendors((prev) => [newLead, ...prev]);
       setIsAddOpen(false);
@@ -602,16 +830,37 @@ export const Dashboard: React.FC = () => {
   // Filter candidates
   const filteredVendors = useMemo(() => {
     return vendors.filter((v) => {
-      const matchesSearch = 
-        v.contactName.toLowerCase().includes(search.toLowerCase()) ||
-        v.companyName.toLowerCase().includes(search.toLowerCase()) ||
-        v.workingLanguages.some((l) => l.language.toLowerCase().includes(search.toLowerCase())) ||
-        v.services.some((s) => s.toLowerCase().includes(search.toLowerCase()));
+      const contact = (v.contactName || '').toLowerCase();
+      const company = (v.companyName || '').toLowerCase();
+      const query = (search || '').trim().toLowerCase();
+
+      const matchesSearch = !query || 
+        contact.includes(query) ||
+        company.includes(query) ||
+        (Array.isArray(v.workingLanguages) && (v.workingLanguages as any[]).some((l: any) => {
+          if (!l) return false;
+          if (typeof l === 'string') return String(l).toLowerCase().includes(query);
+          return l.language && String(l.language).toLowerCase().includes(query);
+        })) ||
+        (Array.isArray(v.services) && (v.services as any[]).some((s: any) => s && String(s).toLowerCase().includes(query)));
       
-      const matchesStage = stageFilter === 'all' || v.stage === stageFilter;
-      return matchesSearch && matchesStage;
+      const matchesStage = selectedStageFilters.length === 0 || (v.stage && selectedStageFilters.includes(v.stage));
+      
+      const matchesLang = selectedLanguageFilters.length === 0 || (Array.isArray(v.workingLanguages) && (v.workingLanguages as any[]).some((l: any) => {
+        if (!l) return false;
+        const langName = typeof l === 'string' ? l : l.language;
+        return selectedLanguageFilters.includes(langName);
+      }));
+
+      const candidateStatus = v.status || 'pending';
+      const matchesStatus = selectedStatusFilters.length === 0 || selectedStatusFilters.includes(candidateStatus);
+
+      const candidateApp = v.applicationName || (v.applicationId ? v.applicationId : 'Default Application');
+      const matchesApp = selectedAppFilters.length === 0 || selectedAppFilters.includes(candidateApp);
+
+      return matchesSearch && matchesStage && matchesLang && matchesStatus && matchesApp;
     });
-  }, [vendors, search, stageFilter]);
+  }, [vendors, search, selectedStageFilters, selectedLanguageFilters, selectedStatusFilters, selectedAppFilters]);
 
   // Sort candidates dynamically
   const sortedVendors = useMemo(() => {
@@ -626,8 +875,10 @@ export const Dashboard: React.FC = () => {
 
       // Handle objects/arrays specifically
       if (sortField === 'workingLanguages') {
-        valA = a.workingLanguages[0]?.language || '';
-        valB = b.workingLanguages[0]?.language || '';
+        const langsA = Array.isArray(a.workingLanguages) ? a.workingLanguages : [];
+        const langsB = Array.isArray(b.workingLanguages) ? b.workingLanguages : [];
+        valA = typeof langsA[0] === 'string' ? langsA[0] : (langsA[0]?.language || '');
+        valB = typeof langsB[0] === 'string' ? langsB[0] : (langsB[0]?.language || '');
       }
 
       if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
@@ -639,24 +890,29 @@ export const Dashboard: React.FC = () => {
 
   // Stage aggregates (funnel count)
   const funnelStats = useMemo(() => {
-    const aggregates: Record<WorkflowStage, number> = {
-      outreach: 0,
-      nda: 0,
-      ready_for_testing: 0,
-      in_testing: 0,
-      xtrf_onboarding: 0,
-      ready_for_pm: 0,
-      dnu: 0
-    };
+    const aggregates: Record<string, { total: number; counts: Record<string, number> }> = {};
+    stages.forEach((stg) => {
+      aggregates[stg.id] = { total: 0, counts: {} };
+      stageProgressOptions.forEach((opt) => {
+        aggregates[stg.id].counts[opt.key] = 0;
+      });
+    });
 
     vendors.forEach((v) => {
-      if (v.stage in aggregates) {
-        aggregates[v.stage]++;
+      const vStage = v.stage || 'outreach';
+      if (!aggregates[vStage]) {
+        aggregates[vStage] = { total: 0, counts: {} };
+        stageProgressOptions.forEach((opt) => {
+          aggregates[vStage].counts[opt.key] = 0;
+        });
       }
+      aggregates[vStage].total++;
+      const st = v.stageStatus || 'started';
+      aggregates[vStage].counts[st] = (aggregates[vStage].counts[st] || 0) + 1;
     });
 
     return aggregates;
-  }, [vendors]);
+  }, [vendors, stages, stageProgressOptions]);
 
   const handleExportCSV = () => {
     const headers = [
@@ -667,18 +923,20 @@ export const Dashboard: React.FC = () => {
     
     const rows = sortedVendors.map((v) => [
       v.companyName || 'N/A',
-      v.contactName,
-      v.email,
+      v.contactName || 'N/A',
+      v.email || '',
       v.secondaryEmail || '',
       v.phone || '',
-      v.services.join('; '),
-      v.workingLanguages.map(l => `${l.language} (${l.proficiency})`).join('; '),
-      v.classificationTier,
-      v.mlcHourlyRate,
-      v.adjustedRate,
-      v.confirmedRate,
-      v.stage,
-      v.status,
+      Array.isArray(v.services) ? v.services.join('; ') : '',
+      Array.isArray(v.workingLanguages) 
+        ? v.workingLanguages.map((l) => typeof l === 'string' ? l : `${l?.language || 'N/A'} (${l?.proficiency || 'working'})`).join('; ') 
+        : '',
+      v.classificationTier || 2,
+      v.mlcHourlyRate || 0,
+      v.adjustedRate || 0,
+      v.confirmedRate || 0,
+      v.stage || 'outreach',
+      v.status || 'pending',
       v.hasSignedNda ? 'Yes' : 'No',
       v.submittedAt || ''
     ]);
@@ -741,53 +999,90 @@ export const Dashboard: React.FC = () => {
           </div>
 
           <button
+            onClick={handleExportCSV}
+            className="py-2.5 px-4 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-border-dark text-slate-700 dark:text-slate-200 rounded-xl font-bold text-xs flex items-center gap-1.5 btn-animate cursor-pointer shadow-sm"
+          >
+            <Download className="w-4 h-4 text-primary" />
+            Export CSV
+          </button>
+
+          <button
             onClick={() => setIsAddOpen(true)}
             className="py-2.5 px-4 bg-primary hover:bg-primary-dark text-white font-bold text-xs rounded-xl flex items-center gap-2 btn-animate shadow-md shadow-primary/20 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
-            Add Sourced Lead
-          </button>
-          
-          <button
-            onClick={() => {
-              setShowXtrfAlert(true);
-              setTimeout(() => setShowXtrfAlert(false), 3000);
-            }}
-            className="py-2.5 px-4 bg-rose-800 hover:bg-rose-700 text-white font-bold text-xs rounded-xl flex items-center gap-2 btn-animate border border-white/5 cursor-pointer"
-          >
-            <UploadCloud className="w-4 h-4 text-rose-300" />
-            XTRF Import: NOT ACTIVE
+            Add Linguist
           </button>
         </div>
       </div>
 
       {/* Funnel Pipeline aggregated counts */}
       <section className="bg-white dark:bg-card-dark p-6 rounded-3xl border border-slate-200/50 dark:border-border-dark shadow-sm">
-        <h4 className="font-extrabold text-xs text-slate-400 uppercase tracking-wider mb-5 flex items-center gap-2">
-          <FileText className="w-4 h-4 text-primary" />
-          Workflow Stages
-        </h4>
-        <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
-          {(Object.keys(STAGE_LABELS) as WorkflowStage[]).map((stage) => {
-            const count = funnelStats[stage];
+        <div className="flex items-center justify-between mb-5">
+          <h4 className="font-extrabold text-xs text-slate-400 uppercase tracking-wider flex items-center gap-2">
+            <FileText className="w-4 h-4 text-primary" />
+            Workflow Stages Filter ({selectedStageFilters.length === 0 ? 'Showing All Stages' : `${selectedStageFilters.length} Selected`})
+          </h4>
+
+          {selectedStageFilters.length > 0 && (
+            <button
+              onClick={() => setSelectedStageFilters([])}
+              className="text-xs font-bold text-rose-500 hover:text-rose-600 bg-rose-500/10 hover:bg-rose-500/20 py-1 px-3 rounded-lg transition-colors cursor-pointer"
+            >
+              Clear Stage Filters
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-4">
+          {stages.map((stg) => {
+            const stat = funnelStats[stg.id] || { total: 0, counts: {} };
+            const isSelected = selectedStageFilters.includes(stg.id);
+            const activeCounts = stageProgressOptions.filter((opt) => (stat.counts[opt.key] || 0) > 0);
+
             return (
               <div 
-                key={stage} 
-                onClick={() => setStageFilter(stage)}
+                key={stg.id} 
+                onClick={() => {
+                  setSelectedStageFilters((prev) => 
+                    prev.includes(stg.id) 
+                      ? prev.filter((id) => id !== stg.id) 
+                      : [...prev, stg.id]
+                  );
+                }}
                 className={`flex flex-col items-center p-3 rounded-2xl border transition-all text-center relative group cursor-pointer ${
-                  stageFilter === stage 
-                    ? 'bg-primary/5 border-primary shadow-sm' 
-                    : 'bg-slate-50 dark:bg-bg-dark border-slate-200/10 hover:border-primary/20'
+                  isSelected 
+                    ? 'bg-primary/10 border-primary shadow-sm ring-2 ring-primary/20' 
+                    : 'bg-slate-50 dark:bg-bg-dark border-slate-200/10 hover:border-primary/30'
                 }`}
               >
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs mb-2 ${
-                  count > 0 ? 'bg-primary text-white shadow-md shadow-primary/25' : 'bg-slate-200 dark:bg-slate-800 text-slate-400'
+                {isSelected && (
+                  <div className="absolute top-1.5 right-1.5 w-4 h-4 bg-primary text-white rounded-full flex items-center justify-center text-[9px] font-extrabold shadow-sm">
+                    ✓
+                  </div>
+                )}
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs mb-1.5 ${
+                  stat.total > 0 ? 'bg-primary text-white shadow-md shadow-primary/25' : 'bg-slate-200 dark:bg-slate-800 text-slate-400'
                 }`}>
-                  {count}
+                  {stat.total}
                 </div>
                 <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 tracking-tight line-clamp-1">
-                  {STAGE_LABELS[stage]}
+                  {stg.name}
                 </span>
+                <div className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-0.5 mt-1 text-[9px] font-bold">
+                  {activeCounts.length === 0 ? (
+                    <span className="text-slate-400">0</span>
+                  ) : (
+                    activeCounts.map((opt, i) => (
+                      <React.Fragment key={opt.key}>
+                        {i > 0 && <span className="text-slate-300 dark:text-slate-700">|</span>}
+                        <span className={getStageProgressTextColor(opt.color, opt.key)} title={opt.label}>
+                          {opt.label}: {stat.counts[opt.key]}
+                        </span>
+                      </React.Fragment>
+                    ))
+                  )}
+                </div>
               </div>
             );
           })}
@@ -808,30 +1103,326 @@ export const Dashboard: React.FC = () => {
             />
           </div>
           
+          {/* Multi-Select Language Filter */}
           <div className="relative">
-            <select
-              value={stageFilter}
-              onChange={(e) => setStageFilter(e.target.value)}
-              className="pl-3 pr-8 py-2 text-sm bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary transition-all dark:text-white appearance-none cursor-pointer font-bold"
+            <button
+              type="button"
+              onClick={() => {
+                setIsLangDropdownOpen(!isLangDropdownOpen);
+                setIsStatusDropdownOpen(false);
+              }}
+              className="pl-3 pr-8 py-2 text-sm bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary transition-all dark:text-white flex items-center gap-2 font-bold cursor-pointer shadow-sm relative"
             >
-              <option value="all">All Stages</option>
-              {Object.keys(STAGE_LABELS).map((key) => (
-                <option key={key} value={key}>{STAGE_LABELS[key as WorkflowStage]}</option>
-              ))}
-            </select>
-            <Filter className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <span>
+                {selectedLanguageFilters.length === 0
+                  ? 'All Languages'
+                  : selectedLanguageFilters.length === 1
+                  ? selectedLanguageFilters[0]
+                  : `Languages (${selectedLanguageFilters.length})`}
+              </span>
+              <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2" />
+            </button>
+
+            {isLangDropdownOpen && (
+              <div className="absolute right-0 top-full mt-2 w-60 bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-2xl shadow-xl z-50 p-3 space-y-2">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2 text-xs font-bold text-slate-500">
+                  <span>Filter by Language</span>
+                  {selectedLanguageFilters.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedLanguageFilters([])}
+                      className="text-rose-500 hover:underline text-[10px]"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <div className="max-h-56 overflow-y-auto space-y-1.5 custom-scrollbar pr-1">
+                  {activeLanguages.map((lang) => {
+                    const isChecked = selectedLanguageFilters.includes(lang);
+                    return (
+                      <label
+                        key={lang}
+                        className="flex items-center gap-2 p-1.5 hover:bg-slate-50 dark:hover:bg-white/5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-200 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {
+                            if (isChecked) {
+                              setSelectedLanguageFilters(selectedLanguageFilters.filter(l => l !== lang));
+                            } else {
+                              setSelectedLanguageFilters([...selectedLanguageFilters, lang]);
+                            }
+                          }}
+                          className="rounded border-slate-300 text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+                        />
+                        <span>{lang}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Multi-Select Linguist Status Filter */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => {
+                setIsStatusDropdownOpen(!isStatusDropdownOpen);
+                setIsLangDropdownOpen(false);
+              }}
+              className="pl-3 pr-8 py-2 text-sm bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary transition-all dark:text-white flex items-center gap-2 font-bold cursor-pointer shadow-sm relative"
+            >
+              <span>
+                {selectedStatusFilters.length === 0
+                  ? 'All Statuses'
+                  : selectedStatusFilters.length === 1
+                  ? selectedStatusFilters[0].replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+                  : `Statuses (${selectedStatusFilters.length})`}
+              </span>
+              <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2" />
+            </button>
+
+            {isStatusDropdownOpen && (
+              <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-2xl shadow-xl z-50 p-3 space-y-2">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2 text-xs font-bold text-slate-500">
+                  <span>Filter by Status</span>
+                  {selectedStatusFilters.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedStatusFilters([])}
+                      className="text-rose-500 hover:underline text-[10px]"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <div className="max-h-48 overflow-y-auto space-y-1.5 custom-scrollbar pr-1">
+                  {activeStatuses.map((st) => {
+                    const isChecked = selectedStatusFilters.includes(st.key);
+                    const label = st.key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                    return (
+                      <label
+                        key={st.key}
+                        className="flex items-center gap-2 p-1.5 hover:bg-slate-50 dark:hover:bg-white/5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-200 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {
+                            if (isChecked) {
+                              setSelectedStatusFilters(selectedStatusFilters.filter(k => k !== st.key));
+                            } else {
+                              setSelectedStatusFilters([...selectedStatusFilters, st.key]);
+                            }
+                          }}
+                          className="rounded border-slate-300 text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+                        />
+                        <span>{label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Multi-Select Application Source Filter */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => {
+                setIsAppDropdownOpen(!isAppDropdownOpen);
+                setIsStatusDropdownOpen(false);
+                setIsLangDropdownOpen(false);
+              }}
+              className="pl-3 pr-8 py-2 text-sm bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary transition-all dark:text-white flex items-center gap-2 font-bold cursor-pointer shadow-sm relative"
+            >
+              <span>
+                {selectedAppFilters.length === 0
+                  ? 'All Applications'
+                  : selectedAppFilters.length === 1
+                  ? selectedAppFilters[0]
+                  : `Applications (${selectedAppFilters.length})`}
+              </span>
+              <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2" />
+            </button>
+
+            {isAppDropdownOpen && (
+              <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-2xl shadow-xl z-50 p-3 space-y-2">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2 text-xs font-bold text-slate-500">
+                  <span>Filter by Application</span>
+                  {selectedAppFilters.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedAppFilters([])}
+                      className="text-rose-500 hover:underline text-[10px]"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <div className="max-h-48 overflow-y-auto space-y-1.5 custom-scrollbar pr-1">
+                  {['Default Application', ...applicationsList.map(a => a.name)].map((appName) => {
+                    const isChecked = selectedAppFilters.includes(appName);
+                    return (
+                      <label
+                        key={appName}
+                        className="flex items-center gap-2 p-1.5 hover:bg-slate-50 dark:hover:bg-white/5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-200 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {
+                            if (isChecked) {
+                              setSelectedAppFilters(selectedAppFilters.filter(a => a !== appName));
+                            } else {
+                              setSelectedAppFilters([...selectedAppFilters, appName]);
+                            }
+                          }}
+                          className="rounded border-slate-300 text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+                        />
+                        <span className="truncate text-xs">{appName}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
           
           <button
             type="button"
-            onClick={handleExportCSV}
-            className="py-2 px-4 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-border-dark text-slate-700 dark:text-slate-200 rounded-xl font-bold text-xs flex items-center gap-1.5 btn-animate cursor-pointer"
+            onClick={() => setIsCopyLinkModalOpen(true)}
+            className="py-2 px-4 bg-primary/10 hover:bg-primary/20 border border-primary/20 text-primary rounded-xl font-bold text-xs flex items-center gap-1.5 btn-animate cursor-pointer"
+            title="Copy Public Linguist Application Form URL"
           >
-            <Download className="w-4.5 h-4.5 text-primary" />
-            Export CSV
+            <LinkIcon className="w-4.5 h-4.5 text-primary" />
+            Copy Application Link
           </button>
         </div>
       </section>
+
+      {/* Copy Application Link Popover Modal */}
+      <AnimatePresence>
+        {isCopyLinkModalOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsCopyLinkModalOpen(false)}
+              className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg bg-white dark:bg-card-dark rounded-3xl p-6 sm:p-7 shadow-2xl border border-slate-200/50 dark:border-border-dark z-50 space-y-5"
+            >
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-4">
+                <div>
+                  <h3 className="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2">
+                    <Layers className="w-5 h-5 text-primary" />
+                    Copy Application Link
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">Select an active intake form link to copy to clipboard.</p>
+                </div>
+                <button
+                  onClick={() => setIsCopyLinkModalOpen(false)}
+                  className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 text-slate-400"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-3 max-h-80 overflow-y-auto">
+                {/* Default General Form */}
+                <div className="p-3 bg-slate-50 dark:bg-bg-dark rounded-2xl border border-slate-200/50 dark:border-border-dark flex items-center justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-xs text-slate-900 dark:text-white">Default Application</span>
+                      <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-primary/10 text-primary border border-primary/20">Default</span>
+                    </div>
+                    <span className="text-[11px] font-mono text-slate-400 block mt-0.5">/portal/apply</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const url = `${window.location.origin}/portal/apply`;
+                      navigator.clipboard.writeText(url);
+                      setCopiedAppSlug('default');
+                      setTimeout(() => setCopiedAppSlug(null), 2500);
+                    }}
+                    className={`py-1.5 px-3 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer ${
+                      copiedAppSlug === 'default'
+                        ? 'bg-emerald-500 text-white'
+                        : 'bg-primary hover:bg-primary-dark text-white shadow-xs'
+                    }`}
+                  >
+                    {copiedAppSlug === 'default' ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    {copiedAppSlug === 'default' ? 'Copied!' : 'Copy Link'}
+                  </button>
+                </div>
+
+                {/* Custom Application Links */}
+                {applicationsList.filter(a => a.isActive).map((app) => {
+                  const slugKey = app.slug || app.id;
+                  const isCopied = copiedAppSlug === slugKey;
+                  const fullUrl = `${window.location.origin}/portal/apply/${slugKey}`;
+
+                  return (
+                    <div key={app.id} className="p-3 bg-slate-50 dark:bg-bg-dark rounded-2xl border border-slate-200/50 dark:border-border-dark flex items-center justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-xs text-slate-900 dark:text-white">{app.name}</span>
+                          {!app.collectRates && (
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20">No Rates</span>
+                          )}
+                        </div>
+                        <span className="text-[11px] font-mono text-slate-400 block mt-0.5">/{slugKey}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(fullUrl);
+                          setCopiedAppSlug(slugKey);
+                          setTimeout(() => setCopiedAppSlug(null), 2500);
+                        }}
+                        className={`py-1.5 px-3 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer ${
+                          isCopied
+                            ? 'bg-emerald-500 text-white'
+                            : 'bg-primary hover:bg-primary-dark text-white shadow-xs'
+                        }`}
+                      >
+                        {isCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                        {isCopied ? 'Copied!' : 'Copy Link'}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 dark:border-white/5 flex items-center justify-between">
+                <span className="text-[11px] text-slate-400">Need to create a specialized application?</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCopyLinkModalOpen(false);
+                    window.location.hash = '#portals';
+                  }}
+                  className="text-xs font-bold text-primary hover:underline"
+                >
+                  Manage Applications →
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       {/* Pipeline View Mode Render */}
       <section>
@@ -898,16 +1489,45 @@ export const Dashboard: React.FC = () => {
                         </div>
 
                         {/* Working Languages & Proficiencies */}
+                        {/* SLA Nudge Stagnant Warning Banner */}
+                        {(() => {
+                          const daysStagnant = Math.floor((Date.now() - new Date(candidate.updatedAt || candidate.submittedAt || Date.now()).getTime()) / 86400000);
+                          const isNdaStagnant = slaNudgesConfig.enabled && candidate.stage === 'nda' && !candidate.hasSignedNda && daysStagnant >= (slaNudgesConfig.ndaWaitDays || 3);
+                          
+                          if (!isNdaStagnant) return null;
+
+                          return (
+                            <div className="mb-3 p-2 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-1.5 text-[11px] font-bold text-amber-700 dark:text-amber-400">
+                                <ShieldAlert className="w-3.5 h-3.5 text-amber-500 animate-pulse" />
+                                <span>SLA Stagnant ({daysStagnant}d in NDA)</span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSendNdaNudge(candidate);
+                                }}
+                                className="py-1 px-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-extrabold text-[10px] btn-animate cursor-pointer shadow-sm flex items-center gap-1"
+                                title="Send 1-Click NDA Nudge Email"
+                              >
+                                <Mail className="w-3 h-3" />
+                                Send Nudge
+                              </button>
+                            </div>
+                          );
+                        })()}
+
                         <div className="flex flex-wrap gap-1.5 cursor-pointer" onClick={() => setSelectedVendor(candidate)}>
-                          {candidate.workingLanguages.map((l, i) => (
+                          {Array.isArray(candidate.workingLanguages) && candidate.workingLanguages.map((l, i) => (
                             <span key={i} className="text-[10px] bg-primary/10 text-primary py-0.5 px-2.5 rounded-md font-semibold">
-                              {l.language} ({l.proficiency})
+                              {typeof l === 'string' ? l : `${l?.language || 'N/A'} (${l?.proficiency || 'working'})`}
                             </span>
                           ))}
                         </div>
                       </div>
 
-                      {/* Quick-Stage selector directly in Card View */}
+                      {/* Quick-Stage & Progress selector directly in Card View */}
                       <div className="mt-4 pt-3 border-t border-slate-100 dark:border-white/5 flex flex-col gap-2">
                         <div className="flex items-center justify-between text-xs">
                           <span className="text-[10px] text-slate-400 font-bold uppercase">Workflow stage:</span>
@@ -916,10 +1536,14 @@ export const Dashboard: React.FC = () => {
                             onChange={(e) => handleStageChangeRequest(candidate.id, e.target.value as WorkflowStage)}
                             className="p-1 text-[11px] font-bold bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-lg dark:text-white cursor-pointer focus:outline-none focus:border-primary"
                           >
-                            {Object.entries(STAGE_LABELS).map(([k, label]) => (
-                              <option key={k} value={k}>{label}</option>
+                            {stages.map((stg) => (
+                              <option key={stg.id} value={stg.id}>{stg.name}</option>
                             ))}
                           </select>
+                        </div>
+                        <div className="flex items-center justify-between text-xs pt-1">
+                          <span className="text-[10px] text-slate-400 font-bold uppercase">Stage Progress:</span>
+                          {renderStageStatusSelector(candidate)}
                         </div>
                       </div>
 
@@ -988,6 +1612,11 @@ export const Dashboard: React.FC = () => {
                         <ArrowUpDown className="w-3.5 h-3.5" />
                       </div>
                     </th>
+                    <th className="p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors">
+                      <div className="flex items-center gap-1.5">
+                        Stage Progress
+                      </div>
+                    </th>
                     <th className="p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors text-center" onClick={() => toggleSort('hoursAvailable')}>
                       <div className="flex items-center gap-1.5 justify-center">
                         Hours
@@ -1023,16 +1652,16 @@ export const Dashboard: React.FC = () => {
                         </td>
                         <td className="p-4" onClick={() => setSelectedVendor(candidate)}>
                           <div className="flex flex-wrap gap-1 max-w-[200px]">
-                            {candidate.workingLanguages.map((l, i) => (
+                            {Array.isArray(candidate.workingLanguages) && candidate.workingLanguages.map((l, i) => (
                               <span key={i} className="text-[10px] bg-primary/10 text-primary py-0.5 px-2 rounded-md font-semibold">
-                                {l.language}
+                                {typeof l === 'string' ? l : (l?.language || 'N/A')}
                               </span>
                             ))}
                           </div>
                         </td>
                         <td className="p-4" onClick={() => setSelectedVendor(candidate)}>
                           <span className={`inline-flex px-2 py-0.5 border text-[9px] font-bold rounded-lg uppercase tracking-wider ${statusColorClass}`}>
-                            {candidate.status.replace('_', ' ')}
+                            {(candidate.status || 'pending').toString().replace('_', ' ')}
                           </span>
                         </td>
                         {/* Interactive dropdown stage selector in table row */}
@@ -1043,10 +1672,14 @@ export const Dashboard: React.FC = () => {
                             onClick={(e) => e.stopPropagation()} // Stop drawer triggers
                             className="p-1.5 text-xs font-bold bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl dark:text-white cursor-pointer focus:outline-none"
                           >
-                            {Object.entries(STAGE_LABELS).map(([k, label]) => (
-                              <option key={k} value={k}>{label}</option>
+                            {stages.map((stg) => (
+                              <option key={stg.id} value={stg.id}>{stg.name}</option>
                             ))}
                           </select>
+                        </td>
+                        {/* Interactive Stage Progress Selector */}
+                        <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                          {renderStageStatusSelector(candidate)}
                         </td>
                         <td className="p-4 text-center font-bold text-slate-700 dark:text-slate-300" onClick={() => setSelectedVendor(candidate)}>
                           {candidate.hoursAvailable ? `${candidate.hoursAvailable}h/wk` : 'N/A'}
@@ -1117,6 +1750,16 @@ export const Dashboard: React.FC = () => {
                     </h3>
                   </div>
                   <div className="flex items-center gap-2">
+                    {!isEditing && selectedVendor.workingLanguages && selectedVendor.workingLanguages.length > 1 && (
+                      <button
+                        onClick={() => setSplitPrompt({ vendor: selectedVendor, targetStage: selectedVendor.stage })}
+                        className="p-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer"
+                        title="Split candidate into separate language profiles"
+                      >
+                        <Grid className="w-3.5 h-3.5" />
+                        Split Languages
+                      </button>
+                    )}
                     {!isEditing && (
                       <button
                         onClick={() => startEditingVendor(selectedVendor)}
@@ -1310,14 +1953,22 @@ export const Dashboard: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Services and Working Languages list */}
-                    <div className="space-y-2 p-3 bg-slate-50 dark:bg-bg-dark rounded-2xl border border-slate-200/20 dark:border-white/5">
-                      <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Working Languages</span>
-                      
+                    {/* Working Languages */}
+                    <div className="space-y-3 p-4 bg-slate-50 dark:bg-bg-dark rounded-2xl border border-slate-200/20 dark:border-white/5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-slate-400 uppercase tracking-wider font-extrabold block">
+                          Working Languages
+                        </span>
+                        <span className="text-[9px] text-slate-400 font-mono">
+                          {editLanguages.length} Registered Pair(s)
+                        </span>
+                      </div>
+
+                      {/* Add new language pair */}
                       <div className="flex gap-2">
                         <select
                           id="edit-lang-select"
-                          className="flex-1 p-2 text-xs bg-white dark:bg-card-dark border rounded text-slate-900 dark:text-white"
+                          className="flex-1 p-2 text-xs bg-white dark:bg-card-dark border rounded-xl text-slate-900 dark:text-white font-bold"
                         >
                           {activeLanguages.map((l) => (
                             <option key={l} value={l}>{l}</option>
@@ -1325,7 +1976,7 @@ export const Dashboard: React.FC = () => {
                         </select>
                         <select
                           id="edit-prof-select"
-                          className="p-2 text-xs bg-white dark:bg-card-dark border rounded text-slate-900 dark:text-white"
+                          className="p-2 text-xs bg-white dark:bg-card-dark border rounded-xl text-slate-900 dark:text-white font-bold"
                         >
                           <option value="native">Native</option>
                           <option value="bilingual">Bilingual</option>
@@ -1341,24 +1992,32 @@ export const Dashboard: React.FC = () => {
                               handleAddLanguageToEdit(lSelect.value, pSelect.value as any);
                             }
                           }}
-                          className="py-1 px-3 bg-slate-800 text-white rounded font-bold text-[10px]"
+                          className="py-1.5 px-3 bg-primary hover:bg-primary-dark text-white rounded-xl font-bold text-xs cursor-pointer btn-animate"
                         >
-                          Add
+                          Add Pair
                         </button>
                       </div>
 
-                      <div className="flex flex-wrap gap-1.5 pt-1.5">
+                      {/* Working Languages Tags List */}
+                      <div className="flex flex-wrap gap-2 pt-1">
                         {editLanguages.map((l) => (
-                          <span key={l.language} className="inline-flex items-center gap-1 bg-primary/10 text-primary py-0.5 px-2.5 rounded font-bold">
-                            {l.language} ({l.proficiency})
+                          <div 
+                            key={l.language} 
+                            className="px-3 py-1.5 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50 dark:border-border-dark flex items-center gap-2 text-xs shadow-sm"
+                          >
+                            <span className="font-extrabold text-slate-900 dark:text-white">{l.language}</span>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary capitalize border border-primary/20">
+                              {l.proficiency}
+                            </span>
                             <button
                               type="button"
                               onClick={() => handleRemoveLanguageFromEdit(l.language)}
-                              className="text-primary hover:text-red-500 font-extrabold pl-1 cursor-pointer"
+                              className="text-slate-400 hover:text-rose-500 font-extrabold ml-1 cursor-pointer text-sm"
+                              title="Remove Language Pair"
                             >
                               ×
                             </button>
-                          </span>
+                          </div>
                         ))}
                       </div>
                     </div>
@@ -1471,10 +2130,61 @@ export const Dashboard: React.FC = () => {
                         onChange={(e) => handleStageChangeRequest(selectedVendor.id, e.target.value as WorkflowStage)}
                         className="w-full pl-3 pr-8 py-2.5 text-xs font-bold bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl dark:text-white cursor-pointer focus:outline-none"
                       >
-                        {Object.entries(STAGE_LABELS).map(([key, label]) => (
-                          <option key={key} value={key}>{label}</option>
+                        {stages.map((stg) => (
+                          <option key={stg.id} value={stg.id}>{stg.name}</option>
                         ))}
                       </select>
+                    </div>
+
+                    {/* Stage Progress toggle inside sidebar details */}
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Stage Progress & Status</label>
+                      <div className="w-full">
+                        {renderStageStatusSelector(selectedVendor)}
+                      </div>
+                    </div>
+
+                    {/* Application Intake Source */}
+                    {selectedVendor.applicationName && (
+                      <div className="p-3 bg-primary/5 dark:bg-primary/10 rounded-2xl border border-primary/20 flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2">
+                          <Layers className="w-4 h-4 text-primary shrink-0" />
+                          <div>
+                            <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Application Intake Source</span>
+                            <span className="font-extrabold text-slate-900 dark:text-white">{selectedVendor.applicationName}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Working Languages Summary */}
+                    <div className="space-y-3 p-4 bg-slate-50 dark:bg-bg-dark rounded-2xl border border-slate-200/20 dark:border-white/5">
+                      <div className="flex items-center justify-between">
+                        <h5 className="font-bold text-xs text-slate-400 uppercase tracking-wider">
+                          Working Languages
+                        </h5>
+                        <span className="text-[10px] text-slate-400 font-mono">
+                          {(selectedVendor.workingLanguages || []).length} Registered Pair(s)
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        {Array.isArray(selectedVendor.workingLanguages) && selectedVendor.workingLanguages.map((l, idx) => {
+                          const langName = typeof l === 'string' ? l : (l?.language || 'Primary Language');
+                          const prof = typeof l === 'string' ? 'working' : (l?.proficiency || 'working');
+                          return (
+                            <div 
+                              key={langName + idx} 
+                              className="px-3 py-2 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50 dark:border-border-dark flex items-center gap-2 text-xs shadow-sm"
+                            >
+                              <span className="font-extrabold text-slate-900 dark:text-white">{langName}</span>
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary capitalize border border-primary/20">
+                                {prof}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
 
                     {/* Rates negotiation values */}
@@ -1560,6 +2270,17 @@ export const Dashboard: React.FC = () => {
               <div className="pt-6 border-t border-slate-100 dark:border-white/5 flex gap-3">
                 {isEditing ? (
                   <>
+                    {selectedVendor && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteVendor(selectedVendor)}
+                        className="py-2.5 px-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 text-xs font-bold rounded-xl btn-animate cursor-pointer flex items-center justify-center gap-1.5"
+                        title="Delete Candidate Profile"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Delete Profile
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => setIsEditing(false)}
@@ -1614,8 +2335,8 @@ export const Dashboard: React.FC = () => {
               <div className="space-y-6">
                 <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-4">
                   <div>
-                    <h3 className="text-xl font-bold text-slate-900 dark:text-white">Add Sourced Candidate</h3>
-                    <p className="text-xs text-slate-500 mt-1">Submit a new candidate profile to the recruitment database.</p>
+                    <h3 className="text-xl font-bold text-slate-900 dark:text-white">Add New Linguist</h3>
+                    <p className="text-xs text-slate-500 mt-1">Submit a new linguist profile to the recruitment database.</p>
                   </div>
                   <button onClick={() => setIsAddOpen(false)} className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-slate-500 cursor-pointer">
                     <X className="w-5 h-5" />
@@ -1892,7 +2613,7 @@ export const Dashboard: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* Validation modal for stage transitions triggered by workflow rules */}
+      {/* Validation modal for stage transitions triggered by workflow rules with Email Preview & Edit */}
       <AnimatePresence>
         {pendingTransition && (
           <>
@@ -1908,45 +2629,91 @@ export const Dashboard: React.FC = () => {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-white dark:bg-card-dark rounded-3xl p-6 border border-slate-200 dark:border-border-dark shadow-2xl z-50 overflow-hidden flex flex-col justify-between"
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-xl max-h-[90vh] bg-white dark:bg-card-dark rounded-3xl p-6 border border-slate-200 dark:border-border-dark shadow-2xl z-50 overflow-y-auto flex flex-col justify-between"
             >
               <div className="space-y-4">
-                <div className="flex items-center gap-2 pb-2 border-b border-slate-100 dark:border-white/5">
-                  <AlertTriangle className="w-5 h-5 text-amber-500" />
-                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">Confirm Workflow Action Trigger</h3>
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/5">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5 text-amber-500" />
+                    <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Confirm Workflow Action & Email Preview</h3>
+                  </div>
+                  <button onClick={() => setPendingTransition(null)} className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-slate-400 cursor-pointer">
+                    <X className="w-5 h-5" />
+                  </button>
                 </div>
 
                 <div className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed space-y-3">
                   <p>
-                    Transitioning this candidate to <span className="font-bold text-primary">{STAGE_LABELS[pendingTransition.targetStage]}</span> triggers the following automated email rule:
+                    Transitioning this candidate to <span className="font-bold text-primary">{stages.find(s => s.id === pendingTransition.targetStage)?.name || pendingTransition.targetStage}</span> triggers an automated email action. You can preview and customize the email below before sending:
                   </p>
                   
-                  <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl space-y-1 text-slate-700 dark:text-slate-200 font-bold">
-                    <div>Rule Name: <span className="text-slate-900 dark:text-white font-extrabold">{pendingTransition.actionName}</span></div>
-                    <div>Email Template: <span className="font-normal font-mono">{pendingTransition.templateName}</span></div>
-                    <div>Recipient Group: <span className="text-primary">{pendingTransition.recipientType}</span></div>
+                  <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl grid grid-cols-3 gap-2 text-slate-700 dark:text-slate-200 font-semibold text-[11px]">
+                    <div><span className="text-slate-400 block text-[9px] uppercase">Rule Name</span>{pendingTransition.actionName}</div>
+                    <div><span className="text-slate-400 block text-[9px] uppercase">Template</span>{pendingTransition.templateName}</div>
+                    <div><span className="text-slate-400 block text-[9px] uppercase">Recipient</span><span className="text-primary">{pendingTransition.recipientType}</span></div>
                   </div>
 
-                  <p className="text-[10px] text-slate-400 font-medium italic">
-                    If you confirm, the stage updates and the email dispatch is placed in the notification queue log.
-                  </p>
+                  {/* Email Preview & Editor Panel */}
+                  <div className="space-y-3 pt-2">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block flex items-center gap-1">
+                        <Mail className="w-3.5 h-3.5 text-primary" />
+                        Email Subject Line (Editable)
+                      </label>
+                      <input
+                        type="text"
+                        value={pendingTransition.previewSubject}
+                        onChange={(e) => setPendingTransition({ ...pendingTransition, previewSubject: e.target.value })}
+                        className="w-full p-2.5 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary font-semibold dark:text-white"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block flex items-center gap-1">
+                        <FileText className="w-3.5 h-3.5 text-primary" />
+                        Email Message Body (Editable - Merge Tags Pre-Filled)
+                      </label>
+                      <textarea
+                        rows={7}
+                        value={pendingTransition.previewBody}
+                        onChange={(e) => setPendingTransition({ ...pendingTransition, previewBody: e.target.value })}
+                        className="w-full p-3 text-xs font-sans leading-relaxed bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary dark:text-white resize-y"
+                      ></textarea>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="pt-6 border-t border-slate-100 dark:border-white/5 flex gap-3 mt-4">
+              {/* 3 Action Buttons Footer */}
+              <div className="pt-4 border-t border-slate-100 dark:border-white/5 flex flex-col sm:flex-row gap-2 mt-4">
                 <button
                   type="button"
                   onClick={() => setPendingTransition(null)}
-                  className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-lg text-xs btn-animate cursor-pointer"
+                  className="py-2.5 px-3 border border-slate-200 dark:border-border-dark text-slate-500 font-bold rounded-xl text-xs hover:bg-slate-50 dark:hover:bg-white/5 btn-animate cursor-pointer"
                 >
-                  Cancel transition
+                  Cancel
                 </button>
                 <button
                   type="button"
-                  onClick={() => commitStageChange(pendingTransition.vendorId, pendingTransition.targetStage)}
-                  className="flex-1 py-2 bg-primary hover:bg-primary-dark text-white font-bold rounded-lg text-xs btn-animate cursor-pointer"
+                  onClick={() => {
+                    commitStageChange(pendingTransition.vendorId, pendingTransition.targetStage, pendingTransition.matchedRule, { sendEmail: false });
+                  }}
+                  className="flex-1 py-2.5 px-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl text-xs btn-animate cursor-pointer"
                 >
-                  Confirm & Trigger
+                  Confirm (No Email)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    commitStageChange(pendingTransition.vendorId, pendingTransition.targetStage, pendingTransition.matchedRule, {
+                      sendEmail: true,
+                      customSubject: pendingTransition.previewSubject,
+                      customBody: pendingTransition.previewBody
+                    });
+                  }}
+                  className="flex-1 py-2.5 px-4 bg-primary hover:bg-primary-dark text-white font-bold rounded-xl text-xs btn-animate cursor-pointer shadow-md shadow-primary/20 flex items-center justify-center gap-1.5"
+                >
+                  Confirm & Send Email
                 </button>
               </div>
             </motion.div>
@@ -1954,18 +2721,75 @@ export const Dashboard: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* Sync Status Banner */}
+      {/* Split Candidate Language Modal */}
       <AnimatePresence>
-        {showXtrfAlert && (
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 50 }}
-            className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 dark:dark-glass bg-rose-500/20 text-rose-600 dark:text-rose-400 px-6 py-3 rounded-2xl border border-rose-500/20 shadow-2xl font-bold flex items-center gap-2"
-          >
-            <ShieldAlert className="w-5 h-5 text-rose-500 animate-pulse" />
-            <span>XTRF Import Integration is currently NOT ACTIVE on this client setup.</span>
-          </motion.div>
+        {splitPrompt && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 0.5 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSplitPrompt(null)}
+              className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
+            ></motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-lg bg-white dark:bg-card-dark rounded-3xl p-6 border border-slate-200 dark:border-border-dark shadow-2xl z-50 overflow-hidden flex flex-col justify-between"
+            >
+              <div className="space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-white/5">
+                  <div className="flex items-center gap-2">
+                    <Grid className="w-5 h-5 text-primary" />
+                    <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
+                      Split Candidate Profile by Language?
+                    </h3>
+                  </div>
+                  <button onClick={() => setSplitPrompt(null)} className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-slate-400 cursor-pointer">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed space-y-3">
+                  <p>
+                    <span className="font-bold text-slate-900 dark:text-white">{splitPrompt.vendor.contactName}</span> has <span className="font-bold text-primary">{splitPrompt.vendor.workingLanguages?.length} working languages</span>.
+                  </p>
+                  <p>
+                    Splitting will create separate candidate cards for each language pair so you can choose which language(s) to push to testing manually:
+                  </p>
+
+                  <div className="space-y-1.5 p-3 bg-slate-50 dark:bg-bg-dark rounded-xl border border-slate-200/40">
+                    {splitPrompt.vendor.workingLanguages?.map((l) => (
+                      <div key={l.language} className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-200">
+                        <span className="w-2 h-2 rounded-full bg-primary"></span>
+                        {splitPrompt.vendor.contactName} ({l.language}) — <span className="text-[10px] text-slate-400 font-normal capitalize">{l.proficiency}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-6 border-t border-slate-100 dark:border-white/5 flex flex-col gap-2 mt-4">
+                <button
+                  type="button"
+                  onClick={() => handleConfirmSplitProfiles(splitPrompt.vendor)}
+                  className="w-full py-3 px-4 bg-primary hover:bg-primary-dark text-white font-bold rounded-xl text-xs btn-animate cursor-pointer shadow-md shadow-primary/20 flex items-center justify-center gap-2"
+                >
+                  <Grid className="w-4 h-4" />
+                  Yes, Split into {splitPrompt.vendor.workingLanguages?.length} Language Profiles
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSplitPrompt(null)}
+                  className="w-full py-2.5 px-4 border border-slate-200 dark:border-border-dark text-slate-500 font-bold rounded-xl text-xs hover:bg-slate-50 dark:hover:bg-white/5 btn-animate cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

@@ -3,7 +3,7 @@ import { Link, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { 
   BarChart2, BookOpen, Users, Mail, Compass, 
-  ShieldCheck, LogOut, Menu, X, Sparkles, Settings 
+  ShieldCheck, LogOut, Menu, X, Sparkles, Settings, Sliders, ChevronDown 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -12,6 +12,14 @@ export const DashboardLayout: React.FC = () => {
   const location = useLocation();
   const [isMobileOpen, setIsMobileOpen] = React.useState(false);
   const [emailTestingActive, setEmailTestingActive] = React.useState(false);
+
+  const adminPaths = ['/templates', '/users', '/settings', '/notifications'];
+  const isAdminActive = adminPaths.includes(location.pathname);
+  const [isAdminOpen, setIsAdminOpen] = React.useState(isAdminActive);
+
+  React.useEffect(() => {
+    if (isAdminActive) setIsAdminOpen(true);
+  }, [location.pathname, isAdminActive]);
 
   React.useEffect(() => {
     const checkMode = () => {
@@ -32,8 +40,11 @@ export const DashboardLayout: React.FC = () => {
         if (snap.exists()) {
           const config = snap.data();
           if (config?.testingMode) {
-            setEmailTestingActive(config.testingMode.enabled);
+            setEmailTestingActive(!!config.testingMode.enabled);
             localStorage.setItem('mlc_settings_testing_mode', JSON.stringify(config.testingMode));
+          } else {
+            setEmailTestingActive(false);
+            localStorage.setItem('mlc_settings_testing_mode', JSON.stringify({ enabled: false, recipientEmails: [] }));
           }
         }
       } catch (err) {
@@ -46,18 +57,23 @@ export const DashboardLayout: React.FC = () => {
     return () => window.removeEventListener('mlc-settings-saved', checkMode);
   }, [location.pathname]);
 
-  const navigationItems = [
+  const primaryNavItems = [
     { name: 'Funnel Dashboard', path: '/', icon: BarChart2, roles: ['admin', 'manager', 'user'] },
     { name: 'Linguist Directory', path: '/directory', icon: Compass, roles: ['admin', 'manager', 'user'] },
     { name: 'Grading Portal', path: '/testing', icon: BookOpen, roles: ['admin', 'manager'] },
+    { name: 'Reports', path: '/reports', icon: BarChart2, roles: ['admin', 'manager', 'user'] },
+    { name: 'Portal Modules & Guides', path: '/modules', icon: Sparkles, roles: ['admin', 'manager', 'user'] },
+  ];
+
+  const adminNavItems = [
     { name: 'Template Manager', path: '/templates', icon: Mail, roles: ['admin'] },
     { name: 'User Management', path: '/users', icon: Users, roles: ['admin'] },
     { name: 'System Settings', path: '/settings', icon: Settings, roles: ['admin'] },
+    { name: 'Notification Queue Log', path: '/notifications', icon: Mail, roles: ['admin'] },
   ];
 
-  const visibleNavItems = navigationItems.filter(
-    (item) => user && item.roles.includes(user.role)
-  );
+  const visiblePrimaryItems = primaryNavItems.filter((item) => user && item.roles.includes(user.role));
+  const visibleAdminItems = adminNavItems.filter((item) => user && item.roles.includes(user.role));
 
   return (
     <div className="min-h-screen flex bg-slate-50 dark:bg-bg-dark text-slate-800 dark:text-slate-100 transition-colors duration-300">
@@ -69,13 +85,13 @@ export const DashboardLayout: React.FC = () => {
           <img src="/logomark.png" alt="Multilingual Connections Logo" className="w-9 h-9 object-contain" />
           <div>
             <span className="font-extrabold text-sm text-slate-900 dark:text-white leading-none block">MLC Onboarding</span>
-            <span className="text-[10px] text-primary font-bold uppercase tracking-wider">Recruitment</span>
+            <span className="text-[10px] text-primary font-bold uppercase tracking-wider">Linguist Onboarding</span>
           </div>
         </div>
 
         {/* Navigation Items */}
-        <nav className="flex-1 px-4 py-6 space-y-1.5">
-          {visibleNavItems.map((item) => {
+        <nav className="flex-1 px-4 py-6 space-y-1.5 overflow-y-auto">
+          {visiblePrimaryItems.map((item) => {
             const isActive = location.pathname === item.path;
             const Icon = item.icon;
             return (
@@ -95,6 +111,57 @@ export const DashboardLayout: React.FC = () => {
               </Link>
             );
           })}
+
+          {/* Administration Collapsible Dropdown */}
+          {visibleAdminItems.length > 0 && (
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setIsAdminOpen((prev) => !prev)}
+                className={`w-full flex items-center justify-between px-4 py-3 text-sm font-semibold rounded-xl transition-all duration-150 cursor-pointer ${
+                  isAdminActive
+                    ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-bold'
+                    : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/5'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Sliders className={`w-4 h-4 ${isAdminActive ? 'text-primary' : 'text-slate-400'}`} />
+                  <span>Administration</span>
+                </div>
+                <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isAdminOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              <AnimatePresence>
+                {isAdminOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="pl-4 pt-1 space-y-1 overflow-hidden"
+                  >
+                    {visibleAdminItems.map((item) => {
+                      const isActive = location.pathname === item.path;
+                      const Icon = item.icon;
+                      return (
+                        <Link
+                          key={item.path}
+                          to={item.path}
+                          className={`flex items-center gap-3 px-4 py-2.5 text-xs font-semibold rounded-xl transition-all duration-150 group ${
+                            isActive
+                              ? 'bg-primary text-white shadow-sm shadow-primary/20 font-bold'
+                              : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/5'
+                          }`}
+                        >
+                          <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                          {item.name}
+                        </Link>
+                      );
+                    })}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
         </nav>
 
         {/* Profile Card & Logout */}
@@ -148,7 +215,7 @@ export const DashboardLayout: React.FC = () => {
               className="lg:hidden bg-white dark:bg-card-dark border-b border-slate-200/50 dark:border-border-dark absolute top-[65px] left-0 right-0 z-20 overflow-hidden shadow-xl"
             >
               <div className="px-6 py-4 space-y-1.5">
-                {visibleNavItems.map((item) => {
+                {[...visiblePrimaryItems, ...visibleAdminItems].map((item) => {
                   const isActive = location.pathname === item.path;
                   const Icon = item.icon;
                   return (
@@ -156,10 +223,10 @@ export const DashboardLayout: React.FC = () => {
                       key={item.path}
                       to={item.path}
                       onClick={() => setIsMobileOpen(false)}
-                      className={`flex items-center gap-3 px-4 py-3 text-sm font-semibold rounded-xl transition-all ${
+                      className={`flex items-center gap-3 px-4 py-3 text-xs font-bold rounded-xl transition-all ${
                         isActive
                           ? 'bg-primary text-white'
-                          : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5'
+                          : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/5'
                       }`}
                     >
                       <Icon className="w-4 h-4" />

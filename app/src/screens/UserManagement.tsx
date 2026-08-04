@@ -306,10 +306,10 @@ export const UserManagement: React.FC = () => {
         </div>
         <button
           onClick={handleOpenAddModal}
-          className="py-2.5 px-4 bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 btn-animate cursor-pointer"
+          className="py-2.5 px-4 bg-primary hover:bg-primary-dark text-white rounded-xl font-bold text-xs flex items-center gap-1.5 btn-animate cursor-pointer shadow-md shadow-primary/20"
         >
           <Plus className="w-4 h-4" />
-          Add Staff User
+          Add User
         </button>
       </section>
 
@@ -481,7 +481,7 @@ export const UserManagement: React.FC = () => {
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white text-xs font-bold rounded-xl btn-animate cursor-pointer"
+                    className="flex-1 py-2.5 bg-primary hover:bg-primary-dark text-white text-xs font-bold rounded-xl btn-animate cursor-pointer shadow-md shadow-primary/20"
                   >
                     {modalMode === 'edit' ? 'Save Changes' : 'Create Account'}
                   </button>

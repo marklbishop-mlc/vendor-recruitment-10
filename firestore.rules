@@ -37,39 +37,54 @@ service cloud.firestore {
       allow create: if isAuthed() && request.auth.uid == userId;
     }
 
-    // Vendors Collection
+    // Vendors Collection (Supports Public Intake & NDA Signing Portal)
     match /vendors/{vendorId} {
-      // Basic User (Read-Only) can only see approved vendors. Admin/Manager can see all.
-      allow read: if isAuthed() && (isManager() || resource.data.status == 'approved');
-      allow write: if isManager();
+      allow read: if true;
+      allow create: if true;
+      allow update: if isManager() || request.resource.data.diff(resource.data).affectedKeys().hasAny(['hasSignedNda', 'ndaSignedAt', 'ndaSignatureName', 'stageStatus', 'updatedAt']);
+      allow delete: if isManager();
     }
 
-    // Templates Collection (Admin manages, Manager can read to trigger)
+    // Templates Collection (Admin manages, Public/Manager can read)
     match /templates/{templateId} {
-      allow read: if isManager();
+      allow read: if true;
       allow write: if isAdmin();
     }
 
     // Tests Collection (Graders/Managers manage test assignments)
     match /tests/{testId} {
-      allow read, write: if isManager();
+      allow read, write: if true;
     }
 
     // Notifications Collection (Communication logs & mail queue)
     match /notifications/{notificationId} {
-      allow read, write: if isManager();
+      allow read: if isManager();
+      allow create, update: if true;
+      allow delete: if isManager();
     }
 
-    // Workflow Actions Collection (Admin manages, Manager can read)
+    // Workflow Actions Collection (Admin manages, Public/Manager can read)
     match /workflow_actions/{actionId} {
-      allow read: if isManager();
+      allow read: if true;
       allow write: if isAdmin();
     }
 
     // Audit Logs Collection (Managers can write, Admins can manage)
     match /audit_logs/{logId} {
       allow read: if isManager();
-      allow write: if isManager();
+      allow write: if true;
+    }
+
+    // Settings Collection (Global system configuration: languages, stages, statuses, testing mode)
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Applications Collection (Public can read active configs, staff/managers can manage)
+    match /applications/{appId} {
+      allow read: if true;
+      allow write: if true;
     }
   }
 }

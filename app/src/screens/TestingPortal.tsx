@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import type { TestRecord, TestGrade, VendorProfile } from '../types';
 import { 
-  BookOpen, Star, CheckCircle2, AlertCircle, XCircle, Calendar, Link as LinkIcon 
+  BookOpen, Star, CheckCircle2, AlertCircle, XCircle, Calendar, Search, RotateCcw, ChevronDown 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { collection, getDocs, doc, setDoc } from 'firebase/firestore';
@@ -35,6 +35,13 @@ export const TestingPortal: React.FC = () => {
   const [tests, setTests] = useState<TestRecord[]>([]);
   const [vendorsList, setVendorsList] = useState<VendorProfile[]>([]);
   const [selectedTest, setSelectedTest] = useState<TestRecord | null>(null);
+
+  // Search & Filter States
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedStatusFilters, setSelectedStatusFilters] = useState<string[]>([]);
+  const [selectedLanguageFilters, setSelectedLanguageFilters] = useState<string[]>([]);
+  const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
+  const [isLangDropdownOpen, setIsLangDropdownOpen] = useState(false);
   
   // Grading Modal Form State
   const [score, setScore] = useState<'1' | '2' | '3'>('2');
@@ -80,9 +87,18 @@ export const TestingPortal: React.FC = () => {
   const getVendorInfo = (vendorId: string) => {
     const v = vendorsList.find((v) => v.id === vendorId);
     if (!v) return { name: 'Unknown Candidate', languages: 'N/A' };
-    const name = v.companyName ? `${v.contactName} (${v.companyName})` : v.contactName;
-    const languages = v.workingLanguages.map((l) => `${l.language} (${l.proficiency})`).join(', ');
-    return { name, languages };
+    const name = v.companyName ? `${v.contactName || 'Candidate'} (${v.companyName})` : (v.contactName || 'Unnamed Candidate');
+    
+    let languages = 'N/A';
+    if (Array.isArray(v.workingLanguages) && v.workingLanguages.length > 0) {
+      languages = v.workingLanguages.map((l) => {
+        if (!l) return '';
+        if (typeof l === 'string') return l;
+        return `${l.language || 'N/A'} (${l.proficiency || 'working'})`;
+      }).filter(Boolean).join(', ');
+    }
+
+    return { name, languages: languages || 'N/A' };
   };
 
   const handleOpenGrading = (test: TestRecord) => {
@@ -112,6 +128,61 @@ export const TestingPortal: React.FC = () => {
         prev.map((t) => t.id === selectedTest.id ? updatedTest : t)
       );
 
+      // Auto-update vendor profile per-language test status and overall stageStatus based on pass/fail test grade
+      const vDoc = vendorsList.find((v) => v.id === selectedTest.vendorId);
+      if (vDoc) {
+        const targetLang = selectedTest.language;
+        const vLangs = Array.isArray(vDoc.workingLanguages) ? vDoc.workingLanguages : [];
+        
+        let targetIndex = vLangs.findIndex((l) => 
+          (l && l.testId && l.testId === selectedTest.id) ||
+          (targetLang && l && l.language && l.language.toLowerCase().includes(targetLang.toLowerCase()))
+        );
+
+        if (targetIndex === -1) {
+          targetIndex = vLangs.findIndex((l) => l && l.testStatus === 'pending');
+        }
+
+        if (targetIndex === -1) {
+          targetIndex = 0;
+        }
+
+        const isPass = grade === 'pass' || grade === 'pass_caution';
+
+        const updatedLangs = vLangs.map((l, index) => {
+          if (index === targetIndex) {
+            return {
+              ...l,
+              testStatus: (isPass ? 'passed' : 'failed') as any,
+              testGrade: grade,
+              score: parseInt(score),
+              evaluatedAt: new Date().toISOString(),
+              evaluatorName: user?.displayName || 'Lead Evaluator'
+            };
+          }
+          return l;
+        });
+
+        const remainingPending = updatedLangs.some((l) => l && l.testStatus === 'pending');
+        const anyFailed = updatedLangs.some((l) => l && l.testStatus === 'failed');
+        
+        let newStageStatus: 'started' | 'completed' | 'failed' = 'completed';
+        if (remainingPending) {
+          newStageStatus = 'started';
+        } else if (anyFailed) {
+          newStageStatus = 'failed';
+        }
+
+        const updatedVendor: VendorProfile = {
+          ...vDoc,
+          workingLanguages: updatedLangs,
+          stageStatus: newStageStatus,
+          updatedAt: new Date().toISOString()
+        };
+        await setDoc(doc(db, 'vendors', vDoc.id), updatedVendor);
+        setVendorsList((prev) => prev.map((v) => v.id === vDoc.id ? updatedVendor : v));
+      }
+
       setSelectedTest(null);
       alert("Test record graded and saved successfully.");
     } catch (err) {
@@ -120,14 +191,248 @@ export const TestingPortal: React.FC = () => {
     }
   };
 
+  // Extract all unique languages from tests & candidate profiles
+  const uniqueLanguages = useMemo(() => {
+    const langSet = new Set<string>();
+    (tests || []).forEach((t) => {
+      if (t && t.language) langSet.add(t.language);
+    });
+    (vendorsList || []).forEach((v) => {
+      if (v && Array.isArray(v.workingLanguages)) {
+        v.workingLanguages.forEach((l) => {
+          if (l && typeof l === 'object' && l.language) langSet.add(l.language);
+          else if (typeof l === 'string') langSet.add(l);
+        });
+      }
+    });
+    return Array.from(langSet).sort();
+  }, [tests, vendorsList]);
+
+  // Filter active test candidates to ONLY include vendors in the 'in_testing' stage (or all tests as fallback)
+  const inTestingVendors = useMemo(() => {
+    return vendorsList.filter((v) => v.stage === 'in_testing');
+  }, [vendorsList]);
+
+  const activeInTestingTests = useMemo(() => {
+    const candidateTests = tests.filter((t) => inTestingVendors.some((v) => v.id === t.vendorId));
+    return candidateTests.length > 0 ? candidateTests : tests;
+  }, [tests, inTestingVendors]);
+
+  // Filtered test records based on Search Query, Status, and Language
+  const filteredTests = useMemo(() => {
+    return activeInTestingTests.filter((t) => {
+      const vendorInfo = getVendorInfo(t.vendorId);
+      const query = searchQuery.trim().toLowerCase();
+
+      // 1. Search filter (Candidate Name, Company Name, Project Number/ID, Language)
+      const matchesQuery = !query || 
+        vendorInfo.name.toLowerCase().includes(query) ||
+        (t.projectNumber && t.projectNumber.toLowerCase().includes(query)) ||
+        (t.language && t.language.toLowerCase().includes(query)) ||
+        vendorInfo.languages.toLowerCase().includes(query);
+
+      // 2. Status filter
+      const matchesStatus = selectedStatusFilters.length === 0 || selectedStatusFilters.some((st) => {
+        if (st === 'completed' || st === 'graded') return t.status === 'completed';
+        return t.status === st;
+      });
+
+      // 3. Language filter
+      const matchesLanguage = selectedLanguageFilters.length === 0 || selectedLanguageFilters.some((lang) => {
+        return (t.language && t.language.toLowerCase().includes(lang.toLowerCase())) ||
+          vendorInfo.languages.toLowerCase().includes(lang.toLowerCase());
+      });
+
+      return matchesQuery && matchesStatus && matchesLanguage;
+    });
+  }, [activeInTestingTests, searchQuery, selectedStatusFilters, selectedLanguageFilters, vendorsList]);
+
+  const isFiltered = searchQuery !== '' || selectedStatusFilters.length > 0 || selectedLanguageFilters.length > 0;
+
+  const handleResetFilters = () => {
+    setSearchQuery('');
+    setSelectedStatusFilters([]);
+    setSelectedLanguageFilters([]);
+  };
+
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Translation Testing & Evaluation</h2>
-        <p className="text-slate-500 dark:text-slate-400 mt-1.5 text-sm">
-          Track linguistic test assignments, project numbers, and assign pass/fail grades.
-        </p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Translation Testing & Evaluation</h2>
+          <p className="text-slate-500 dark:text-slate-400 mt-1.5 text-sm">
+            Track linguistic test assignments, project numbers, and assign pass/fail grades for candidates currently in testing stage.
+          </p>
+        </div>
+
+        <div className="px-3.5 py-1.5 bg-slate-100 dark:bg-card-dark border border-slate-200/50 dark:border-border-dark rounded-full text-xs font-bold text-slate-500 dark:text-slate-400 self-start md:self-auto">
+          Showing <span className="text-primary font-extrabold">{filteredTests.length}</span> of {activeInTestingTests.length} Tests
+        </div>
+      </div>
+
+      {/* Search & Filter Toolbar */}
+      <div className="bg-white dark:bg-card-dark p-4 rounded-3xl border border-slate-200/50 dark:border-border-dark shadow-sm flex flex-col md:flex-row items-stretch md:items-center gap-3">
+        {/* Search Bar */}
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search candidate name, company, project ID, or language..."
+            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-2xl text-xs font-medium focus:outline-none focus:border-primary transition-all dark:text-white"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
+            >
+              ×
+            </button>
+          )}
+        </div>
+
+        {/* Multi-Select Status Filter */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => {
+              setIsStatusDropdownOpen(!isStatusDropdownOpen);
+              setIsLangDropdownOpen(false);
+            }}
+            className="pl-3 pr-8 py-2 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-2xl focus:outline-none focus:border-primary transition-all dark:text-white flex items-center gap-2 font-bold cursor-pointer shadow-sm relative"
+          >
+            <span>
+              {selectedStatusFilters.length === 0
+                ? 'All Statuses'
+                : selectedStatusFilters.length === 1
+                ? (selectedStatusFilters[0] === 'completed' ? 'Completed' : selectedStatusFilters[0].replace('_', ' '))
+                : `Statuses (${selectedStatusFilters.length})`}
+            </span>
+            <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2" />
+          </button>
+
+          {isStatusDropdownOpen && (
+            <div className="absolute right-0 sm:left-0 top-full mt-2 w-56 bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-2xl shadow-xl z-50 p-3 space-y-2">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2 text-xs font-bold text-slate-500">
+                <span>Filter by Status</span>
+                {selectedStatusFilters.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedStatusFilters([])}
+                    className="text-rose-500 hover:underline text-[10px]"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                {[
+                  { id: 'assigned', label: 'Assigned' },
+                  { id: 'in_progress', label: 'In Progress' },
+                  { id: 'completed', label: 'Completed / Graded' }
+                ].map((st) => {
+                  const isChecked = selectedStatusFilters.includes(st.id);
+                  return (
+                    <label
+                      key={st.id}
+                      className="flex items-center gap-2 p-1.5 hover:bg-slate-50 dark:hover:bg-white/5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-200 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => {
+                          if (isChecked) {
+                            setSelectedStatusFilters(selectedStatusFilters.filter(id => id !== st.id));
+                          } else {
+                            setSelectedStatusFilters([...selectedStatusFilters, st.id]);
+                          }
+                        }}
+                        className="rounded border-slate-300 text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+                      />
+                      <span>{st.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Multi-Select Language Filter */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => {
+              setIsLangDropdownOpen(!isLangDropdownOpen);
+              setIsStatusDropdownOpen(false);
+            }}
+            className="pl-3 pr-8 py-2 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-2xl focus:outline-none focus:border-primary transition-all dark:text-white flex items-center gap-2 font-bold cursor-pointer shadow-sm relative"
+          >
+            <span>
+              {selectedLanguageFilters.length === 0
+                ? 'All Languages'
+                : selectedLanguageFilters.length === 1
+                ? selectedLanguageFilters[0]
+                : `Languages (${selectedLanguageFilters.length})`}
+            </span>
+            <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2" />
+          </button>
+
+          {isLangDropdownOpen && (
+            <div className="absolute right-0 top-full mt-2 w-60 bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-2xl shadow-xl z-50 p-3 space-y-2">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2 text-xs font-bold text-slate-500">
+                <span>Filter by Language</span>
+                {selectedLanguageFilters.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedLanguageFilters([])}
+                    className="text-rose-500 hover:underline text-[10px]"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <div className="max-h-56 overflow-y-auto space-y-1.5 custom-scrollbar pr-1">
+                {uniqueLanguages.map((lang) => {
+                  const isChecked = selectedLanguageFilters.includes(lang);
+                  return (
+                    <label
+                      key={lang}
+                      className="flex items-center gap-2 p-1.5 hover:bg-slate-50 dark:hover:bg-white/5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-200 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => {
+                          if (isChecked) {
+                            setSelectedLanguageFilters(selectedLanguageFilters.filter(l => l !== lang));
+                          } else {
+                            setSelectedLanguageFilters([...selectedLanguageFilters, lang]);
+                          }
+                        }}
+                        className="rounded border-slate-300 text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+                      />
+                      <span>{lang}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {/* Clear Filters Button */}
+          {isFiltered && (
+            <button
+              onClick={handleResetFilters}
+              className="p-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-2xl text-xs font-bold flex items-center gap-1 btn-animate cursor-pointer"
+              title="Reset search & filters"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              Reset
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Grid List of Active Tests */}
@@ -146,79 +451,89 @@ export const TestingPortal: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200/50 dark:divide-white/5">
-              {tests.map((t) => {
-                const info = getVendorInfo(t.vendorId);
-                return (
-                  <tr key={t.id} className="hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors">
-                    <td className="p-4 pl-6 font-bold text-slate-900 dark:text-white">{info.name}</td>
-                    <td className="p-4 text-xs font-semibold text-primary">{info.languages}</td>
-                    <td className="p-4 font-mono text-xs text-slate-500 dark:text-slate-400">{t.projectNumber}</td>
-                    <td className="p-4 text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-2.5">
-                      <Calendar className="w-3.5 h-3.5" />
-                      {new Date(t.deadline).toLocaleDateString()}
-                    </td>
-                    <td className="p-4 text-center">
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase ${
-                        t.status === 'completed' 
-                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' 
-                          : t.status === 'in_progress'
-                          ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
-                          : 'bg-slate-500/10 text-slate-500 border border-slate-500/20'
-                      }`}>
-                        {t.status.replace('_', ' ')}
-                      </span>
-                    </td>
-                    <td className="p-4">
-                      {t.grade ? (
-                        <span className={`inline-flex items-center gap-1 text-xs font-bold capitalize ${
-                          t.grade === 'pass' 
-                            ? 'text-emerald-500' 
-                            : t.grade === 'pass_caution' 
-                            ? 'text-amber-500' 
-                            : 'text-red-500'
+              {filteredTests.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="p-12 text-center text-slate-400 text-xs font-semibold">
+                    No translation testing assignments found matching your active search query or filter criteria.
+                  </td>
+                </tr>
+              ) : (
+                filteredTests.map((t) => {
+                  const info = getVendorInfo(t.vendorId);
+                  return (
+                    <tr key={t.id} className="hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors">
+                      <td className="p-4 pl-6 font-bold text-slate-900 dark:text-white">{info.name}</td>
+                      <td className="p-4 text-xs font-bold text-primary">
+                        {t.language || info.languages}
+                      </td>
+                      <td className="p-4 font-mono text-xs text-slate-500 dark:text-slate-400">{t.projectNumber}</td>
+                      <td className="p-4 text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5 mt-2.5">
+                        <Calendar className="w-3.5 h-3.5" />
+                        {new Date(t.deadline).toLocaleDateString()}
+                      </td>
+                      <td className="p-4 text-center">
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase ${
+                          t.status === 'completed' 
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' 
+                            : t.status === 'in_progress'
+                            ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
+                            : 'bg-slate-500/10 text-slate-500 border border-slate-500/20'
                         }`}>
-                          {t.grade === 'pass' && <CheckCircle2 className="w-3.5 h-3.5" />}
-                          {t.grade === 'pass_caution' && <AlertCircle className="w-3.5 h-3.5" />}
-                          {t.grade === 'fail' && <XCircle className="w-3.5 h-3.5" />}
-                          {t.grade.replace('_', ' ')} (Score: {t.score}/3)
+                          {t.status.replace('_', ' ')}
                         </span>
-                      ) : (
-                        <span className="text-xs text-slate-400 font-light">Unevaluated</span>
-                      )}
-                    </td>
-                    <td className="p-4 pr-6 text-right">
-                      <button
-                        onClick={() => handleOpenGrading(t)}
-                        className="py-1 px-3 bg-primary hover:bg-primary-dark text-white text-xs font-bold rounded-lg btn-animate cursor-pointer shadow-md shadow-primary/10"
-                      >
-                        {t.status === 'completed' ? 'Review Grade' : 'Enter Grades'}
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
+                      </td>
+                      <td className="p-4">
+                        {t.grade ? (
+                          <span className={`inline-flex items-center gap-1 text-xs font-bold capitalize ${
+                            t.grade === 'pass' 
+                              ? 'text-emerald-500' 
+                              : t.grade === 'pass_caution' 
+                              ? 'text-amber-500' 
+                              : 'text-red-500'
+                          }`}>
+                            {t.grade === 'pass' && <CheckCircle2 className="w-3.5 h-3.5" />}
+                            {t.grade === 'pass_caution' && <AlertCircle className="w-3.5 h-3.5" />}
+                            {t.grade === 'fail' && <XCircle className="w-3.5 h-3.5" />}
+                            {t.grade.replace('_', ' ')} (Score: {t.score}/3)
+                          </span>
+                        ) : (
+                          <span className="text-xs text-slate-400 font-light">Unevaluated</span>
+                        )}
+                      </td>
+                      <td className="p-4 pr-6 text-right">
+                        <button
+                          onClick={() => handleOpenGrading(t)}
+                          className="py-1 px-3 bg-primary hover:bg-primary-dark text-white text-xs font-bold rounded-lg btn-animate cursor-pointer shadow-md shadow-primary/10"
+                        >
+                          {t.status === 'completed' ? 'Review Grade' : 'Enter Grades'}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
       </section>
 
-      {/* Grading evaluation dialog modal */}
+      {/* Grading Evaluation Modal */}
       <AnimatePresence>
         {selectedTest && (
-          <>
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 0.5 }}
               exit={{ opacity: 0 }}
               onClick={() => setSelectedTest(null)}
-              className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm"
+              className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
             ></motion.div>
 
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg bg-white dark:bg-card-dark rounded-3xl p-6 border border-slate-200 dark:border-border-dark shadow-2xl z-50 overflow-hidden flex flex-col justify-between"
+              className="relative w-full max-w-lg bg-white dark:bg-card-dark rounded-3xl p-6 border border-slate-200 dark:border-border-dark shadow-2xl z-50 overflow-hidden flex flex-col justify-between"
             >
               <div className="space-y-5">
                 <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-4">
@@ -229,7 +544,7 @@ export const TestingPortal: React.FC = () => {
                         Grade Evaluation Portal
                       </h3>
                       <p className="text-[10px] text-slate-500 mt-0.5">
-                        Test Candidate: {getVendorInfo(selectedTest.vendorId).name}
+                        Candidate: <span className="font-bold text-slate-800 dark:text-slate-200">{getVendorInfo(selectedTest.vendorId).name}</span>
                       </p>
                     </div>
                   </div>
@@ -239,19 +554,20 @@ export const TestingPortal: React.FC = () => {
                 </div>
 
                 <form id="grading-form" onSubmit={handleSubmitGrade} className="space-y-4 text-xs font-semibold">
-                  {/* Test reference details */}
-                  <div className="grid grid-cols-2 gap-4 p-3 bg-slate-50 dark:bg-bg-dark border border-slate-200/20 dark:border-white/5 rounded-xl text-slate-500">
+                  {/* Target Language Pair & Test reference details */}
+                  <div className="grid grid-cols-3 gap-3 p-3.5 bg-slate-50 dark:bg-bg-dark border border-slate-200/20 dark:border-white/5 rounded-2xl text-slate-500">
                     <div>
-                      <span className="block text-[10px]">Project ID:</span>
-                      <span className="font-bold text-slate-800 dark:text-slate-200 font-mono">{selectedTest.projectNumber}</span>
+                      <span className="block text-[9px] uppercase tracking-wider text-slate-400 font-bold">Target Language</span>
+                      <span className="font-bold text-primary text-xs">{selectedTest.language || 'Primary Language'}</span>
                     </div>
                     <div>
-                      <span className="block text-[10px] flex items-center gap-0.5">
-                        <LinkIcon className="w-3 h-3 text-slate-400" />
-                        Assignment Link:
-                      </span>
-                      <a href={selectedTest.assignmentLink} target="_blank" rel="noreferrer" className="text-primary hover:underline font-bold truncate block">
-                        Open Translation Test
+                      <span className="block text-[9px] uppercase tracking-wider text-slate-400 font-bold">Project ID</span>
+                      <span className="font-bold text-slate-800 dark:text-slate-200 font-mono text-xs">{selectedTest.projectNumber}</span>
+                    </div>
+                    <div>
+                      <span className="block text-[9px] uppercase tracking-wider text-slate-400 font-bold">Assignment</span>
+                      <a href={selectedTest.assignmentLink} target="_blank" rel="noreferrer" className="text-primary hover:underline font-bold text-xs truncate block">
+                        Open Test Link
                       </a>
                     </div>
                   </div>
@@ -337,7 +653,7 @@ export const TestingPortal: React.FC = () => {
                 </button>
               </div>
             </motion.div>
-          </>
+          </div>
         )}
       </AnimatePresence>
     </div>

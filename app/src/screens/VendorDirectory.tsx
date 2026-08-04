@@ -1,11 +1,12 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
-  Search, Filter, Globe, Phone, Mail, Award, ChevronRight, X,
-  FileCheck, ShieldAlert, ExternalLink, Download, Grid, List, Edit2
+  Search, Globe, Phone, Mail, Award, ChevronRight, ChevronDown, X,
+  FileCheck, ShieldAlert, ExternalLink, Download, Grid, List, Edit2, Trash2
 } from 'lucide-react';
-import type { VendorProfile, WorkingLanguage } from '../types';
+import type { VendorProfile, WorkingLanguage, ApplicationConfig } from '../types';
+import { getActiveSortedLanguages } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
-import { collection, getDocs, doc, setDoc, query, where, getDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, query, where, getDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../AuthContext';
 
@@ -102,8 +103,13 @@ export const VendorDirectory: React.FC = () => {
   const { user, loading } = useAuth();
   const [vendors, setVendors] = useState<VendorProfile[]>([]);
   const [search, setSearch] = useState('');
-  const [tierFilter, setTierFilter] = useState<string>('all');
-  const [langFilter, setLangFilter] = useState<string>('all');
+  const [selectedTierFilters, setSelectedTierFilters] = useState<string[]>([]);
+  const [selectedLangFilters, setSelectedLangFilters] = useState<string[]>([]);
+  const [selectedAppFilters, setSelectedAppFilters] = useState<string[]>([]);
+  const [isTierDropdownOpen, setIsTierDropdownOpen] = useState(false);
+  const [isLangDropdownOpen, setIsLangDropdownOpen] = useState(false);
+  const [isAppDropdownOpen, setIsAppDropdownOpen] = useState(false);
+  const [applicationsList, setApplicationsList] = useState<ApplicationConfig[]>([]);
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
   const [selectedVendor, setSelectedVendor] = useState<VendorProfile | null>(null);
   
@@ -140,8 +146,9 @@ export const VendorDirectory: React.FC = () => {
         if (configSnap.exists()) {
           const configData = configSnap.data();
           if (configData.languages) {
-            setSystemLanguages(configData.languages);
-            setSelectedLangToAdd(configData.languages[0] || '');
+            const activeSortedNames = getActiveSortedLanguages(configData.languages).map((l) => l.name);
+            setSystemLanguages(activeSortedNames);
+            setSelectedLangToAdd(activeSortedNames[0] || '');
           }
         }
 
@@ -173,23 +180,45 @@ export const VendorDirectory: React.FC = () => {
       }
     };
     loadDirectoryData();
+
+    const unsubApps = onSnapshot(collection(db, 'applications'), (snapshot) => {
+      const apps: ApplicationConfig[] = [];
+      snapshot.forEach((docSnap) => apps.push({ id: docSnap.id, ...docSnap.data() } as ApplicationConfig));
+      setApplicationsList(apps);
+    });
+
+    return () => unsubApps();
   }, [user, loading]);
 
   // Filter approved directory
   const filteredVendors = useMemo(() => {
     return vendors.filter((v) => {
-      const matchesSearch = 
-        v.contactName.toLowerCase().includes(search.toLowerCase()) ||
-        (v.companyName || '').toLowerCase().includes(search.toLowerCase()) ||
-        v.workingLanguages.some((l) => l.language.toLowerCase().includes(search.toLowerCase())) ||
-        v.services.some((s) => s.toLowerCase().includes(search.toLowerCase()));
+      const contact = (v.contactName || '').toLowerCase();
+      const company = (v.companyName || '').toLowerCase();
+      const query = (search || '').trim().toLowerCase();
 
-      const matchesTier = tierFilter === 'all' || v.classificationTier.toString() === tierFilter;
-      const matchesLang = langFilter === 'all' || v.workingLanguages.some((l) => l.language === langFilter);
+      const matchesSearch = !query || 
+        contact.includes(query) ||
+        company.includes(query) ||
+        (Array.isArray(v.workingLanguages) && (v.workingLanguages as any[]).some((l: any) => {
+          if (!l) return false;
+          if (typeof l === 'string') return String(l).toLowerCase().includes(query);
+          return l.language && String(l.language).toLowerCase().includes(query);
+        })) ||
+        (Array.isArray(v.services) && (v.services as any[]).some((s: any) => s && String(s).toLowerCase().includes(query)));
 
-      return matchesSearch && matchesTier && matchesLang;
+      const matchesTier = selectedTierFilters.length === 0 || (v.classificationTier && selectedTierFilters.includes(v.classificationTier.toString()));
+      const matchesLang = selectedLangFilters.length === 0 || (Array.isArray(v.workingLanguages) && v.workingLanguages.some((l) => {
+        const langName = typeof l === 'string' ? l : l.language;
+        return selectedLangFilters.includes(langName);
+      }));
+
+      const candidateApp = v.applicationName || (v.applicationId ? v.applicationId : 'Default Application');
+      const matchesApp = selectedAppFilters.length === 0 || selectedAppFilters.includes(candidateApp);
+
+      return matchesSearch && matchesTier && matchesLang && matchesApp;
     });
-  }, [vendors, search, tierFilter, langFilter]);
+  }, [vendors, search, selectedTierFilters, selectedLangFilters, selectedAppFilters]);
 
   const handleExportCSV = () => {
     const headers = [
@@ -200,14 +229,16 @@ export const VendorDirectory: React.FC = () => {
     
     const rows = filteredVendors.map((v) => [
       v.companyName || 'Individual Vendor',
-      v.contactName,
-      v.email,
+      v.contactName || 'N/A',
+      v.email || '',
       v.phone || '',
-      v.services.join('; '),
-      v.workingLanguages.map(l => `${l.language} (${l.proficiency})`).join('; '),
-      v.classificationTier,
-      v.mlcHourlyRate,
-      v.confirmedRate,
+      Array.isArray(v.services) ? v.services.join('; ') : '',
+      Array.isArray(v.workingLanguages) 
+        ? v.workingLanguages.map((l) => typeof l === 'string' ? l : `${l?.language || 'N/A'} (${l?.proficiency || 'working'})`).join('; ') 
+        : '',
+      v.classificationTier || 2,
+      v.mlcHourlyRate || 0,
+      v.confirmedRate || 0,
       v.hasSignedNda ? 'Signed' : 'Pending'
     ]);
 
@@ -252,21 +283,28 @@ export const VendorDirectory: React.FC = () => {
       contactName: editContactName.trim(),
       companyName: editCompanyName.trim(),
       email: editEmail.trim(),
-      phone: editPhone.trim() || undefined,
+      phone: editPhone.trim() || '',
       services: editServices.split(',').map((s) => s.trim()).filter(Boolean),
       classificationTier: editTier,
       mlcHourlyRate: parseFloat(editMlcRate) || 0,
       adjustedRate: Math.round((parseFloat(editMlcRate) || 0) * 0.9),
       confirmedRate: parseFloat(editConfirmedRate) || 0,
       status: editStatus,
-      ndaUrl: editNdaUrl.trim() || undefined,
+      ndaUrl: editNdaUrl.trim() || '',
       hasSignedNda: editHasSignedNda,
       workingLanguages: editLanguages.length > 0 ? editLanguages : [{ language: 'English', proficiency: 'working' }],
       updatedAt: new Date().toISOString()
     };
 
     try {
-      await setDoc(doc(db, 'vendors', selectedVendor.id), updatedProfile);
+      const cleanPayload: Record<string, any> = {};
+      Object.keys(updatedProfile).forEach((k) => {
+        if ((updatedProfile as any)[k] !== undefined) {
+          cleanPayload[k] = (updatedProfile as any)[k];
+        }
+      });
+
+      await setDoc(doc(db, 'vendors', selectedVendor.id), cleanPayload);
       setVendors((prev) => prev.map((v) => v.id === selectedVendor.id ? updatedProfile : v));
       setSelectedVendor(updatedProfile);
       setIsEditing(false);
@@ -274,6 +312,22 @@ export const VendorDirectory: React.FC = () => {
     } catch (err) {
       console.error("Failed to save vendor directory edit", err);
       alert("Failed to save changes: " + (err instanceof Error ? err.message : String(err)));
+    }
+  };
+
+  const handleDeleteVendor = async (vendor: VendorProfile) => {
+    const confirmed = window.confirm(`Are you sure you want to permanently delete the profile for "${vendor.contactName}"? This action cannot be undone.`);
+    if (!confirmed) return;
+
+    try {
+      await deleteDoc(doc(db, 'vendors', vendor.id));
+      setVendors((prev) => prev.filter((v) => v.id !== vendor.id));
+      setSelectedVendor(null);
+      setIsEditing(false);
+      alert(`Candidate profile "${vendor.contactName}" deleted successfully.`);
+    } catch (err) {
+      console.error("Failed to delete candidate profile from Firestore", err);
+      alert("Failed to delete profile: " + (err instanceof Error ? err.message : String(err)));
     }
   };
 
@@ -349,32 +403,198 @@ export const VendorDirectory: React.FC = () => {
             />
           </div>
           
+          {/* Multi-Select Tier Filter */}
           <div className="relative">
-            <select
-              value={tierFilter}
-              onChange={(e) => setTierFilter(e.target.value)}
-              className="pl-3 pr-8 py-2 text-sm bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary transition-all dark:text-white appearance-none cursor-pointer font-bold"
+            <button
+              type="button"
+              onClick={() => {
+                setIsTierDropdownOpen(!isTierDropdownOpen);
+                setIsLangDropdownOpen(false);
+              }}
+              className="pl-3 pr-8 py-2 text-sm bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary transition-all dark:text-white flex items-center gap-2 font-bold cursor-pointer shadow-sm relative"
             >
-              <option value="all">All Tiers</option>
-              <option value="1">Tier 1 (Highest Quality)</option>
-              <option value="2">Tier 2 (Standard)</option>
-              <option value="3">Tier 3 (Budget/Emerging)</option>
-            </select>
-            <Filter className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <span>
+                {selectedTierFilters.length === 0
+                  ? 'All Tiers'
+                  : selectedTierFilters.length === 1
+                  ? `Tier ${selectedTierFilters[0]}`
+                  : `Tiers (${selectedTierFilters.length})`}
+              </span>
+              <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2" />
+            </button>
+
+            {isTierDropdownOpen && (
+              <div className="absolute right-0 sm:left-0 top-full mt-2 w-56 bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-2xl shadow-xl z-50 p-3 space-y-2">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2 text-xs font-bold text-slate-500">
+                  <span>Filter by Tier</span>
+                  {selectedTierFilters.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedTierFilters([])}
+                      className="text-rose-500 hover:underline text-[10px]"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  {[
+                    { id: '1', label: 'Tier 1 (Highest Quality)' },
+                    { id: '2', label: 'Tier 2 (Standard)' },
+                    { id: '3', label: 'Tier 3 (Budget/Emerging)' }
+                  ].map((t) => {
+                    const isChecked = selectedTierFilters.includes(t.id);
+                    return (
+                      <label
+                        key={t.id}
+                        className="flex items-center gap-2 p-1.5 hover:bg-slate-50 dark:hover:bg-white/5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-200 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {
+                            if (isChecked) {
+                              setSelectedTierFilters(selectedTierFilters.filter(id => id !== t.id));
+                            } else {
+                              setSelectedTierFilters([...selectedTierFilters, t.id]);
+                            }
+                          }}
+                          className="rounded border-slate-300 text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+                        />
+                        <span>{t.label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
+          {/* Multi-Select Language Filter */}
           <div className="relative">
-            <select
-              value={langFilter}
-              onChange={(e) => setLangFilter(e.target.value)}
-              className="pl-3 pr-8 py-2 text-sm bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary transition-all dark:text-white appearance-none cursor-pointer font-bold"
+            <button
+              type="button"
+              onClick={() => {
+                setIsLangDropdownOpen(!isLangDropdownOpen);
+                setIsTierDropdownOpen(false);
+              }}
+              className="pl-3 pr-8 py-2 text-sm bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary transition-all dark:text-white flex items-center gap-2 font-bold cursor-pointer shadow-sm relative"
             >
-              <option value="all">All Languages</option>
-              {systemLanguages.map((l) => (
-                <option key={l} value={l}>{l}</option>
-              ))}
-            </select>
-            <Globe className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <span>
+                {selectedLangFilters.length === 0
+                  ? 'All Languages'
+                  : selectedLangFilters.length === 1
+                  ? selectedLangFilters[0]
+                  : `Languages (${selectedLangFilters.length})`}
+              </span>
+              <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2" />
+            </button>
+
+            {isLangDropdownOpen && (
+              <div className="absolute right-0 top-full mt-2 w-60 bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-2xl shadow-xl z-50 p-3 space-y-2">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2 text-xs font-bold text-slate-500">
+                  <span>Filter by Language</span>
+                  {selectedLangFilters.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedLangFilters([])}
+                      className="text-rose-500 hover:underline text-[10px]"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <div className="max-h-56 overflow-y-auto space-y-1.5 custom-scrollbar pr-1">
+                  {systemLanguages.map((l) => {
+                    const isChecked = selectedLangFilters.includes(l);
+                    return (
+                      <label
+                        key={l}
+                        className="flex items-center gap-2 p-1.5 hover:bg-slate-50 dark:hover:bg-white/5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-200 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {
+                            if (isChecked) {
+                              setSelectedLangFilters(selectedLangFilters.filter(lang => lang !== l));
+                            } else {
+                              setSelectedLangFilters([...selectedLangFilters, l]);
+                            }
+                          }}
+                          className="rounded border-slate-300 text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+                        />
+                        <span>{l}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Multi-Select Application Source Filter */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => {
+                setIsAppDropdownOpen(!isAppDropdownOpen);
+                setIsLangDropdownOpen(false);
+                setIsTierDropdownOpen(false);
+              }}
+              className="pl-3 pr-8 py-2 text-sm bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary transition-all dark:text-white flex items-center gap-2 font-bold cursor-pointer shadow-sm relative"
+            >
+              <span>
+                {selectedAppFilters.length === 0
+                  ? 'All Applications'
+                  : selectedAppFilters.length === 1
+                  ? selectedAppFilters[0]
+                  : `Applications (${selectedAppFilters.length})`}
+              </span>
+              <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2" />
+            </button>
+
+            {isAppDropdownOpen && (
+              <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-2xl shadow-xl z-50 p-3 space-y-2">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2 text-xs font-bold text-slate-500">
+                  <span>Filter by Application</span>
+                  {selectedAppFilters.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedAppFilters([])}
+                      className="text-rose-500 hover:underline text-[10px]"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <div className="max-h-48 overflow-y-auto space-y-1.5 custom-scrollbar pr-1">
+                  {['Default Application', ...applicationsList.map(a => a.name)].map((appName) => {
+                    const isChecked = selectedAppFilters.includes(appName);
+                    return (
+                      <label
+                        key={appName}
+                        className="flex items-center gap-2 p-1.5 hover:bg-slate-50 dark:hover:bg-white/5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-200 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {
+                            if (isChecked) {
+                              setSelectedAppFilters(selectedAppFilters.filter(a => a !== appName));
+                            } else {
+                              setSelectedAppFilters([...selectedAppFilters, appName]);
+                            }
+                          }}
+                          className="rounded border-slate-300 text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+                        />
+                        <span className="truncate text-xs">{appName}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -419,12 +639,24 @@ export const VendorDirectory: React.FC = () => {
                     {/* Languages and services tags */}
                     <div className="space-y-2">
                       <div className="flex flex-wrap gap-1">
-                        {vendor.workingLanguages.slice(0, 3).map((l, i) => (
-                          <span key={i} className="inline-flex items-center gap-1 text-[10px] bg-primary/10 text-primary py-0.5 px-2 rounded-md font-semibold">
-                            <Globe className="w-2.5 h-2.5" />
-                            {l.language} ({l.proficiency})
-                          </span>
-                        ))}
+                        {vendor.workingLanguages.map((l, i) => {
+                          const isVerified = l.testStatus === 'passed' || l.testStatus === 'waived';
+                          return (
+                            <span 
+                              key={i} 
+                              className={`inline-flex items-center gap-1 text-[10px] py-0.5 px-2 rounded-md font-semibold border ${
+                                isVerified 
+                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' 
+                                  : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border-slate-200/40 dark:border-white/5'
+                              }`}
+                              title={isVerified ? 'Tested & Verified Language Pair' : 'Untested / Self-Reported Language Pair'}
+                            >
+                              <Globe className="w-2.5 h-2.5" />
+                              {l.language} ({l.proficiency})
+                              {isVerified && <span className="text-[9px]">🟢</span>}
+                            </span>
+                          );
+                        })}
                       </div>
                       <div className="flex flex-wrap gap-1">
                         {vendor.services.map((s, i) => (
@@ -913,7 +1145,7 @@ export const VendorDirectory: React.FC = () => {
                     <button
                       type="button"
                       onClick={handleAddLanguageToEdit}
-                      className="py-2 px-3 bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white text-xs font-bold rounded-xl btn-animate cursor-pointer animate-fade-in"
+                      className="py-2 px-3 bg-primary hover:bg-primary-dark text-white text-xs font-bold rounded-xl btn-animate cursor-pointer shadow-md shadow-primary/20"
                     >
                       Add Pair
                     </button>
@@ -921,6 +1153,17 @@ export const VendorDirectory: React.FC = () => {
                 </div>
 
                 <div className="pt-4 flex gap-3 border-t border-slate-100 dark:border-white/5">
+                  {selectedVendor && (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteVendor(selectedVendor)}
+                      className="py-2.5 px-3 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 text-xs font-bold rounded-xl btn-animate cursor-pointer flex items-center justify-center gap-1.5"
+                      title="Delete Candidate Profile"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete Profile
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => setIsEditing(false)}
@@ -930,7 +1173,7 @@ export const VendorDirectory: React.FC = () => {
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white text-xs font-bold rounded-xl btn-animate cursor-pointer"
+                    className="flex-1 py-2.5 bg-primary hover:bg-primary-dark text-white text-xs font-bold rounded-xl btn-animate cursor-pointer shadow-md shadow-primary/20"
                   >
                     Save Changes
                   </button>
