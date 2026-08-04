@@ -58,27 +58,27 @@ export const IntakePortalScreen: React.FC = () => {
   const [prozProfile, setProzProfile] = useState('');
 
   // Location State
-  const [country, setCountry] = useState('United States');
-  const [timeZone, setTimeZone] = useState('UTC-05:00');
+  const [country, setCountry] = useState('');
+  const [timeZone, setTimeZone] = useState('');
 
   // Availability & Start Date State
-  const [availableStartDate, setAvailableStartDate] = useState('Immediately');
-  const [weeklyAvailability, setWeeklyAvailability] = useState<WeeklyAvailabilityOption>('up_to_15');
+  const [availableStartDate, setAvailableStartDate] = useState('');
+  const [weeklyAvailability, setWeeklyAvailability] = useState<WeeklyAvailabilityOption | ''>('');
 
   // Other Languages State
   const [otherLanguages, setOtherLanguages] = useState('');
 
   // Experience & Specialization State
-  const [mtqaExperienceYears, setMtqaExperienceYears] = useState<MtqaExperienceYears>('1_to_3');
+  const [mtqaExperienceYears, setMtqaExperienceYears] = useState<MtqaExperienceYears | ''>('');
   const [handsOnExperienceAreas, setHandsOnExperienceAreas] = useState<string[]>([]);
-  const [errorTaggingExperience, setErrorTaggingExperience] = useState<ErrorTaggingExpLevel>('basic');
+  const [errorTaggingExperience, setErrorTaggingExperience] = useState<ErrorTaggingExpLevel | ''>('');
 
   // Agility Self-Assessment Matrix State (1-3 scale)
   const [agilitySelfAssessment, setAgilitySelfAssessment] = useState<AgilitySelfAssessment>({
-    qaPlatforms: 2,
-    grammarStyle: 3,
-    errorTagging: 3,
-    policyFeedback: 2
+    qaPlatforms: null,
+    grammarStyle: null,
+    errorTagging: null,
+    policyFeedback: null
   });
 
   // Custom Answers State
@@ -210,14 +210,67 @@ export const IntakePortalScreen: React.FC = () => {
     }
 
     if (languages.length === 0) {
-      setError('Please add at least one working language and proficiency.');
+      setError('Please add at least one working language pair and proficiency.');
       return;
+    }
+
+    // Validate Country & Timezone
+    if (appConfig?.enableCountryTimeZone) {
+      if (!country.trim() || !timeZone.trim()) {
+        setError('Please select both your Country of Residence and Time Zone.');
+        return;
+      }
+    }
+
+    // Validate Available Start Date
+    if (appConfig?.enableAvailableStartDate) {
+      if (!availableStartDate.trim()) {
+        setError('Please enter your Available Start Date.');
+        return;
+      }
+    }
+
+    // Validate Weekly Availability
+    if (appConfig?.enableWeeklyAvailability) {
+      if (!weeklyAvailability) {
+        setError('Please select your Weekly Availability.');
+        return;
+      }
+    }
+
+    // Validate MTQA Experience Years
+    if (appConfig?.enableMtqaExperience) {
+      if (!mtqaExperienceYears) {
+        setError('Please select your years of MTQA / MTPE experience.');
+        return;
+      }
+    }
+
+    // Validate Error Tagging Experience
+    if (appConfig?.enableErrorTaggingExp) {
+      if (!errorTaggingExperience) {
+        setError('Please select your experience level with error-tagging taxonomies.');
+        return;
+      }
+    }
+
+    // Validate Agility Assessment Matrix (1-3 scale)
+    if (appConfig?.enableAgilityAssessment) {
+      if (
+        agilitySelfAssessment.qaPlatforms === null || agilitySelfAssessment.qaPlatforms === undefined ||
+        agilitySelfAssessment.grammarStyle === null || agilitySelfAssessment.grammarStyle === undefined ||
+        agilitySelfAssessment.errorTagging === null || agilitySelfAssessment.errorTagging === undefined ||
+        agilitySelfAssessment.policyFeedback === null || agilitySelfAssessment.policyFeedback === undefined
+      ) {
+        setError('Please select a rating (1 to 3) for all 4 Technical & Operational Agility metrics.');
+        return;
+      }
     }
 
     // Validate Custom Required Questions
     if (appConfig?.customQuestions) {
       for (const q of appConfig.customQuestions) {
-        if (q.required && (!customAnswers[q.id] || String(customAnswers[q.id]).trim() === '')) {
+        if (q.required && (customAnswers[q.id] === undefined || customAnswers[q.id] === null || String(customAnswers[q.id]).trim() === '')) {
           setError(`Please answer required question: "${q.questionText}"`);
           return;
         }
@@ -502,6 +555,7 @@ export const IntakePortalScreen: React.FC = () => {
                           onChange={(e) => setCountry(e.target.value)}
                           className="w-full p-3 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:border-primary font-bold dark:text-white cursor-pointer"
                         >
+                          <option value="">-- Select Country of Residence --</option>
                           {COUNTRIES.map((c) => (
                             <option key={c.code} value={c.name}>{c.name}</option>
                           ))}
@@ -518,6 +572,7 @@ export const IntakePortalScreen: React.FC = () => {
                           onChange={(e) => setTimeZone(e.target.value)}
                           className="w-full p-3 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:border-primary font-bold dark:text-white cursor-pointer"
                         >
+                          <option value="">-- Select Primary Time Zone --</option>
                           {TIME_ZONES.map((tz) => (
                             <option key={tz.value} value={tz.value}>{tz.label}</option>
                           ))}
@@ -660,10 +715,12 @@ export const IntakePortalScreen: React.FC = () => {
                       <div className="space-y-1.5">
                         <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Available Start Date *</label>
                         <select
+                          required
                           value={availableStartDate}
                           onChange={(e) => setAvailableStartDate(e.target.value)}
                           className="w-full p-3 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:border-primary font-bold dark:text-white cursor-pointer"
                         >
+                          <option value="">-- Select Available Start Date --</option>
                           <option value="Immediately">Immediately</option>
                           <option value="Within 1 week">Within 1 week</option>
                           <option value="Within 2 weeks">Within 2 weeks</option>
@@ -676,10 +733,12 @@ export const IntakePortalScreen: React.FC = () => {
                       <div className="space-y-1.5">
                         <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Weekly Availability *</label>
                         <select
+                          required
                           value={weeklyAvailability}
                           onChange={(e) => setWeeklyAvailability(e.target.value as any)}
                           className="w-full p-3 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:border-primary font-bold dark:text-white cursor-pointer"
                         >
+                          <option value="">-- Select Weekly Availability --</option>
                           <option value="less_than_10">Less than 10 hours/week</option>
                           <option value="up_to_15">Up to 15 hours/week</option>
                           <option value="up_to_20">Up to 20 hours/week</option>

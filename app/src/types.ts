@@ -35,10 +35,10 @@ export interface WorkingLanguage {
 }
 
 export interface AgilitySelfAssessment {
-  qaPlatforms: number;     // Comfort navigating complex QA platforms and custom tools (1-3)
-  grammarStyle: number;    // Attention to detail regarding grammar, style, and overall mechanics (1-3)
-  errorTagging: number;    // Precision in following strict error-tagging and formatting rules (1-3)
-  policyFeedback: number;  // Ability to apply granular, policy-based feedback across iterations (1-3)
+  qaPlatforms?: number | null;     // Comfort navigating complex QA platforms and custom tools (1-3)
+  grammarStyle?: number | null;    // Attention to detail regarding grammar, style, and overall mechanics (1-3)
+  errorTagging?: number | null;    // Precision in following strict error-tagging and formatting rules (1-3)
+  policyFeedback?: number | null;  // Ability to apply granular, policy-based feedback across iterations (1-3)
 }
 
 export type MtqaExperienceYears = 'less_than_1' | '1_year' | '1_to_3' | '3_to_5' | '5_plus';
@@ -94,12 +94,12 @@ export interface VendorProfile {
   country?: string;
   timeZone?: string;
   availableStartDate?: string;
-  weeklyAvailability?: WeeklyAvailabilityOption;
+  weeklyAvailability?: WeeklyAvailabilityOption | '';
   otherLanguages?: string;
-  mtqaExperienceYears?: MtqaExperienceYears;
+  mtqaExperienceYears?: MtqaExperienceYears | '';
   handsOnExperienceAreas?: string[];
   agilitySelfAssessment?: AgilitySelfAssessment;
-  errorTaggingExperience?: ErrorTaggingExpLevel;
+  errorTaggingExperience?: ErrorTaggingExpLevel | '';
   customAnswers?: Record<string, string | number>;
 }
 

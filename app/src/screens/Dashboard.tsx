@@ -106,23 +106,20 @@ export const Dashboard: React.FC = () => {
   const [formNdaUrl, setFormNdaUrl] = useState('');
 
   // Detailed Evaluation Fields for New Intake
-  const [formCountry, setFormCountry] = useState('United States');
-  const [formTimeZone, setFormTimeZone] = useState('UTC-05:00 Eastern Time');
-  const [formAvailableStartDate, setFormAvailableStartDate] = useState('Immediately');
-  const [formWeeklyAvailability, setFormWeeklyAvailability] = useState<WeeklyAvailabilityOption>('up_to_20');
+  const [formCountry, setFormCountry] = useState('');
+  const [formTimeZone, setFormTimeZone] = useState('');
+  const [formAvailableStartDate, setFormAvailableStartDate] = useState('');
+  const [formWeeklyAvailability, setFormWeeklyAvailability] = useState<WeeklyAvailabilityOption | ''>('');
   const [formOtherLanguages, setFormOtherLanguages] = useState('');
-  const [formMtqaExperienceYears, setFormMtqaExperienceYears] = useState<MtqaExperienceYears>('1_to_3');
-  const [formHandsOnExperienceAreas, setFormHandsOnExperienceAreas] = useState<string[]>([
-    'Machine Translation Quality Assurance (MTQA)',
-    'Machine Translation Post-Editing (MTPE)'
-  ]);
+  const [formMtqaExperienceYears, setFormMtqaExperienceYears] = useState<MtqaExperienceYears | ''>('');
+  const [formHandsOnExperienceAreas, setFormHandsOnExperienceAreas] = useState<string[]>([]);
   const [formAgilitySelfAssessment, setFormAgilitySelfAssessment] = useState<AgilitySelfAssessment>({
-    qaPlatforms: 2,
-    grammarStyle: 3,
-    errorTagging: 3,
-    policyFeedback: 2
+    qaPlatforms: null,
+    grammarStyle: null,
+    errorTagging: null,
+    policyFeedback: null
   });
-  const [formErrorTaggingExperience, setFormErrorTaggingExperience] = useState<ErrorTaggingExpLevel>('basic');
+  const [formErrorTaggingExperience, setFormErrorTaggingExperience] = useState<ErrorTaggingExpLevel | ''>('');
   
   // Selected multiple languages in form
   const [formLanguages, setFormLanguages] = useState<{ language: string; proficiency: WorkingLanguage['proficiency'] }[]>([]);
@@ -3136,6 +3133,7 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                           onChange={(e) => setFormCountry(e.target.value)}
                           className="w-full p-2 text-xs bg-white dark:bg-card-dark border rounded-lg dark:text-white"
                         >
+                          <option value="">-- Select Country --</option>
                           {COUNTRIES.map((c) => (
                             <option key={c.code} value={c.name}>{c.name}</option>
                           ))}
@@ -3148,6 +3146,7 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                           onChange={(e) => setFormTimeZone(e.target.value)}
                           className="w-full p-2 text-xs bg-white dark:bg-card-dark border rounded-lg dark:text-white"
                         >
+                          <option value="">-- Select Time Zone --</option>
                           {TIME_ZONES.map((tz) => (
                             <option key={tz.value} value={tz.label}>{tz.label}</option>
                           ))}
@@ -3174,6 +3173,7 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                           onChange={(e) => setFormWeeklyAvailability(e.target.value as WeeklyAvailabilityOption)}
                           className="w-full p-2 text-xs bg-white dark:bg-card-dark border rounded-lg dark:text-white"
                         >
+                          <option value="">-- Select Capacity --</option>
                           <option value="less_than_10">Less than 10 hrs/week</option>
                           <option value="up_to_15">Up to 15 hrs/week</option>
                           <option value="up_to_20">Up to 20 hrs/week</option>
@@ -3203,6 +3203,7 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                           onChange={(e) => setFormMtqaExperienceYears(e.target.value as MtqaExperienceYears)}
                           className="w-full p-2 text-xs bg-white dark:bg-card-dark border rounded-lg dark:text-white"
                         >
+                          <option value="">-- Select MTQA Exp --</option>
                           <option value="less_than_1">Less than 1 year</option>
                           <option value="1_year">1 year</option>
                           <option value="1_to_3">1–3 years</option>
@@ -3218,6 +3219,7 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                           onChange={(e) => setFormErrorTaggingExperience(e.target.value as ErrorTaggingExpLevel)}
                           className="w-full p-2 text-xs bg-white dark:bg-card-dark border rounded-lg dark:text-white"
                         >
+                          <option value="">-- Select Taxonomy Exp --</option>
                           <option value="extensive">Extensive Experience</option>
                           <option value="basic">Basic Experience</option>
                           <option value="none_learning">None, Quick to Learn</option>
