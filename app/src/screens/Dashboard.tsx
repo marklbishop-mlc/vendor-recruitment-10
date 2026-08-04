@@ -1748,11 +1748,25 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
 
                     {presetView === 'domain_agility' && (
                       <>
-                        <th className="p-4">Languages</th>
+                        <th className="p-4">Company</th>
+                        <th className="p-4">Email Addresses</th>
+                        <th className="p-4">Country & Timezone</th>
+                        <th className="p-4">Working Languages</th>
+                        <th className="p-4">Other Languages</th>
+                        <th className="p-4">Services</th>
+                        <th className="p-4">Status</th>
+                        <th className="p-4">Workflow Stage</th>
+                        <th className="p-4">Stage Progress</th>
+                        <th className="p-4">Available Start Date</th>
+                        <th className="p-4">Weekly Capacity</th>
+                        <th className="p-4">MTQA Exp Years</th>
                         <th className="p-4">Hands-On Domain Badges</th>
-                        <th className="p-4">Agility Self-Assessment (QA/Grammar/Errors/Policy)</th>
                         <th className="p-4">Taxonomy Exp</th>
-                        <th className="p-4 text-right pr-6">Profile</th>
+                        <th className="p-4">Agility Ratings (QA/Grammar/Tags/Policy)</th>
+                        <th className="p-4">Portfolio Links</th>
+                        <th className="p-4">NDA Verification</th>
+                        <th className="p-4">Agreed Rate</th>
+                        <th className="p-4 text-right pr-6">Full Profile</th>
                       </>
                     )}
                   </tr>
@@ -1968,6 +1982,19 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                         {/* Domain & Agility View Cells */}
                         {presetView === 'domain_agility' && (
                           <>
+                            <td className="p-4 text-slate-600 dark:text-slate-400 font-medium">
+                              {candidate.companyName || <span className="text-slate-400 italic">Individual</span>}
+                            </td>
+                            <td className="p-4 text-xs">
+                              <div className="font-semibold text-slate-800 dark:text-slate-200">{candidate.email}</div>
+                              {candidate.secondaryEmail && (
+                                <div className="text-[10px] text-slate-400 font-mono">Sec: {candidate.secondaryEmail}</div>
+                              )}
+                            </td>
+                            <td className="p-4 text-xs font-medium text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                              <div>{candidate.country || 'N/A'}</div>
+                              <div className="text-[10px] text-slate-400">{candidate.timeZone || 'N/A'}</div>
+                            </td>
                             <td className="p-4">
                               <div className="flex flex-wrap gap-1 max-w-[180px]">
                                 {Array.isArray(candidate.workingLanguages) && candidate.workingLanguages.map((l, i) => (
@@ -1977,9 +2004,45 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                                 ))}
                               </div>
                             </td>
+                            <td className="p-4 text-xs text-slate-600 dark:text-slate-400 max-w-[150px] truncate">
+                              {candidate.otherLanguages || <span className="text-slate-400 italic">None</span>}
+                            </td>
+                            <td className="p-4">
+                              <div className="flex flex-wrap gap-1 max-w-[160px]">
+                                {Array.isArray(candidate.services) && candidate.services.map((srv, i) => (
+                                  <span key={i} className="text-[9px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded font-medium">
+                                    {srv}
+                                  </span>
+                                ))}
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wide border ${statusColorClass}`}>
+                                {candidate.status}
+                              </span>
+                            </td>
+                            <td className="p-4 text-xs font-bold text-slate-800 dark:text-slate-200 capitalize">
+                              {candidate.stage}
+                            </td>
+                            <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                              {renderStageStatusSelector(candidate)}
+                            </td>
+                            <td className="p-4 text-xs font-bold text-slate-800 dark:text-slate-200">
+                              {candidate.availableStartDate || 'N/A'}
+                            </td>
+                            <td className="p-4 text-xs font-bold text-slate-800 dark:text-slate-200">
+                              {candidate.weeklyAvailability ? (
+                                candidate.weeklyAvailability.replace('_than_', ' ').replace('_to_', '–').replace('_plus', '+') + ' hrs/wk'
+                              ) : (
+                                candidate.hoursAvailable ? `${candidate.hoursAvailable} hrs/wk` : 'N/A'
+                              )}
+                            </td>
+                            <td className="p-4 text-xs font-extrabold text-slate-800 dark:text-slate-200">
+                              {candidate.mtqaExperienceYears ? candidate.mtqaExperienceYears.replace('_to_', '–').replace('_plus', '+').replace('_', ' ') : 'N/A'}
+                            </td>
                             <td className="p-4">
                               {candidate.handsOnExperienceAreas && candidate.handsOnExperienceAreas.length > 0 ? (
-                                <div className="flex flex-wrap gap-1 max-w-[240px]">
+                                <div className="flex flex-wrap gap-1 max-w-[220px]">
                                   {candidate.handsOnExperienceAreas.map((area, i) => (
                                     <span key={i} className="text-[9px] font-extrabold bg-purple-500/15 text-purple-600 dark:text-purple-400 py-0.5 px-2 rounded-md border border-purple-500/20">
                                       {area}
@@ -1990,18 +2053,6 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                                 <span className="text-slate-400 text-xs italic">Unspecified</span>
                               )}
                             </td>
-                            <td className="p-4">
-                              {candidate.agilitySelfAssessment ? (
-                                <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold">
-                                  <span className="px-1.5 py-0.5 bg-blue-500/10 text-blue-600 rounded">QA: {candidate.agilitySelfAssessment.qaPlatforms}/3</span>
-                                  <span className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-600 rounded">Grammar: {candidate.agilitySelfAssessment.grammarStyle}/3</span>
-                                  <span className="px-1.5 py-0.5 bg-amber-500/10 text-amber-600 rounded">Tags: {candidate.agilitySelfAssessment.errorTagging}/3</span>
-                                  <span className="px-1.5 py-0.5 bg-purple-500/10 text-purple-600 rounded">Policy: {candidate.agilitySelfAssessment.policyFeedback}/3</span>
-                                </div>
-                              ) : (
-                                <span className="text-slate-400 text-xs italic">Unrated</span>
-                              )}
-                            </td>
                             <td className="p-4 text-xs font-semibold text-slate-700 dark:text-slate-300">
                               {candidate.errorTaggingExperience ? (
                                 <span className="capitalize">{candidate.errorTaggingExperience.replace('_', ' ')}</span>
@@ -2009,13 +2060,52 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                                 <span className="text-slate-400 italic">N/A</span>
                               )}
                             </td>
+                            <td className="p-4">
+                              {candidate.agilitySelfAssessment ? (
+                                <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold">
+                                  <span className="px-1.5 py-0.5 bg-blue-500/10 text-blue-600 rounded">QA: {candidate.agilitySelfAssessment.qaPlatforms || 0}/3</span>
+                                  <span className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-600 rounded">Grammar: {candidate.agilitySelfAssessment.grammarStyle || 0}/3</span>
+                                  <span className="px-1.5 py-0.5 bg-amber-500/10 text-amber-600 rounded">Tags: {candidate.agilitySelfAssessment.errorTagging || 0}/3</span>
+                                  <span className="px-1.5 py-0.5 bg-purple-500/10 text-purple-600 rounded">Policy: {candidate.agilitySelfAssessment.policyFeedback || 0}/3</span>
+                                </div>
+                              ) : (
+                                <span className="text-slate-400 text-xs italic">Unrated</span>
+                              )}
+                            </td>
+                            <td className="p-4 text-xs">
+                              <div className="flex flex-col gap-1">
+                                {candidate.prozProfile && (
+                                  <a href={candidate.prozProfile} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-primary hover:underline text-[10px] font-bold">
+                                    ProZ Profile ↗
+                                  </a>
+                                )}
+                                {candidate.linkedInProfile && (
+                                  <a href={candidate.linkedInProfile} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-primary hover:underline text-[10px] font-bold">
+                                    LinkedIn ↗
+                                  </a>
+                                )}
+                                {!candidate.prozProfile && !candidate.linkedInProfile && (
+                                  <span className="text-slate-400 italic">None</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              {candidate.hasSignedNda ? (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/15 text-emerald-600 border border-emerald-500/20">🟢 Signed</span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-rose-500/15 text-rose-600 border border-rose-500/20">🔴 Missing</span>
+                              )}
+                            </td>
+                            <td className="p-4 text-xs font-extrabold text-slate-900 dark:text-white">
+                              {candidate.confirmedRate > 0 ? `$${candidate.confirmedRate}/hr` : 'Negotiating'}
+                            </td>
                             <td className="p-4 text-right pr-6">
                               <button
                                 type="button"
                                 onClick={() => setSelectedVendor(candidate)}
-                                className="px-2.5 py-1 bg-purple-500/10 text-purple-600 hover:bg-purple-500 hover:text-white rounded-lg text-xs font-bold transition-colors"
+                                className="px-3 py-1.5 bg-primary text-white hover:bg-primary-dark rounded-xl text-xs font-extrabold shadow-xs transition-all cursor-pointer"
                               >
-                                Agility Details →
+                                Full View →
                               </button>
                             </td>
                           </>
