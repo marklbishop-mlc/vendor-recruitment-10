@@ -8,6 +8,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { ApplicationConfig, LanguageConfig, CustomApplicationQuestion } from '../types';
+import { FULL_DEFAULT_LANGUAGES } from '../types';
 import { 
   Plus, 
   Copy, 
@@ -211,7 +212,7 @@ const MultiSelectPopover: React.FC<MultiSelectProps> = ({
 
 export const ApplicationManager: React.FC = () => {
   const [applications, setApplications] = useState<ApplicationConfig[]>([]);
-  const [languages, setLanguages] = useState<LanguageConfig[]>([]);
+  const [languages, setLanguages] = useState<LanguageConfig[]>(FULL_DEFAULT_LANGUAGES);
   const [loading, setLoading] = useState(true);
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
 
@@ -755,11 +756,11 @@ export const ApplicationManager: React.FC = () => {
 
                 {/* 4. Language Scope Multi-Select Popover */}
                 <MultiSelectPopover
-                  label="Allowed Languages Scope"
-                  options={activeLangsList.length > 0 ? activeLangsList : ['English', 'Spanish', 'French', 'German', 'Japanese', 'Mandarin']}
+                  label="Allowed Languages"
+                  options={activeLangsList.length > 0 ? activeLangsList : FULL_DEFAULT_LANGUAGES.map((l) => l.name)}
                   selected={selectedLanguages}
                   onChange={setSelectedLanguages}
-                  placeholder="Search 200+ languages..."
+                  placeholder="Search working languages..."
                 />
 
                 {/* 5. Detailed Form Field Visibility Controls & Presets */}
