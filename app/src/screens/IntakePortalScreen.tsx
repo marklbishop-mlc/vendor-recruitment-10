@@ -444,36 +444,50 @@ export const IntakePortalScreen: React.FC = () => {
                   )}
                 </div>
 
-                <div className="flex flex-col sm:flex-row items-center gap-3 p-3 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200/50 dark:border-slate-800">
-                  <select
-                    value={newLangName}
-                    onChange={(e) => setNewLangName(e.target.value)}
-                    className="flex-1 w-full p-2.5 text-xs font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl dark:text-white"
-                  >
-                    {availableLanguages.map((lang) => (
-                      <option key={lang} value={lang}>{lang}</option>
-                    ))}
-                  </select>
+                <div className="p-4 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200/50 dark:border-slate-800">
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                    <div className="sm:col-span-5 space-y-1">
+                      <label className="text-[11px] font-extrabold text-slate-600 dark:text-slate-300 block">
+                        Language
+                      </label>
+                      <select
+                        value={newLangName}
+                        onChange={(e) => setNewLangName(e.target.value)}
+                        className="w-full p-2.5 text-xs font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl dark:text-white focus:outline-none focus:border-primary"
+                      >
+                        {availableLanguages.map((lang) => (
+                          <option key={lang} value={lang}>{lang}</option>
+                        ))}
+                      </select>
+                    </div>
 
-                  <select
-                    value={newLangProf}
-                    onChange={(e) => setNewLangProf(e.target.value as any)}
-                    className="p-2.5 text-xs font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl dark:text-white"
-                  >
-                    <option value="native">Native</option>
-                    <option value="bilingual">Bilingual</option>
-                    <option value="professional">Professional</option>
-                    <option value="working">Working</option>
-                  </select>
+                    <div className="sm:col-span-4 space-y-1">
+                      <label className="text-[11px] font-extrabold text-slate-600 dark:text-slate-300 block">
+                        Competency
+                      </label>
+                      <select
+                        value={newLangProf}
+                        onChange={(e) => setNewLangProf(e.target.value as any)}
+                        className="w-full p-2.5 text-xs font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl dark:text-white focus:outline-none focus:border-primary"
+                      >
+                        <option value="native">Native</option>
+                        <option value="bilingual">Bilingual</option>
+                        <option value="professional">Professional</option>
+                        <option value="working">Working</option>
+                      </select>
+                    </div>
 
-                  <button
-                    type="button"
-                    onClick={handleAddLanguage}
-                    className="w-full sm:w-auto py-2.5 px-4 bg-primary hover:bg-primary-dark text-white font-extrabold text-xs rounded-xl flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add Language
-                  </button>
+                    <div className="sm:col-span-3">
+                      <button
+                        type="button"
+                        onClick={handleAddLanguage}
+                        className="w-full py-2.5 px-4 bg-primary hover:bg-primary-dark text-white font-extrabold text-xs rounded-xl flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add Language
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
