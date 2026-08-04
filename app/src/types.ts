@@ -34,6 +34,26 @@ export interface WorkingLanguage {
   evaluatorName?: string;
 }
 
+export interface AgilitySelfAssessment {
+  qaPlatforms: number;     // Comfort navigating complex QA platforms and custom tools (1-3)
+  grammarStyle: number;    // Attention to detail regarding grammar, style, and overall mechanics (1-3)
+  errorTagging: number;    // Precision in following strict error-tagging and formatting rules (1-3)
+  policyFeedback: number;  // Ability to apply granular, policy-based feedback across iterations (1-3)
+}
+
+export type MtqaExperienceYears = 'less_than_1' | '1_year' | '1_to_3' | '3_to_5' | '5_plus';
+
+export type ErrorTaggingExpLevel = 'extensive' | 'basic' | 'none_learning';
+
+export type WeeklyAvailabilityOption = 'less_than_10' | 'up_to_15' | 'up_to_20' | 'more_than_20';
+
+export interface CustomApplicationQuestion {
+  id: string;
+  questionText: string;
+  questionType: 'open_ended' | 'rating_1_to_3';
+  required: boolean;
+}
+
 export interface VendorProfile {
   id: string;
   companyName: string;
@@ -69,6 +89,18 @@ export interface VendorProfile {
   splitLanguage?: string;  // Specific language pair for split candidate profile
   applicationId?: string;  // Application Form ID candidate applied through
   applicationName?: string; // Application Form Name candidate applied through
+
+  // Detailed Application Tool Fields
+  country?: string;
+  timeZone?: string;
+  availableStartDate?: string;
+  weeklyAvailability?: WeeklyAvailabilityOption;
+  otherLanguages?: string;
+  mtqaExperienceYears?: MtqaExperienceYears;
+  handsOnExperienceAreas?: string[];
+  agilitySelfAssessment?: AgilitySelfAssessment;
+  errorTaggingExperience?: ErrorTaggingExpLevel;
+  customAnswers?: Record<string, string | number>;
 }
 
 export interface ApplicationConfig {
@@ -85,6 +117,19 @@ export interface ApplicationConfig {
   collectRates: boolean;      // true / false
   requireResume?: boolean;
   requireXtrfId?: boolean;
+
+  // Detailed Field Toggles
+  enableCountryTimeZone?: boolean;
+  enableAvailableStartDate?: boolean;
+  enableWeeklyAvailability?: boolean;
+  enableOtherLanguages?: boolean;
+  enableMtqaExperience?: boolean;
+  enableHandsOnExperience?: boolean;
+  enableAgilityAssessment?: boolean;
+  enableErrorTaggingExp?: boolean;
+
+  // Custom Questions (Up to 5)
+  customQuestions?: CustomApplicationQuestion[];
   
   // Custom Copy
   portalTitle?: string;

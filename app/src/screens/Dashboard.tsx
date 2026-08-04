@@ -4,7 +4,7 @@ import { getActiveSortedLanguages, DEFAULT_STAGE_PROGRESS_OPTIONS, getStageProgr
 import { 
   Plus, Search, ShieldAlert, X, ChevronDown,
   FileText, Check, Copy, UploadCloud, Grid, List, ArrowUpDown,
-  FileCheck, Info, ExternalLink, Edit2, AlertTriangle, Download, Trash2, Mail, Link as LinkIcon, Layers
+  FileCheck, Info, ExternalLink, Edit2, AlertTriangle, Download, Trash2, Mail, Link as LinkIcon, Layers, Sparkles
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { collection, getDocs, doc, setDoc, getDoc, onSnapshot, deleteDoc } from 'firebase/firestore';
@@ -78,6 +78,7 @@ export const Dashboard: React.FC = () => {
 
   // Default view is now table view
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('table');
+  const [presetView, setPresetView] = useState<'standard' | 'detailed_eval' | 'workflow_hiring' | 'domain_agility'>('standard');
   
   // Table sorting states
   const [sortField, setSortField] = useState<keyof VendorProfile>('contactName');
@@ -1294,6 +1295,54 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
             )}
           </div>
           
+          {/* View Switcher Presets */}
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-bg-dark p-1 rounded-2xl border border-slate-200/50 dark:border-border-dark overflow-x-auto">
+            <button
+              type="button"
+              onClick={() => setPresetView('standard')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                presetView === 'standard'
+                  ? 'bg-white dark:bg-card-dark text-slate-900 dark:text-white shadow-xs'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              Standard View
+            </button>
+            <button
+              type="button"
+              onClick={() => setPresetView('detailed_eval')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                presetView === 'detailed_eval'
+                  ? 'bg-white dark:bg-card-dark text-primary shadow-xs'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              Full Detailed View
+            </button>
+            <button
+              type="button"
+              onClick={() => setPresetView('workflow_hiring')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                presetView === 'workflow_hiring'
+                  ? 'bg-white dark:bg-card-dark text-emerald-600 dark:text-emerald-400 shadow-xs'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              Workflow & Hiring View
+            </button>
+            <button
+              type="button"
+              onClick={() => setPresetView('domain_agility')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                presetView === 'domain_agility'
+                  ? 'bg-white dark:bg-card-dark text-purple-600 dark:text-purple-400 shadow-xs'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              Domain & Agility View
+            </button>
+          </div>
+          
           <button
             type="button"
             onClick={() => setIsCopyLinkModalOpen(true)}
@@ -1592,44 +1641,53 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                         <ArrowUpDown className="w-3.5 h-3.5" />
                       </div>
                     </th>
-                    <th className="p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors" onClick={() => toggleSort('companyName')}>
-                      <div className="flex items-center gap-1.5">
-                        Company Name
-                        <ArrowUpDown className="w-3.5 h-3.5" />
-                      </div>
-                    </th>
-                    <th className="p-4">Languages</th>
-                    <th className="p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors" onClick={() => toggleSort('status')}>
-                      <div className="flex items-center gap-1.5">
-                        Linguist Status
-                        <ArrowUpDown className="w-3.5 h-3.5" />
-                      </div>
-                    </th>
-                    {/* Quick stage transition column inside Pipeline View table */}
-                    <th className="p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors" onClick={() => toggleSort('stage')}>
-                      <div className="flex items-center gap-1.5">
-                        Workflow Stage
-                        <ArrowUpDown className="w-3.5 h-3.5" />
-                      </div>
-                    </th>
-                    <th className="p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors">
-                      <div className="flex items-center gap-1.5">
-                        Stage Progress
-                      </div>
-                    </th>
-                    <th className="p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors text-center" onClick={() => toggleSort('hoursAvailable')}>
-                      <div className="flex items-center gap-1.5 justify-center">
-                        Hours
-                        <ArrowUpDown className="w-3.5 h-3.5" />
-                      </div>
-                    </th>
-                    <th className="p-4">NDA</th>
-                    <th className="p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors text-right pr-6" onClick={() => toggleSort('confirmedRate')}>
-                      <div className="flex items-center gap-1.5 justify-end">
-                        Agreed Rate
-                        <ArrowUpDown className="w-3.5 h-3.5" />
-                      </div>
-                    </th>
+
+                    {presetView === 'standard' && (
+                      <>
+                        <th className="p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors" onClick={() => toggleSort('companyName')}>Company Name</th>
+                        <th className="p-4">Languages</th>
+                        <th className="p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors" onClick={() => toggleSort('status')}>Linguist Status</th>
+                        <th className="p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors" onClick={() => toggleSort('stage')}>Workflow Stage</th>
+                        <th className="p-4">Stage Progress</th>
+                        <th className="p-4 text-center">Hours</th>
+                        <th className="p-4">NDA</th>
+                        <th className="p-4 text-right pr-6 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors" onClick={() => toggleSort('confirmedRate')}>Agreed Rate</th>
+                      </>
+                    )}
+
+                    {presetView === 'detailed_eval' && (
+                      <>
+                        <th className="p-4">Country & Timezone</th>
+                        <th className="p-4">MTQA Exp (Years)</th>
+                        <th className="p-4">Technical Agility Avg</th>
+                        <th className="p-4">Error-Tagging Exp</th>
+                        <th className="p-4">Start Date</th>
+                        <th className="p-4">Availability</th>
+                        <th className="p-4 text-right pr-6">Full Profile</th>
+                      </>
+                    )}
+
+                    {presetView === 'workflow_hiring' && (
+                      <>
+                        <th className="p-4">Workflow Stage</th>
+                        <th className="p-4">Stage Progress</th>
+                        <th className="p-4">Available Start Date</th>
+                        <th className="p-4">Weekly Availability</th>
+                        <th className="p-4">NDA Verification</th>
+                        <th className="p-4">Intake Application</th>
+                        <th className="p-4 text-right pr-6">Actions</th>
+                      </>
+                    )}
+
+                    {presetView === 'domain_agility' && (
+                      <>
+                        <th className="p-4">Languages</th>
+                        <th className="p-4">Hands-On Domain Badges</th>
+                        <th className="p-4">Agility Self-Assessment (QA/Grammar/Errors/Policy)</th>
+                        <th className="p-4">Taxonomy Exp</th>
+                        <th className="p-4 text-right pr-6">Profile</th>
+                      </>
+                    )}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-white/5">
@@ -1638,75 +1696,263 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                     const statusColorClass = statusConf 
                       ? STATUS_COLORS_MAP[statusConf.color] || STATUS_COLORS_MAP.gray
                       : STATUS_COLORS_MAP.gray;
-                      
+                    
+                    const agilityScores = candidate.agilitySelfAssessment 
+                      ? Object.values(candidate.agilitySelfAssessment) 
+                      : [];
+                    const agilityAvg = agilityScores.length > 0
+                      ? (agilityScores.reduce((a, b) => a + b, 0) / agilityScores.length).toFixed(1)
+                      : null;
+
                     return (
                       <tr 
                         key={candidate.id}
                         className="hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors cursor-pointer"
+                        onClick={() => setSelectedVendor(candidate)}
                       >
-                        <td className="p-4 pl-6 font-bold text-slate-900 dark:text-white" onClick={() => setSelectedVendor(candidate)}>
-                          {candidate.contactName}
-                        </td>
-                        <td className="p-4 text-slate-500 dark:text-slate-400 font-medium" onClick={() => setSelectedVendor(candidate)}>
-                          {candidate.companyName || <span className="text-slate-400 italic">Individual</span>}
-                        </td>
-                        <td className="p-4" onClick={() => setSelectedVendor(candidate)}>
-                          <div className="flex flex-wrap gap-1 max-w-[200px]">
-                            {Array.isArray(candidate.workingLanguages) && candidate.workingLanguages.map((l, i) => (
-                              <span key={i} className="text-[10px] bg-primary/10 text-primary py-0.5 px-2 rounded-md font-semibold">
-                                {typeof l === 'string' ? l : (l?.language || 'N/A')}
-                              </span>
-                            ))}
+                        <td className="p-4 pl-6 font-bold text-slate-900 dark:text-white">
+                          <div>
+                            <span>{candidate.contactName}</span>
+                            {candidate.email && (
+                              <span className="text-[10px] text-slate-400 font-mono block font-normal">{candidate.email}</span>
+                            )}
                           </div>
                         </td>
-                        <td className="p-4" onClick={() => setSelectedVendor(candidate)}>
-                          <span className={`inline-flex px-2 py-0.5 border text-[9px] font-bold rounded-lg uppercase tracking-wider ${statusColorClass}`}>
-                            {(candidate.status || 'pending').toString().replace('_', ' ')}
-                          </span>
-                        </td>
-                        {/* Interactive dropdown stage selector in table row */}
-                        <td className="p-4">
-                          <select
-                            value={candidate.stage}
-                            onChange={(e) => handleStageChangeRequest(candidate.id, e.target.value as WorkflowStage)}
-                            onClick={(e) => e.stopPropagation()} // Stop drawer triggers
-                            className="p-1.5 text-xs font-bold bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl dark:text-white cursor-pointer focus:outline-none"
-                          >
-                            {stages.map((stg) => (
-                              <option key={stg.id} value={stg.id}>{stg.name}</option>
-                            ))}
-                          </select>
-                        </td>
-                        {/* Interactive Stage Progress Selector */}
-                        <td className="p-4" onClick={(e) => e.stopPropagation()}>
-                          {renderStageStatusSelector(candidate)}
-                        </td>
-                        <td className="p-4 text-center font-bold text-slate-700 dark:text-slate-300" onClick={() => setSelectedVendor(candidate)}>
-                          {candidate.hoursAvailable ? `${candidate.hoursAvailable}h/wk` : 'N/A'}
-                        </td>
-                        {/* Direct NDA link support */}
-                        <td className="p-4" onClick={(e) => e.stopPropagation()}>
-                          {candidate.hasSignedNda ? (
-                            candidate.ndaUrl ? (
-                              <a 
-                                href={candidate.ndaUrl} 
-                                target="_blank" 
-                                rel="noreferrer" 
-                                className="inline-flex items-center gap-1 text-emerald-600 hover:text-emerald-500 font-bold text-xs"
+
+                        {/* Standard View Cells */}
+                        {presetView === 'standard' && (
+                          <>
+                            <td className="p-4 text-slate-500 dark:text-slate-400 font-medium">
+                              {candidate.companyName || <span className="text-slate-400 italic">Individual</span>}
+                            </td>
+                            <td className="p-4">
+                              <div className="flex flex-wrap gap-1 max-w-[200px]">
+                                {Array.isArray(candidate.workingLanguages) && candidate.workingLanguages.map((l, i) => (
+                                  <span key={i} className="text-[10px] bg-primary/10 text-primary py-0.5 px-2 rounded-md font-semibold">
+                                    {typeof l === 'string' ? l : (l?.language || 'N/A')}
+                                  </span>
+                                ))}
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              <span className={`inline-flex px-2 py-0.5 border text-[9px] font-bold rounded-lg uppercase tracking-wider ${statusColorClass}`}>
+                                {(candidate.status || 'pending').toString().replace('_', ' ')}
+                              </span>
+                            </td>
+                            <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                              <select
+                                value={candidate.stage}
+                                onChange={(e) => handleStageChangeRequest(candidate.id, e.target.value as WorkflowStage)}
+                                className="p-1.5 text-xs font-bold bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl dark:text-white cursor-pointer focus:outline-none"
                               >
-                                <FileCheck className="w-4 h-4" />
-                                Link
-                              </a>
-                            ) : (
-                              <span className="text-emerald-600 font-semibold text-xs">Signed</span>
-                            )
-                          ) : (
-                            <span className="text-rose-600 text-xs font-semibold">Missing</span>
-                          )}
-                        </td>
-                        <td className="p-4 text-right pr-6 font-extrabold text-slate-950 dark:text-white" onClick={() => setSelectedVendor(candidate)}>
-                          {candidate.confirmedRate > 0 ? `$${candidate.confirmedRate}/hr` : 'Negotiating'}
-                        </td>
+                                {stages.map((stg) => (
+                                  <option key={stg.id} value={stg.id}>{stg.name}</option>
+                                ))}
+                              </select>
+                            </td>
+                            <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                              {renderStageStatusSelector(candidate)}
+                            </td>
+                            <td className="p-4 text-center font-bold text-slate-700 dark:text-slate-300">
+                              {candidate.hoursAvailable ? `${candidate.hoursAvailable}h/wk` : 'N/A'}
+                            </td>
+                            <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                              {candidate.hasSignedNda ? (
+                                candidate.ndaUrl ? (
+                                  <a 
+                                    href={candidate.ndaUrl} 
+                                    target="_blank" 
+                                    rel="noreferrer" 
+                                    className="inline-flex items-center gap-1 text-emerald-600 hover:text-emerald-500 font-bold text-xs"
+                                  >
+                                    <FileCheck className="w-4 h-4" />
+                                    Link
+                                  </a>
+                                ) : (
+                                  <span className="text-emerald-600 font-semibold text-xs">Signed</span>
+                                )
+                              ) : (
+                                <span className="text-rose-600 text-xs font-semibold">Missing</span>
+                              )}
+                            </td>
+                            <td className="p-4 text-right pr-6 font-extrabold text-slate-950 dark:text-white">
+                              {candidate.confirmedRate > 0 ? `$${candidate.confirmedRate}/hr` : 'Negotiating'}
+                            </td>
+                          </>
+                        )}
+
+                        {/* Full Detailed Evaluation View Cells */}
+                        {presetView === 'detailed_eval' && (
+                          <>
+                            <td className="p-4 text-xs font-medium text-slate-700 dark:text-slate-300">
+                              {candidate.country || candidate.timeZone ? (
+                                <div>
+                                  <span className="font-bold block">{candidate.country || 'N/A'}</span>
+                                  <span className="text-[10px] text-slate-400 font-mono block">{candidate.timeZone}</span>
+                                </div>
+                              ) : (
+                                <span className="text-slate-400 italic">Not specified</span>
+                              )}
+                            </td>
+                            <td className="p-4 text-xs font-bold text-slate-800 dark:text-slate-200">
+                              {candidate.mtqaExperienceYears ? (
+                                candidate.mtqaExperienceYears.replace('_to_', '–').replace('_plus', '+').replace('less_than_', '< ') + ' yrs'
+                              ) : candidate.mtPeExperience ? (
+                                candidate.mtPeExperience + ' yrs'
+                              ) : (
+                                <span className="text-slate-400 font-normal italic">N/A</span>
+                              )}
+                            </td>
+                            <td className="p-4">
+                              {agilityAvg ? (
+                                <span className={`px-2.5 py-1 rounded-full text-xs font-extrabold border ${
+                                  parseFloat(agilityAvg) >= 2.5 
+                                    ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/25' 
+                                    : 'bg-amber-500/15 text-amber-600 border-amber-500/25'
+                                }`}>
+                                  ★ {agilityAvg} / 3.0
+                                </span>
+                              ) : (
+                                <span className="text-slate-400 text-xs italic">Unrated</span>
+                              )}
+                            </td>
+                            <td className="p-4 text-xs font-medium text-slate-700 dark:text-slate-300">
+                              {candidate.errorTaggingExperience ? (
+                                <span className="capitalize font-bold text-primary">
+                                  {candidate.errorTaggingExperience.replace('_', ' ')}
+                                </span>
+                              ) : (
+                                <span className="text-slate-400 italic">N/A</span>
+                              )}
+                            </td>
+                            <td className="p-4 text-xs font-semibold text-slate-800 dark:text-slate-200">
+                              {candidate.availableStartDate || 'Immediate'}
+                            </td>
+                            <td className="p-4 text-xs font-semibold text-slate-800 dark:text-slate-200">
+                              {candidate.weeklyAvailability ? (
+                                candidate.weeklyAvailability.replace('_than_', ' ').replace('_to_', '–').replace('_plus', '+') + ' hrs/wk'
+                              ) : candidate.hoursAvailable ? (
+                                `${candidate.hoursAvailable} hrs/wk`
+                              ) : (
+                                'N/A'
+                              )}
+                            </td>
+                            <td className="p-4 text-right pr-6">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedVendor(candidate)}
+                                className="px-2.5 py-1 bg-primary/10 text-primary hover:bg-primary hover:text-white rounded-lg text-xs font-bold transition-colors"
+                              >
+                                Full View →
+                              </button>
+                            </td>
+                          </>
+                        )}
+
+                        {/* Workflow & Hiring View Cells */}
+                        {presetView === 'workflow_hiring' && (
+                          <>
+                            <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                              <select
+                                value={candidate.stage}
+                                onChange={(e) => handleStageChangeRequest(candidate.id, e.target.value as WorkflowStage)}
+                                className="p-1.5 text-xs font-bold bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl dark:text-white cursor-pointer focus:outline-none"
+                              >
+                                {stages.map((stg) => (
+                                  <option key={stg.id} value={stg.id}>{stg.name}</option>
+                                ))}
+                              </select>
+                            </td>
+                            <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                              {renderStageStatusSelector(candidate)}
+                            </td>
+                            <td className="p-4 text-xs font-bold text-slate-800 dark:text-slate-200">
+                              {candidate.availableStartDate || 'Immediate'}
+                            </td>
+                            <td className="p-4 text-xs font-bold text-slate-800 dark:text-slate-200">
+                              {candidate.weeklyAvailability ? (
+                                candidate.weeklyAvailability.replace('_than_', ' ').replace('_to_', '–').replace('_plus', '+') + ' hrs/wk'
+                              ) : (
+                                candidate.hoursAvailable ? `${candidate.hoursAvailable} hrs` : 'N/A'
+                              )}
+                            </td>
+                            <td className="p-4">
+                              {candidate.hasSignedNda ? (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/15 text-emerald-600 border border-emerald-500/20">🟢 Signed</span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-rose-500/15 text-rose-600 border border-rose-500/20">🔴 Missing</span>
+                              )}
+                            </td>
+                            <td className="p-4 text-xs font-medium text-slate-600 dark:text-slate-400">
+                              {candidate.applicationName || 'General Form'}
+                            </td>
+                            <td className="p-4 text-right pr-6">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedVendor(candidate)}
+                                className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold transition-colors"
+                              >
+                                Manage
+                              </button>
+                            </td>
+                          </>
+                        )}
+
+                        {/* Domain & Agility View Cells */}
+                        {presetView === 'domain_agility' && (
+                          <>
+                            <td className="p-4">
+                              <div className="flex flex-wrap gap-1 max-w-[180px]">
+                                {Array.isArray(candidate.workingLanguages) && candidate.workingLanguages.map((l, i) => (
+                                  <span key={i} className="text-[10px] bg-primary/10 text-primary py-0.5 px-2 rounded-md font-semibold">
+                                    {typeof l === 'string' ? l : (l?.language || 'N/A')}
+                                  </span>
+                                ))}
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              {candidate.handsOnExperienceAreas && candidate.handsOnExperienceAreas.length > 0 ? (
+                                <div className="flex flex-wrap gap-1 max-w-[240px]">
+                                  {candidate.handsOnExperienceAreas.map((area, i) => (
+                                    <span key={i} className="text-[9px] font-extrabold bg-purple-500/15 text-purple-600 dark:text-purple-400 py-0.5 px-2 rounded-md border border-purple-500/20">
+                                      {area}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-slate-400 text-xs italic">Unspecified</span>
+                              )}
+                            </td>
+                            <td className="p-4">
+                              {candidate.agilitySelfAssessment ? (
+                                <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold">
+                                  <span className="px-1.5 py-0.5 bg-blue-500/10 text-blue-600 rounded">QA: {candidate.agilitySelfAssessment.qaPlatforms}/3</span>
+                                  <span className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-600 rounded">Grammar: {candidate.agilitySelfAssessment.grammarStyle}/3</span>
+                                  <span className="px-1.5 py-0.5 bg-amber-500/10 text-amber-600 rounded">Tags: {candidate.agilitySelfAssessment.errorTagging}/3</span>
+                                  <span className="px-1.5 py-0.5 bg-purple-500/10 text-purple-600 rounded">Policy: {candidate.agilitySelfAssessment.policyFeedback}/3</span>
+                                </div>
+                              ) : (
+                                <span className="text-slate-400 text-xs italic">Unrated</span>
+                              )}
+                            </td>
+                            <td className="p-4 text-xs font-semibold text-slate-700 dark:text-slate-300">
+                              {candidate.errorTaggingExperience ? (
+                                <span className="capitalize">{candidate.errorTaggingExperience.replace('_', ' ')}</span>
+                              ) : (
+                                <span className="text-slate-400 italic">N/A</span>
+                              )}
+                            </td>
+                            <td className="p-4 text-right pr-6">
+                              <button
+                                type="button"
+                                onClick={() => setSelectedVendor(candidate)}
+                                className="px-2.5 py-1 bg-purple-500/10 text-purple-600 hover:bg-purple-500 hover:text-white rounded-lg text-xs font-bold transition-colors"
+                              >
+                                Agility Details →
+                              </button>
+                            </td>
+                          </>
+                        )}
                       </tr>
                     );
                   })}
@@ -2262,6 +2508,115 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                         )}
                       </div>
                     </div>
+
+                    {/* Detailed Application Evaluation & Agility Assessment */}
+                    {(selectedVendor.country || selectedVendor.availableStartDate || selectedVendor.mtqaExperienceYears || selectedVendor.agilitySelfAssessment || selectedVendor.customAnswers) && (
+                      <div className="space-y-3 p-4 bg-primary/5 dark:bg-primary/10 rounded-2xl border border-primary/20">
+                        <h5 className="font-extrabold text-xs text-primary uppercase tracking-wider flex items-center gap-1.5">
+                          <Sparkles className="w-4 h-4" /> Full Evaluation & Agility Assessment
+                        </h5>
+
+                        <div className="space-y-2 text-xs text-slate-700 dark:text-slate-300">
+                          {selectedVendor.country && (
+                            <div className="flex justify-between border-b border-primary/10 pb-1.5">
+                              <span className="text-slate-400">Country & Timezone:</span>
+                              <span className="font-bold">{selectedVendor.country} ({selectedVendor.timeZone || 'N/A'})</span>
+                            </div>
+                          )}
+
+                          {selectedVendor.availableStartDate && (
+                            <div className="flex justify-between border-b border-primary/10 pb-1.5">
+                              <span className="text-slate-400">Available Start Date:</span>
+                              <span className="font-bold">{selectedVendor.availableStartDate}</span>
+                            </div>
+                          )}
+
+                          {selectedVendor.weeklyAvailability && (
+                            <div className="flex justify-between border-b border-primary/10 pb-1.5">
+                              <span className="text-slate-400">Weekly Capacity:</span>
+                              <span className="font-bold capitalize">{selectedVendor.weeklyAvailability.replace('_than_', ' ').replace('_to_', '–').replace('_plus', '+')} hrs/wk</span>
+                            </div>
+                          )}
+
+                          {selectedVendor.otherLanguages && (
+                            <div className="border-b border-primary/10 pb-1.5 space-y-1">
+                              <span className="text-slate-400 block">Other Languages Handled:</span>
+                              <span className="font-medium block italic bg-white dark:bg-card-dark p-2 rounded-lg border border-slate-200/50">{selectedVendor.otherLanguages}</span>
+                            </div>
+                          )}
+
+                          {selectedVendor.mtqaExperienceYears && (
+                            <div className="flex justify-between border-b border-primary/10 pb-1.5">
+                              <span className="text-slate-400">MTQA / MTPE Exp:</span>
+                              <span className="font-extrabold text-slate-900 dark:text-white">
+                                {selectedVendor.mtqaExperienceYears.replace('_to_', '–').replace('_plus', '+').replace('less_than_', '< ')} years
+                              </span>
+                            </div>
+                          )}
+
+                          {selectedVendor.errorTaggingExperience && (
+                            <div className="flex justify-between border-b border-primary/10 pb-1.5">
+                              <span className="text-slate-400">Error-Tagging Taxonomies:</span>
+                              <span className="font-bold capitalize text-primary">{selectedVendor.errorTaggingExperience.replace('_', ' ')}</span>
+                            </div>
+                          )}
+
+                          {/* Hands-On Specialization Badges */}
+                          {selectedVendor.handsOnExperienceAreas && selectedVendor.handsOnExperienceAreas.length > 0 && (
+                            <div className="space-y-1 pt-1 border-b border-primary/10 pb-2">
+                              <span className="text-slate-400 block">Proven Hands-On Experience:</span>
+                              <div className="flex flex-wrap gap-1.5 pt-0.5">
+                                {selectedVendor.handsOnExperienceAreas.map((area) => (
+                                  <span key={area} className="px-2 py-0.5 rounded-lg text-[10px] font-extrabold bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                                    {area}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Agility Ratings Matrix */}
+                          {selectedVendor.agilitySelfAssessment && (
+                            <div className="space-y-1.5 pt-1.5">
+                              <span className="text-slate-400 font-bold block">Technical & Operational Agility Ratings (1-3):</span>
+                              <div className="grid grid-cols-2 gap-2 text-[11px]">
+                                <div className="p-2 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50">
+                                  <span className="text-[10px] text-slate-400 block">QA Platforms:</span>
+                                  <span className="font-extrabold text-blue-600">★ {selectedVendor.agilitySelfAssessment.qaPlatforms} / 3</span>
+                                </div>
+                                <div className="p-2 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50">
+                                  <span className="text-[10px] text-slate-400 block">Grammar & Style:</span>
+                                  <span className="font-extrabold text-emerald-600">★ {selectedVendor.agilitySelfAssessment.grammarStyle} / 3</span>
+                                </div>
+                                <div className="p-2 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50">
+                                  <span className="text-[10px] text-slate-400 block">Error Tagging:</span>
+                                  <span className="font-extrabold text-amber-600">★ {selectedVendor.agilitySelfAssessment.errorTagging} / 3</span>
+                                </div>
+                                <div className="p-2 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50">
+                                  <span className="text-[10px] text-slate-400 block">Policy Feedback:</span>
+                                  <span className="font-extrabold text-purple-600">★ {selectedVendor.agilitySelfAssessment.policyFeedback} / 3</span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Custom Question Answers */}
+                          {selectedVendor.customAnswers && Object.keys(selectedVendor.customAnswers).length > 0 && (
+                            <div className="space-y-2 pt-2 border-t border-primary/10">
+                              <span className="text-slate-400 font-bold block">Custom Question Responses:</span>
+                              <div className="space-y-2">
+                                {Object.entries(selectedVendor.customAnswers).map(([qId, ans]) => (
+                                  <div key={qId} className="p-2 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50 space-y-0.5">
+                                    <span className="text-[10px] font-mono text-slate-400 block">Question ID: {qId}</span>
+                                    <span className="font-bold text-slate-900 dark:text-white block">{String(ans)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

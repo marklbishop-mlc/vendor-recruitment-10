@@ -7,7 +7,7 @@ import {
   deleteDoc 
 } from 'firebase/firestore';
 import { db } from '../firebase';
-import type { ApplicationConfig, LanguageConfig } from '../types';
+import type { ApplicationConfig, LanguageConfig, CustomApplicationQuestion } from '../types';
 import { 
   Plus, 
   Copy, 
@@ -22,7 +22,10 @@ import {
   X,
   Sparkles,
   Search,
-  ChevronDown
+  ChevronDown,
+  HelpCircle,
+  Zap,
+  Sliders
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -216,7 +219,7 @@ export const ApplicationManager: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingApp, setEditingApp] = useState<ApplicationConfig | null>(null);
 
-  // Form State
+  // Core Form State
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
@@ -227,6 +230,19 @@ export const ApplicationManager: React.FC = () => {
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>(['all']);
   const [portalTitle, setPortalTitle] = useState('');
   const [portalSubtitle, setPortalSubtitle] = useState('');
+
+  // Detailed Evaluation Field Toggles State
+  const [enableCountryTimeZone, setEnableCountryTimeZone] = useState(false);
+  const [enableAvailableStartDate, setEnableAvailableStartDate] = useState(false);
+  const [enableWeeklyAvailability, setEnableWeeklyAvailability] = useState(false);
+  const [enableOtherLanguages, setEnableOtherLanguages] = useState(false);
+  const [enableMtqaExperience, setEnableMtqaExperience] = useState(false);
+  const [enableHandsOnExperience, setEnableHandsOnExperience] = useState(false);
+  const [enableAgilityAssessment, setEnableAgilityAssessment] = useState(false);
+  const [enableErrorTaggingExp, setEnableErrorTaggingExp] = useState(false);
+
+  // Custom Questions State (Up to 5)
+  const [customQuestions, setCustomQuestions] = useState<CustomApplicationQuestion[]>([]);
 
   // Subscribe to applications collection
   useEffect(() => {
@@ -262,6 +278,29 @@ export const ApplicationManager: React.FC = () => {
     return `app-${randomHex}`;
   };
 
+  // Preset Handlers
+  const applyGeneralPreset = () => {
+    setEnableCountryTimeZone(false);
+    setEnableAvailableStartDate(false);
+    setEnableWeeklyAvailability(false);
+    setEnableOtherLanguages(false);
+    setEnableMtqaExperience(false);
+    setEnableHandsOnExperience(false);
+    setEnableAgilityAssessment(false);
+    setEnableErrorTaggingExp(false);
+  };
+
+  const applyDetailedEvaluationPreset = () => {
+    setEnableCountryTimeZone(true);
+    setEnableAvailableStartDate(true);
+    setEnableWeeklyAvailability(true);
+    setEnableOtherLanguages(true);
+    setEnableMtqaExperience(true);
+    setEnableHandsOnExperience(true);
+    setEnableAgilityAssessment(true);
+    setEnableErrorTaggingExp(true);
+  };
+
   const handleOpenAddModal = () => {
     setEditingApp(null);
     setName('');
@@ -274,6 +313,10 @@ export const ApplicationManager: React.FC = () => {
     setSelectedLanguages(['all']);
     setPortalTitle('');
     setPortalSubtitle('');
+    
+    // Default to general form toggles off
+    applyGeneralPreset();
+    setCustomQuestions([]);
     setIsModalOpen(true);
   };
 
@@ -289,7 +332,40 @@ export const ApplicationManager: React.FC = () => {
     setSelectedLanguages(app.allowedLanguages || ['all']);
     setPortalTitle(app.portalTitle || '');
     setPortalSubtitle(app.portalSubtitle || '');
+    
+    setEnableCountryTimeZone(!!app.enableCountryTimeZone);
+    setEnableAvailableStartDate(!!app.enableAvailableStartDate);
+    setEnableWeeklyAvailability(!!app.enableWeeklyAvailability);
+    setEnableOtherLanguages(!!app.enableOtherLanguages);
+    setEnableMtqaExperience(!!app.enableMtqaExperience);
+    setEnableHandsOnExperience(!!app.enableHandsOnExperience);
+    setEnableAgilityAssessment(!!app.enableAgilityAssessment);
+    setEnableErrorTaggingExp(!!app.enableErrorTaggingExp);
+
+    setCustomQuestions(app.customQuestions || []);
     setIsModalOpen(true);
+  };
+
+  const handleAddCustomQuestion = () => {
+    if (customQuestions.length >= 5) {
+      alert("You can add up to 5 custom questions per application form.");
+      return;
+    }
+    const newQ: CustomApplicationQuestion = {
+      id: `cq-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      questionText: '',
+      questionType: 'open_ended',
+      required: false
+    };
+    setCustomQuestions([...customQuestions, newQ]);
+  };
+
+  const handleUpdateCustomQuestion = (id: string, updates: Partial<CustomApplicationQuestion>) => {
+    setCustomQuestions(prev => prev.map(q => q.id === id ? { ...q, ...updates } : q));
+  };
+
+  const handleRemoveCustomQuestion = (id: string) => {
+    setCustomQuestions(prev => prev.filter(q => q.id !== id));
   };
 
   const handleSaveApplication = async (e: React.FormEvent) => {
@@ -314,6 +390,20 @@ export const ApplicationManager: React.FC = () => {
       collectRates,
       portalTitle: portalTitle.trim() || undefined,
       portalSubtitle: portalSubtitle.trim() || undefined,
+      
+      // Detailed field toggles
+      enableCountryTimeZone,
+      enableAvailableStartDate,
+      enableWeeklyAvailability,
+      enableOtherLanguages,
+      enableMtqaExperience,
+      enableHandsOnExperience,
+      enableAgilityAssessment,
+      enableErrorTaggingExp,
+
+      // Custom Questions
+      customQuestions: customQuestions.filter(q => q.questionText.trim() !== ''),
+
       submissionsCount: editingApp ? editingApp.submissionsCount : 0,
       createdAt: editingApp ? editingApp.createdAt : new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -672,7 +762,206 @@ export const ApplicationManager: React.FC = () => {
                   placeholder="Search 200+ languages..."
                 />
 
-                {/* 5. Custom Portal Copy Header (Optional) */}
+                {/* 5. Detailed Form Field Visibility Controls & Presets */}
+                <div className="p-4 bg-slate-50 dark:bg-bg-dark rounded-2xl border border-slate-200/50 dark:border-border-dark space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/60 dark:border-border-dark pb-3">
+                    <div>
+                      <h4 className="font-extrabold text-xs text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                        <Sliders className="w-4 h-4 text-primary" /> Evaluation Suite & Question Toggles
+                      </h4>
+                      <p className="text-[11px] text-slate-400 mt-0.5">Control which question modules are included on this specific application form.</p>
+                    </div>
+
+                    {/* 1-Click Quick Presets */}
+                    <div className="flex items-center gap-1.5 shrink-0 pt-1 sm:pt-0">
+                      <button
+                        type="button"
+                        onClick={applyGeneralPreset}
+                        className="px-2.5 py-1 text-[10px] font-bold bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark hover:border-primary rounded-lg text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+                      >
+                        General Form (Basic)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={applyDetailedEvaluationPreset}
+                        className="px-2.5 py-1 text-[10px] font-bold bg-primary/10 text-primary border border-primary/20 hover:bg-primary hover:text-white rounded-lg transition-colors cursor-pointer flex items-center gap-1"
+                      >
+                        <Zap className="w-3 h-3" /> Enable All Evaluation Questions
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Toggle Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <label className="flex items-center justify-between p-2.5 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50 dark:border-border-dark cursor-pointer">
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Country of Residence & Time Zone</span>
+                      <input
+                        type="checkbox"
+                        checked={enableCountryTimeZone}
+                        onChange={(e) => setEnableCountryTimeZone(e.target.checked)}
+                        className="rounded border-slate-300 text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+                      />
+                    </label>
+
+                    <label className="flex items-center justify-between p-2.5 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50 dark:border-border-dark cursor-pointer">
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Available Start Date</span>
+                      <input
+                        type="checkbox"
+                        checked={enableAvailableStartDate}
+                        onChange={(e) => setEnableAvailableStartDate(e.target.checked)}
+                        className="rounded border-slate-300 text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+                      />
+                    </label>
+
+                    <label className="flex items-center justify-between p-2.5 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50 dark:border-border-dark cursor-pointer">
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Weekly Availability Options</span>
+                      <input
+                        type="checkbox"
+                        checked={enableWeeklyAvailability}
+                        onChange={(e) => setEnableWeeklyAvailability(e.target.checked)}
+                        className="rounded border-slate-300 text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+                      />
+                    </label>
+
+                    <label className="flex items-center justify-between p-2.5 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50 dark:border-border-dark cursor-pointer">
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Other Working Languages Field</span>
+                      <input
+                        type="checkbox"
+                        checked={enableOtherLanguages}
+                        onChange={(e) => setEnableOtherLanguages(e.target.checked)}
+                        className="rounded border-slate-300 text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+                      />
+                    </label>
+
+                    <label className="flex items-center justify-between p-2.5 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50 dark:border-border-dark cursor-pointer">
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200">MTQA / MTPE Years of Exp</span>
+                      <input
+                        type="checkbox"
+                        checked={enableMtqaExperience}
+                        onChange={(e) => setEnableMtqaExperience(e.target.checked)}
+                        className="rounded border-slate-300 text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+                      />
+                    </label>
+
+                    <label className="flex items-center justify-between p-2.5 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50 dark:border-border-dark cursor-pointer">
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Proven Hands-On Experience Areas</span>
+                      <input
+                        type="checkbox"
+                        checked={enableHandsOnExperience}
+                        onChange={(e) => setEnableHandsOnExperience(e.target.checked)}
+                        className="rounded border-slate-300 text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+                      />
+                    </label>
+
+                    <label className="flex items-center justify-between p-2.5 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50 dark:border-border-dark cursor-pointer">
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Technical Agility Self-Assessment (1-3)</span>
+                      <input
+                        type="checkbox"
+                        checked={enableAgilityAssessment}
+                        onChange={(e) => setEnableAgilityAssessment(e.target.checked)}
+                        className="rounded border-slate-300 text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+                      />
+                    </label>
+
+                    <label className="flex items-center justify-between p-2.5 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50 dark:border-border-dark cursor-pointer">
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-200">Structured Error-Tagging Experience</span>
+                      <input
+                        type="checkbox"
+                        checked={enableErrorTaggingExp}
+                        onChange={(e) => setEnableErrorTaggingExp(e.target.checked)}
+                        className="rounded border-slate-300 text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                {/* 6. Custom Questions Builder (Up to 5) */}
+                <div className="p-4 bg-slate-50 dark:bg-bg-dark rounded-2xl border border-slate-200/50 dark:border-border-dark space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-200/60 dark:border-border-dark pb-2">
+                    <div>
+                      <h4 className="font-extrabold text-xs text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                        <HelpCircle className="w-4 h-4 text-primary" /> Custom Questions (Up to 5)
+                      </h4>
+                      <p className="text-[11px] text-slate-400 mt-0.5">Add campaign-specific open-ended questions or 1-3 ratings.</p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleAddCustomQuestion}
+                      disabled={customQuestions.length >= 5}
+                      className="py-1 px-3 bg-primary text-white rounded-lg text-xs font-bold disabled:opacity-40 flex items-center gap-1 cursor-pointer"
+                    >
+                      <Plus className="w-3 h-3" /> Add Question ({customQuestions.length}/5)
+                    </button>
+                  </div>
+
+                  {customQuestions.length === 0 ? (
+                    <div className="text-center py-3 text-xs text-slate-400 italic">No custom questions added yet. Click "Add Question" to create one.</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {customQuestions.map((q, idx) => (
+                        <div key={q.id} className="p-3 bg-white dark:bg-card-dark rounded-xl border border-slate-200/60 dark:border-border-dark space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-extrabold text-slate-700 dark:text-slate-300">Question #{idx + 1}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveCustomQuestion(q.id)}
+                              className="text-rose-500 hover:text-rose-600 p-1 text-xs font-bold cursor-pointer"
+                            >
+                              Remove
+                            </button>
+                          </div>
+
+                          <input
+                            type="text"
+                            value={q.questionText}
+                            onChange={(e) => handleUpdateCustomQuestion(q.id, { questionText: e.target.value })}
+                            placeholder="e.g. Please describe your experience with specialized MemoQ workflows..."
+                            className="w-full p-2 bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-lg text-xs font-medium text-slate-900 dark:text-white"
+                          />
+
+                          <div className="flex items-center justify-between gap-4 pt-1">
+                            <div className="flex items-center gap-3">
+                              <label className="text-[11px] text-slate-500 font-bold flex items-center gap-1 cursor-pointer">
+                                <input
+                                  type="radio"
+                                  name={`qtype-${q.id}`}
+                                  checked={q.questionType === 'open_ended'}
+                                  onChange={() => handleUpdateCustomQuestion(q.id, { questionType: 'open_ended' })}
+                                  className="text-primary focus:ring-primary"
+                                />
+                                Open-Ended Text
+                              </label>
+
+                              <label className="text-[11px] text-slate-500 font-bold flex items-center gap-1 cursor-pointer">
+                                <input
+                                  type="radio"
+                                  name={`qtype-${q.id}`}
+                                  checked={q.questionType === 'rating_1_to_3'}
+                                  onChange={() => handleUpdateCustomQuestion(q.id, { questionType: 'rating_1_to_3' })}
+                                  className="text-primary focus:ring-primary"
+                                />
+                                Rating (1 to 3 Scale)
+                              </label>
+                            </div>
+
+                            <label className="flex items-center gap-1 text-[11px] font-bold text-slate-500 cursor-pointer">
+                              <input
+                                type="checkbox"
+                                checked={q.required}
+                                onChange={(e) => handleUpdateCustomQuestion(q.id, { required: e.target.checked })}
+                                className="rounded text-primary focus:ring-primary"
+                              />
+                              Required
+                            </label>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* 7. Custom Portal Copy Header (Optional) */}
                 <div className="space-y-3">
                   <h4 className="font-extrabold text-xs text-slate-400 uppercase tracking-wider">Custom Header Welcome Text (Optional)</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

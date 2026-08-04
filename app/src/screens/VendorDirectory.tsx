@@ -926,6 +926,115 @@ export const VendorDirectory: React.FC = () => {
                     )}
                   </div>
                 </div>
+
+                {/* Full Evaluation & Agility Assessment */}
+                {(selectedVendor.country || selectedVendor.availableStartDate || selectedVendor.mtqaExperienceYears || selectedVendor.agilitySelfAssessment || selectedVendor.customAnswers) && (
+                  <div className="space-y-3 p-4 bg-primary/5 dark:bg-primary/10 rounded-2xl border border-primary/20">
+                    <h5 className="font-extrabold text-xs text-primary uppercase tracking-wider">
+                      Full Evaluation & Agility Assessment
+                    </h5>
+
+                    <div className="space-y-2 text-xs text-slate-700 dark:text-slate-300">
+                      {selectedVendor.country && (
+                        <div className="flex justify-between border-b border-primary/10 pb-1.5">
+                          <span className="text-slate-400">Country & Timezone:</span>
+                          <span className="font-bold">{selectedVendor.country} ({selectedVendor.timeZone || 'N/A'})</span>
+                        </div>
+                      )}
+
+                      {selectedVendor.availableStartDate && (
+                        <div className="flex justify-between border-b border-primary/10 pb-1.5">
+                          <span className="text-slate-400">Available Start Date:</span>
+                          <span className="font-bold">{selectedVendor.availableStartDate}</span>
+                        </div>
+                      )}
+
+                      {selectedVendor.weeklyAvailability && (
+                        <div className="flex justify-between border-b border-primary/10 pb-1.5">
+                          <span className="text-slate-400">Weekly Capacity:</span>
+                          <span className="font-bold capitalize">{selectedVendor.weeklyAvailability.replace('_than_', ' ').replace('_to_', '–').replace('_plus', '+')} hrs/wk</span>
+                        </div>
+                      )}
+
+                      {selectedVendor.otherLanguages && (
+                        <div className="border-b border-primary/10 pb-1.5 space-y-1">
+                          <span className="text-slate-400 block">Other Languages Handled:</span>
+                          <span className="font-medium block italic bg-white dark:bg-card-dark p-2 rounded-lg border border-slate-200/50">{selectedVendor.otherLanguages}</span>
+                        </div>
+                      )}
+
+                      {selectedVendor.mtqaExperienceYears && (
+                        <div className="flex justify-between border-b border-primary/10 pb-1.5">
+                          <span className="text-slate-400">MTQA / MTPE Exp:</span>
+                          <span className="font-extrabold text-slate-900 dark:text-white">
+                            {selectedVendor.mtqaExperienceYears.replace('_to_', '–').replace('_plus', '+').replace('less_than_', '< ')} years
+                          </span>
+                        </div>
+                      )}
+
+                      {selectedVendor.errorTaggingExperience && (
+                        <div className="flex justify-between border-b border-primary/10 pb-1.5">
+                          <span className="text-slate-400">Error-Tagging Taxonomies:</span>
+                          <span className="font-bold capitalize text-primary">{selectedVendor.errorTaggingExperience.replace('_', ' ')}</span>
+                        </div>
+                      )}
+
+                      {/* Hands-On Specialization Badges */}
+                      {selectedVendor.handsOnExperienceAreas && selectedVendor.handsOnExperienceAreas.length > 0 && (
+                        <div className="space-y-1 pt-1 border-b border-primary/10 pb-2">
+                          <span className="text-slate-400 block">Proven Hands-On Experience:</span>
+                          <div className="flex flex-wrap gap-1.5 pt-0.5">
+                            {selectedVendor.handsOnExperienceAreas.map((area) => (
+                              <span key={area} className="px-2 py-0.5 rounded-lg text-[10px] font-extrabold bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                                {area}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Agility Ratings Matrix */}
+                      {selectedVendor.agilitySelfAssessment && (
+                        <div className="space-y-1.5 pt-1.5">
+                          <span className="text-slate-400 font-bold block">Technical & Operational Agility Ratings (1-3):</span>
+                          <div className="grid grid-cols-2 gap-2 text-[11px]">
+                            <div className="p-2 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50">
+                              <span className="text-[10px] text-slate-400 block">QA Platforms:</span>
+                              <span className="font-extrabold text-blue-600">★ {selectedVendor.agilitySelfAssessment.qaPlatforms} / 3</span>
+                            </div>
+                            <div className="p-2 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50">
+                              <span className="text-[10px] text-slate-400 block">Grammar & Style:</span>
+                              <span className="font-extrabold text-emerald-600">★ {selectedVendor.agilitySelfAssessment.grammarStyle} / 3</span>
+                            </div>
+                            <div className="p-2 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50">
+                              <span className="text-[10px] text-slate-400 block">Error Tagging:</span>
+                              <span className="font-extrabold text-amber-600">★ {selectedVendor.agilitySelfAssessment.errorTagging} / 3</span>
+                            </div>
+                            <div className="p-2 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50">
+                              <span className="text-[10px] text-slate-400 block">Policy Feedback:</span>
+                              <span className="font-extrabold text-purple-600">★ {selectedVendor.agilitySelfAssessment.policyFeedback} / 3</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Custom Question Answers */}
+                      {selectedVendor.customAnswers && Object.keys(selectedVendor.customAnswers).length > 0 && (
+                        <div className="space-y-2 pt-2 border-t border-primary/10">
+                          <span className="text-slate-400 font-bold block">Custom Question Responses:</span>
+                          <div className="space-y-2">
+                            {Object.entries(selectedVendor.customAnswers).map(([qId, ans]) => (
+                              <div key={qId} className="p-2 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50 space-y-0.5">
+                                <span className="text-[10px] font-mono text-slate-400 block">Question ID: {qId}</span>
+                                <span className="font-bold text-slate-900 dark:text-white block">{String(ans)}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="pt-6 border-t border-slate-100 dark:border-white/5 flex gap-3">

@@ -2,11 +2,22 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { doc, setDoc, collection, getDocs, getDoc, updateDoc, increment } from 'firebase/firestore';
 import { db } from '../firebase';
-import type { VendorProfile, WorkflowAction, WorkingLanguage, ApplicationConfig } from '../types';
+import type { 
+  VendorProfile, 
+  WorkflowAction, 
+  WorkingLanguage, 
+  ApplicationConfig,
+  MtqaExperienceYears,
+  ErrorTaggingExpLevel,
+  WeeklyAvailabilityOption,
+  AgilitySelfAssessment
+} from '../types';
 import { getActiveSortedLanguages } from '../types';
+import { COUNTRIES, TIME_ZONES } from '../utils/locationData';
 import { 
   User, Globe, Upload, Plus, Trash2, 
-  CheckCircle2, AlertCircle, DollarSign, FileText, Send 
+  CheckCircle2, AlertCircle, DollarSign, FileText, Send,
+  Calendar, Clock, Award, Cpu, HelpCircle, MapPin
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -18,6 +29,15 @@ const DEFAULT_LANGUAGES = [
 const AVAILABLE_SERVICES = [
   'Translation', 'MTPE (Machine Translation Post-Editing)', 'Editing', 
   'Proofreading', 'Subtitling', 'Voiceover', 'Interpretation', 'Consulting'
+];
+
+const HANDS_ON_EXPERIENCE_OPTIONS = [
+  'Machine Translation Quality Assurance (MTQA)',
+  'Machine Translation Post-Editing (MTPE)',
+  'AI Training Data Annotation',
+  'Personally Identifiable Information (PII) Safety Auditing',
+  'Content Safety / Policy Enforcement Auditing',
+  'General Localization & Translation'
 ];
 
 export const IntakePortalScreen: React.FC = () => {
@@ -39,6 +59,33 @@ export const IntakePortalScreen: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [linkedInProfile, setLinkedInProfile] = useState('');
   const [prozProfile, setProzProfile] = useState('');
+
+  // Location State
+  const [country, setCountry] = useState('United States');
+  const [timeZone, setTimeZone] = useState('UTC-05:00');
+
+  // Availability & Start Date State
+  const [availableStartDate, setAvailableStartDate] = useState('Immediately');
+  const [weeklyAvailability, setWeeklyAvailability] = useState<WeeklyAvailabilityOption>('up_to_15');
+
+  // Other Languages State
+  const [otherLanguages, setOtherLanguages] = useState('');
+
+  // Experience & Specialization State
+  const [mtqaExperienceYears, setMtqaExperienceYears] = useState<MtqaExperienceYears>('1_to_3');
+  const [handsOnExperienceAreas, setHandsOnExperienceAreas] = useState<string[]>([]);
+  const [errorTaggingExperience, setErrorTaggingExperience] = useState<ErrorTaggingExpLevel>('basic');
+
+  // Agility Self-Assessment Matrix State (1-3 scale)
+  const [agilitySelfAssessment, setAgilitySelfAssessment] = useState<AgilitySelfAssessment>({
+    qaPlatforms: 2,
+    grammarStyle: 3,
+    errorTagging: 3,
+    policyFeedback: 2
+  });
+
+  // Custom Answers State
+  const [customAnswers, setCustomAnswers] = useState<Record<string, string | number>>({});
 
   // Languages state
   const [languages, setLanguages] = useState<WorkingLanguage[]>([]);
@@ -143,6 +190,14 @@ export const IntakePortalScreen: React.FC = () => {
     }
   };
 
+  const handleToggleHandsOnArea = (area: string) => {
+    if (handsOnExperienceAreas.includes(area)) {
+      setHandsOnExperienceAreas(handsOnExperienceAreas.filter(a => a !== area));
+    } else {
+      setHandsOnExperienceAreas([...handsOnExperienceAreas, area]);
+    }
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -160,6 +215,16 @@ export const IntakePortalScreen: React.FC = () => {
     if (languages.length === 0) {
       setError('Please add at least one working language and proficiency.');
       return;
+    }
+
+    // Validate Custom Required Questions
+    if (appConfig?.customQuestions) {
+      for (const q of appConfig.customQuestions) {
+        if (q.required && (!customAnswers[q.id] || String(customAnswers[q.id]).trim() === '')) {
+          setError(`Please answer required question: "${q.questionText}"`);
+          return;
+        }
+      }
     }
 
     setIsSubmitting(true);
@@ -196,6 +261,19 @@ export const IntakePortalScreen: React.FC = () => {
       status: 'pending',
       applicationId: appConfig?.id || 'default',
       applicationName: appConfig?.name || 'General Application',
+
+      // Detailed evaluation fields (populated when enabled)
+      country: appConfig?.enableCountryTimeZone ? country : undefined,
+      timeZone: appConfig?.enableCountryTimeZone ? timeZone : undefined,
+      availableStartDate: appConfig?.enableAvailableStartDate ? availableStartDate : undefined,
+      weeklyAvailability: appConfig?.enableWeeklyAvailability ? weeklyAvailability : undefined,
+      otherLanguages: appConfig?.enableOtherLanguages ? otherLanguages.trim() : undefined,
+      mtqaExperienceYears: appConfig?.enableMtqaExperience ? mtqaExperienceYears : undefined,
+      handsOnExperienceAreas: appConfig?.enableHandsOnExperience ? handsOnExperienceAreas : undefined,
+      agilitySelfAssessment: appConfig?.enableAgilityAssessment ? agilitySelfAssessment : undefined,
+      errorTaggingExperience: appConfig?.enableErrorTaggingExp ? errorTaggingExperience : undefined,
+      customAnswers: appConfig?.customQuestions && appConfig.customQuestions.length > 0 ? customAnswers : undefined,
+
       submittedAt: timestamp,
       updatedAt: timestamp
     };
@@ -413,6 +491,43 @@ export const IntakePortalScreen: React.FC = () => {
                       className="w-full p-3 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:border-primary font-bold dark:text-white"
                     />
                   </div>
+
+                  {/* Country of Residence & Time Zone (when enabled) */}
+                  {appConfig?.enableCountryTimeZone && (
+                    <>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                          <MapPin className="w-3.5 h-3.5 text-primary" /> Country of Residence *
+                        </label>
+                        <select
+                          required
+                          value={country}
+                          onChange={(e) => setCountry(e.target.value)}
+                          className="w-full p-3 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:border-primary font-bold dark:text-white cursor-pointer"
+                        >
+                          {COUNTRIES.map((c) => (
+                            <option key={c.code} value={c.name}>{c.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5 text-primary" /> Primary Time Zone *
+                        </label>
+                        <select
+                          required
+                          value={timeZone}
+                          onChange={(e) => setTimeZone(e.target.value)}
+                          className="w-full p-3 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:border-primary font-bold dark:text-white cursor-pointer"
+                        >
+                          {TIME_ZONES.map((tz) => (
+                            <option key={tz.value} value={tz.value}>{tz.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -489,6 +604,22 @@ export const IntakePortalScreen: React.FC = () => {
                     </div>
                   </div>
                 </div>
+
+                {/* Other Working Languages text field (when enabled) */}
+                {appConfig?.enableOtherLanguages && (
+                  <div className="space-y-1.5 pt-2">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
+                      Other Working Languages Handled (Optional)
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={otherLanguages}
+                      onChange={(e) => setOtherLanguages(e.target.value)}
+                      placeholder="Please let us know of any additional working languages, dialects, or secondary language pairs you handle..."
+                      className="w-full p-3 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:border-primary font-medium dark:text-white"
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Section 3: Services Offered */}
@@ -518,6 +649,250 @@ export const IntakePortalScreen: React.FC = () => {
                   })}
                 </div>
               </div>
+
+              {/* Section: Start Date & Weekly Availability (when enabled) */}
+              {(appConfig?.enableAvailableStartDate || appConfig?.enableWeeklyAvailability) && (
+                <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                    <Calendar className="w-4 h-4 text-primary" />
+                    Availability & Scheduling
+                  </h3>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {appConfig?.enableAvailableStartDate && (
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Available Start Date *</label>
+                        <select
+                          value={availableStartDate}
+                          onChange={(e) => setAvailableStartDate(e.target.value)}
+                          className="w-full p-3 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:border-primary font-bold dark:text-white cursor-pointer"
+                        >
+                          <option value="Immediately">Immediately</option>
+                          <option value="Within 1 week">Within 1 week</option>
+                          <option value="Within 2 weeks">Within 2 weeks</option>
+                          <option value="1 month+">1 month+</option>
+                        </select>
+                      </div>
+                    )}
+
+                    {appConfig?.enableWeeklyAvailability && (
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Weekly Availability *</label>
+                        <select
+                          value={weeklyAvailability}
+                          onChange={(e) => setWeeklyAvailability(e.target.value as any)}
+                          className="w-full p-3 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:border-primary font-bold dark:text-white cursor-pointer"
+                        >
+                          <option value="less_than_10">Less than 10 hours/week</option>
+                          <option value="up_to_15">Up to 15 hours/week</option>
+                          <option value="up_to_20">Up to 20 hours/week</option>
+                          <option value="more_than_20">20+ hours/week</option>
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Section: Domain Experience & Specialization (when enabled) */}
+              {(appConfig?.enableMtqaExperience || appConfig?.enableHandsOnExperience || appConfig?.enableErrorTaggingExp) && (
+                <div className="space-y-5 pt-4 border-t border-slate-100 dark:border-slate-800">
+                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                    <Award className="w-4 h-4 text-primary" />
+                    Domain Experience & MTQA / MTPE Specialization
+                  </h3>
+
+                  {/* MTQA / MTPE Experience Years */}
+                  {appConfig?.enableMtqaExperience && (
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
+                        How many years of experience do you have specifically in Machine Translation Quality Assurance (MTQA) or Post-Editing (MTPE)? *
+                      </label>
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                        {[
+                          { key: 'less_than_1', label: 'Less than 1 yr' },
+                          { key: '1_year', label: '1 year' },
+                          { key: '1_to_3', label: '1–3 years' },
+                          { key: '3_to_5', label: '3–5 years' },
+                          { key: '5_plus', label: '5+ years' }
+                        ].map((item) => (
+                          <button
+                            key={item.key}
+                            type="button"
+                            onClick={() => setMtqaExperienceYears(item.key as any)}
+                            className={`p-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer text-center ${
+                              mtqaExperienceYears === item.key
+                                ? 'bg-primary/10 border-primary text-primary shadow-xs'
+                                : 'bg-slate-50 dark:bg-slate-950 border-slate-200/50 dark:border-slate-800 text-slate-600 dark:text-slate-400'
+                            }`}
+                          >
+                            {item.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Hands-On Experience Areas */}
+                  {appConfig?.enableHandsOnExperience && (
+                    <div className="space-y-2 pt-2">
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
+                        Which of the following areas do you have proven, hands-on experience in? (Select all that apply)
+                      </label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        {HANDS_ON_EXPERIENCE_OPTIONS.map((area) => {
+                          const isChecked = handsOnExperienceAreas.includes(area);
+                          return (
+                            <label
+                              key={area}
+                              onClick={() => handleToggleHandsOnArea(area)}
+                              className={`p-3 rounded-xl border cursor-pointer transition-all flex items-center justify-between text-xs font-bold ${
+                                isChecked
+                                  ? 'bg-primary/10 border-primary text-primary shadow-xs'
+                                  : 'bg-slate-50 dark:bg-slate-950 border-slate-200/50 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300'
+                              }`}
+                            >
+                              <span>{area}</span>
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => {}} // Handled by parent div
+                                className="rounded text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+                              />
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Error-Tagging Framework Experience */}
+                  {appConfig?.enableErrorTaggingExp && (
+                    <div className="space-y-2 pt-2">
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
+                        Have you worked with structured error-tagging frameworks or issue taxonomies (e.g. categorizing error types like Accuracy, Addition, Omission, Untranslated Content)? *
+                      </label>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                        {[
+                          { key: 'extensive', label: 'Yes, extensive experience' },
+                          { key: 'basic', label: 'Yes, basic experience' },
+                          { key: 'none_learning', label: 'No, but quick to learn' }
+                        ].map((item) => (
+                          <button
+                            key={item.key}
+                            type="button"
+                            onClick={() => setErrorTaggingExperience(item.key as any)}
+                            className={`p-3 rounded-xl border text-xs font-bold transition-all cursor-pointer text-center ${
+                              errorTaggingExperience === item.key
+                                ? 'bg-primary/10 border-primary text-primary shadow-xs'
+                                : 'bg-slate-50 dark:bg-slate-950 border-slate-200/50 dark:border-slate-800 text-slate-600 dark:text-slate-400'
+                            }`}
+                          >
+                            {item.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Section: Technical & Operational Agility Self-Assessment (when enabled) */}
+              {appConfig?.enableAgilityAssessment && (
+                <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                  <div>
+                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                      <Cpu className="w-4 h-4 text-primary" />
+                      Self-Assessment: Technical & Operational Agility
+                    </h3>
+                    <p className="text-[11px] text-slate-500 mt-1">Please rate your capability from 1 (Beginner) to 3 (Expert) across the following metrics:</p>
+                  </div>
+
+                  <div className="space-y-3">
+                    {[
+                      { key: 'qaPlatforms', label: 'Comfort navigating complex QA platforms and custom tools' },
+                      { key: 'grammarStyle', label: 'Attention to detail regarding grammar, style, and overall mechanics' },
+                      { key: 'errorTagging', label: 'Precision in following strict error-tagging and formatting rules' },
+                      { key: 'policyFeedback', label: 'Ability to apply granular, policy-based feedback across iterations' }
+                    ].map((metric) => {
+                      const currentVal = agilitySelfAssessment[metric.key as keyof AgilitySelfAssessment] || 2;
+                      return (
+                        <div key={metric.key} className="p-3.5 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200/50 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{metric.label}</span>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {[1, 2, 3].map((num) => (
+                              <button
+                                key={num}
+                                type="button"
+                                onClick={() => setAgilitySelfAssessment({
+                                  ...agilitySelfAssessment,
+                                  [metric.key]: num
+                                })}
+                                className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                                  currentVal === num
+                                    ? 'bg-primary text-white shadow-xs'
+                                    : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-primary'
+                                }`}
+                              >
+                                {num} - {num === 1 ? 'Beginner' : num === 2 ? 'Intermediate' : 'Expert'}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Section: Custom Campaign Questions (when configured) */}
+              {appConfig?.customQuestions && appConfig.customQuestions.length > 0 && (
+                <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                    <HelpCircle className="w-4 h-4 text-primary" />
+                    Additional Qualification Questions
+                  </h3>
+
+                  <div className="space-y-4">
+                    {appConfig.customQuestions.map((cq, idx) => (
+                      <div key={cq.id} className="space-y-2 p-4 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200/50 dark:border-slate-800">
+                        <label className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
+                          #{idx + 1}. {cq.questionText} {cq.required && <span className="text-rose-500">*</span>}
+                        </label>
+
+                        {cq.questionType === 'open_ended' ? (
+                          <textarea
+                            rows={3}
+                            required={cq.required}
+                            value={String(customAnswers[cq.id] || '')}
+                            onChange={(e) => setCustomAnswers({ ...customAnswers, [cq.id]: e.target.value })}
+                            placeholder="Type your response here..."
+                            className="w-full p-3 text-xs bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:border-primary font-medium dark:text-white"
+                          />
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            {[1, 2, 3].map((num) => (
+                              <button
+                                key={num}
+                                type="button"
+                                onClick={() => setCustomAnswers({ ...customAnswers, [cq.id]: num })}
+                                className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                                  customAnswers[cq.id] === num
+                                    ? 'bg-primary text-white shadow-xs'
+                                    : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
+                                }`}
+                              >
+                                Rating {num} ({num === 1 ? 'Low' : num === 2 ? 'Medium' : 'High'})
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Section 4: Rates & Capacity */}
               {appConfig?.collectRates !== false && (
