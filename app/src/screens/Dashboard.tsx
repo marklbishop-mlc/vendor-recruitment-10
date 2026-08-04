@@ -155,17 +155,17 @@ export const Dashboard: React.FC = () => {
   const [editCountry, setEditCountry] = useState('');
   const [editTimeZone, setEditTimeZone] = useState('');
   const [editAvailableStartDate, setEditAvailableStartDate] = useState('');
-  const [editWeeklyAvailability, setEditWeeklyAvailability] = useState<WeeklyAvailabilityOption>('up_to_20');
+  const [editWeeklyAvailability, setEditWeeklyAvailability] = useState<WeeklyAvailabilityOption | ''>('');
   const [editOtherLanguages, setEditOtherLanguages] = useState('');
-  const [editMtqaExperienceYears, setEditMtqaExperienceYears] = useState<MtqaExperienceYears>('1_to_3');
+  const [editMtqaExperienceYears, setEditMtqaExperienceYears] = useState<MtqaExperienceYears | ''>('');
   const [editHandsOnExperienceAreas, setEditHandsOnExperienceAreas] = useState<string[]>([]);
   const [editAgilitySelfAssessment, setEditAgilitySelfAssessment] = useState<AgilitySelfAssessment>({
-    qaPlatforms: 2,
-    grammarStyle: 3,
-    errorTagging: 3,
-    policyFeedback: 2
+    qaPlatforms: null,
+    grammarStyle: null,
+    errorTagging: null,
+    policyFeedback: null
   });
-  const [editErrorTaggingExperience, setEditErrorTaggingExperience] = useState<ErrorTaggingExpLevel>('basic');
+  const [editErrorTaggingExperience, setEditErrorTaggingExperience] = useState<ErrorTaggingExpLevel | ''>('');
 
   // Applications Multi-Link States
   const [applicationsList, setApplicationsList] = useState<ApplicationConfig[]>([]);
@@ -666,20 +666,20 @@ export const Dashboard: React.FC = () => {
     setEditConfirmedRate(vendor.confirmedRate.toString());
 
     // Populate Detailed Evaluation fields for edit mode
-    setEditCountry(vendor.country || 'United States');
-    setEditTimeZone(vendor.timeZone || 'UTC-05:00 Eastern Time');
-    setEditAvailableStartDate(vendor.availableStartDate || 'Immediately');
-    setEditWeeklyAvailability(vendor.weeklyAvailability || 'up_to_20');
+    setEditCountry(vendor.country || '');
+    setEditTimeZone(vendor.timeZone || '');
+    setEditAvailableStartDate(vendor.availableStartDate || '');
+    setEditWeeklyAvailability(vendor.weeklyAvailability || '');
     setEditOtherLanguages(vendor.otherLanguages || '');
-    setEditMtqaExperienceYears(vendor.mtqaExperienceYears || '1_to_3');
+    setEditMtqaExperienceYears(vendor.mtqaExperienceYears || '');
     setEditHandsOnExperienceAreas(vendor.handsOnExperienceAreas || []);
     setEditAgilitySelfAssessment(vendor.agilitySelfAssessment || {
-      qaPlatforms: 2,
-      grammarStyle: 3,
-      errorTagging: 3,
-      policyFeedback: 2
+      qaPlatforms: null,
+      grammarStyle: null,
+      errorTagging: null,
+      policyFeedback: null
     });
-    setEditErrorTaggingExperience(vendor.errorTaggingExperience || 'basic');
+    setEditErrorTaggingExperience(vendor.errorTaggingExperience || '');
     setIsEditing(true);
   };
 
