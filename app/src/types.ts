@@ -22,9 +22,54 @@ export type WorkflowStage =
 
 export type TestGrade = 'pass' | 'fail' | 'pass_caution';
 
+export type LanguageProficiency = 
+  | 'native' 
+  | 'bilingual' 
+  | 'advanced' 
+  | 'intermediate' 
+  | 'beginner' 
+  | 'professional' 
+  | 'working';
+
+export const PROFICIENCY_OPTIONS = [
+  { value: 'native', label: 'Native' },
+  { value: 'bilingual', label: 'Bilingual (C2)' },
+  { value: 'advanced', label: 'Advanced (C1)' },
+  { value: 'intermediate', label: 'Intermediate (B1-B2)' },
+  { value: 'beginner', label: 'Beginner (A1-A2)' },
+] as const;
+
+export function formatProficiency(prof?: string): string {
+  if (!prof) return '';
+  const p = prof.toLowerCase();
+  switch (p) {
+    case 'native': return 'Native';
+    case 'bilingual': return 'Bilingual (C2)';
+    case 'advanced': return 'Advanced (C1)';
+    case 'professional': return 'Advanced (C1)';
+    case 'intermediate': return 'Intermediate (B1-B2)';
+    case 'working': return 'Intermediate (B1-B2)';
+    case 'beginner': return 'Beginner (A1-A2)';
+    default: return prof;
+  }
+}
+
+export const DEFAULT_SERVICES_LIST: string[] = [
+  'Translation',
+  'Editing',
+  'Proofreading',
+  'MTPE',
+  'Localization',
+  'Subtitling',
+  'Interpretation',
+  'Copywriting',
+  'Transcription',
+  'Voiceover',
+];
+
 export interface WorkingLanguage {
   language: string;
-  proficiency: 'native' | 'bilingual' | 'professional' | 'working';
+  proficiency: LanguageProficiency;
   testRequired?: boolean;
   testStatus?: 'untested' | 'pending' | 'passed' | 'failed' | 'waived';
   testId?: string;
@@ -269,6 +314,7 @@ export interface LanguageConfig {
 
 export interface SystemConfig {
   languages: (string | LanguageConfig)[];
+  services?: string[];
   statuses: StatusConfig[];
   stageProgressOptions?: StageProgressConfig[];
   stages: WorkflowStageConfig[];

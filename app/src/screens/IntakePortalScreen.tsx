@@ -10,9 +10,16 @@ import type {
   MtqaExperienceYears,
   ErrorTaggingExpLevel,
   WeeklyAvailabilityOption,
-  AgilitySelfAssessment
+  AgilitySelfAssessment,
+  LanguageProficiency
 } from '../types';
-import { getActiveSortedLanguages, FULL_DEFAULT_LANGUAGES } from '../types';
+import { 
+  getActiveSortedLanguages, 
+  FULL_DEFAULT_LANGUAGES, 
+  PROFICIENCY_OPTIONS, 
+  formatProficiency, 
+  DEFAULT_SERVICES_LIST 
+} from '../types';
 import { COUNTRIES, TIME_ZONES } from '../utils/locationData';
 import { 
   User, Globe, Upload, Plus, Trash2, 
@@ -22,11 +29,6 @@ import {
 import { motion } from 'framer-motion';
 
 const DEFAULT_LANGUAGES = FULL_DEFAULT_LANGUAGES.map((l) => l.name);
-
-const AVAILABLE_SERVICES = [
-  'Translation', 'MTPE (Machine Translation Post-Editing)', 'Editing', 
-  'Proofreading', 'Subtitling', 'Voiceover', 'Interpretation', 'Consulting'
-];
 
 const HANDS_ON_EXPERIENCE_OPTIONS = [
   'Machine Translation Quality Assurance (MTQA)',
@@ -43,9 +45,9 @@ export const IntakePortalScreen: React.FC = () => {
   // Application Config state
   const [appConfig, setAppConfig] = useState<ApplicationConfig | null>(null);
 
-  // Configured System Languages
+  // Configured System Languages & Services
   const [availableLanguages, setAvailableLanguages] = useState<string[]>(DEFAULT_LANGUAGES);
-  const [servicesList, setServicesList] = useState<string[]>(AVAILABLE_SERVICES);
+  const [servicesList, setServicesList] = useState<string[]>(DEFAULT_SERVICES_LIST);
 
   // Form state
   const [contactName, setContactName] = useState('');
@@ -87,9 +89,9 @@ export const IntakePortalScreen: React.FC = () => {
   // Languages state
   const [languages, setLanguages] = useState<WorkingLanguage[]>([]);
   const [newLangName, setNewLangName] = useState('English');
-  const [newLangProf, setNewLangProf] = useState<'native' | 'bilingual' | 'professional' | 'working'>('professional');
+  const [newLangProf, setNewLangProf] = useState<LanguageProficiency>('native');
 
-  // Load Application Config and System Languages
+  // Load Application Config and System Settings
   useEffect(() => {
     const fetchAppAndLanguages = async () => {
       try {
@@ -115,13 +117,21 @@ export const IntakePortalScreen: React.FC = () => {
 
         setAppConfig(loadedApp);
 
-        // 2. Fetch System Languages
+        // 2. Fetch System Config (Languages & Services)
         const snap = await getDoc(doc(db, 'settings', 'global_config'));
         let systemLangs = DEFAULT_LANGUAGES;
-        if (snap.exists() && snap.data().languages) {
-          const activeSorted = getActiveSortedLanguages(snap.data().languages);
-          if (activeSorted.length > 0) {
-            systemLangs = activeSorted.map((l) => l.name);
+        let baseServices = DEFAULT_SERVICES_LIST;
+
+        if (snap.exists()) {
+          const data = snap.data();
+          if (data.languages) {
+            const activeSorted = getActiveSortedLanguages(data.languages);
+            if (activeSorted.length > 0) {
+              systemLangs = activeSorted.map((l) => l.name);
+            }
+          }
+          if (data.services && Array.isArray(data.services) && data.services.length > 0) {
+            baseServices = data.services;
           }
         }
 
@@ -137,11 +147,16 @@ export const IntakePortalScreen: React.FC = () => {
 
         // Apply Service Scope Filter if configured on Application
         if (loadedApp && loadedApp.allowedServices && !loadedApp.allowedServices.includes('all') && loadedApp.allowedServices.length > 0) {
-          const filteredServices = AVAILABLE_SERVICES.filter(s => 
+          const filteredServices = baseServices.filter(s => 
             loadedApp!.allowedServices.some(allowed => s.toLowerCase().includes(allowed.toLowerCase()) || allowed.toLowerCase().includes(s.toLowerCase()))
           );
           setServicesList(filteredServices.length > 0 ? filteredServices : loadedApp.allowedServices);
           setSelectedServices(filteredServices.length > 0 ? [filteredServices[0]] : [loadedApp.allowedServices[0]]);
+        } else {
+          setServicesList(baseServices);
+          if (baseServices.length > 0) {
+            setSelectedServices([baseServices[0]]);
+          }
         }
 
       } catch (err) {
@@ -153,11 +168,11 @@ export const IntakePortalScreen: React.FC = () => {
 
   // Services state
   const [selectedServices, setSelectedServices] = useState<string[]>([
-    'Translation', 'Editing'
+    'Translation'
   ]);
 
   // Rates & Capacity
-  const [hourlyRate, setHourlyRate] = useState('45');
+  const [hourlyRate, setHourlyRate] = useState('');
   const [hoursAvailable, setHoursAvailable] = useState('30');
   const [mtPeExperience, setMtPeExperience] = useState<'1-3' | '3-5' | '5+'>('3-5');
 
@@ -282,7 +297,7 @@ export const IntakePortalScreen: React.FC = () => {
 
     const vendorId = `cand-${Date.now()}`;
     const timestamp = new Date().toISOString();
-    const parsedRate = parseFloat(hourlyRate) || 45;
+    const parsedRate = hourlyRate.trim() ? (parseFloat(hourlyRate) || 0) : 0;
 
     const newCandidate: VendorProfile = {
       id: vendorId,
@@ -598,7 +613,7 @@ export const IntakePortalScreen: React.FC = () => {
                   ) : (
                     languages.map((l, i) => (
                       <span key={i} className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary/10 text-primary border border-primary/20 rounded-xl text-xs font-bold">
-                        {l.language} ({l.proficiency})
+                        {l.language} ({formatProficiency(l.proficiency)})
                         <button
                           type="button"
                           onClick={() => handleRemoveLanguage(l.language)}
@@ -634,13 +649,14 @@ export const IntakePortalScreen: React.FC = () => {
                       </label>
                       <select
                         value={newLangProf}
-                        onChange={(e) => setNewLangProf(e.target.value as any)}
+                        onChange={(e) => setNewLangProf(e.target.value as LanguageProficiency)}
                         className="w-full p-2.5 text-xs font-bold bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl dark:text-white focus:outline-none focus:border-primary"
                       >
-                        <option value="native">Native</option>
-                        <option value="bilingual">Bilingual</option>
-                        <option value="professional">Professional</option>
-                        <option value="working">Working</option>
+                        {PROFICIENCY_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
                       </select>
                     </div>
 
@@ -960,12 +976,14 @@ export const IntakePortalScreen: React.FC = () => {
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Standard Hourly Rate ($/hr)</label>
+                      <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block">
+                        Standard Hourly Rate ($/hr) <span className="text-slate-400 font-normal text-[11px]">(Optional)</span>
+                      </label>
                       <input
                         type="number"
-                        required={appConfig?.collectRates ?? true}
+                        required={false}
                         min="1"
-                        placeholder="45"
+                        placeholder="e.g. 45 (Optional)"
                         value={hourlyRate}
                         onChange={(e) => setHourlyRate(e.target.value)}
                         className="w-full p-3 text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl focus:outline-none focus:border-primary font-bold dark:text-white"

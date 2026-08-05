@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Globe, Shield, Plus, Trash2, Save, RotateCcw, Edit2, Download, UploadCloud, CheckCircle2, FileText, Info, Mail, ChevronDown, Star
+  Globe, Shield, Plus, Trash2, Save, RotateCcw, Edit2, Download, UploadCloud, CheckCircle2, FileText, Info, Mail, ChevronDown, Star, Briefcase
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { StatusConfig, VendorProfile, LanguageConfig, StageSlaNudgeConfig } from '../types';
-import { normalizeLanguageList, FULL_DEFAULT_LANGUAGES } from '../types';
+import { normalizeLanguageList, FULL_DEFAULT_LANGUAGES, DEFAULT_SERVICES_LIST } from '../types';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
@@ -67,10 +67,17 @@ export const Settings: React.FC = () => {
   const [isImporting, setIsImporting] = useState(false);
   const [importSuccessMsg, setImportSuccessMsg] = useState('');
 
+  // Services Management States
+  const [services, setServices] = useState<string[]>(DEFAULT_SERVICES_LIST);
+  const [newServiceName, setNewServiceName] = useState('');
+  const [editingServiceIndex, setEditingServiceIndex] = useState<number | null>(null);
+  const [editingServiceName, setEditingServiceName] = useState('');
+
   // Collapsible section cards state (defaulted to collapsed)
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
     applications: false,
     languages: true,
+    services: true,
     statuses: true,
     import: true,
     testing_mode: true,
@@ -139,6 +146,11 @@ export const Settings: React.FC = () => {
           } else {
             setLanguages(DEFAULT_LANGUAGES);
           }
+          if (config.services && Array.isArray(config.services) && config.services.length > 0) {
+            setServices(config.services);
+          } else {
+            setServices(DEFAULT_SERVICES_LIST);
+          }
           if (config.statuses && Array.isArray(config.statuses)) {
             setStatuses(config.statuses);
           } else {
@@ -166,11 +178,13 @@ export const Settings: React.FC = () => {
           }
         } else {
           setLanguages(DEFAULT_LANGUAGES);
+          setServices(DEFAULT_SERVICES_LIST);
           setStatuses(DEFAULT_STATUSES);
         }
       } catch (err) {
         console.error("Failed to load settings from Firestore", err);
         setLanguages(DEFAULT_LANGUAGES);
+        setServices(DEFAULT_SERVICES_LIST);
         setStatuses(DEFAULT_STATUSES);
       }
     };
@@ -186,7 +200,8 @@ export const Settings: React.FC = () => {
     smtpConfigOverride?: { host: string; port: number; user: string; pass: string; from: string },
     updatedStageSlaConfigs?: Record<string, StageSlaNudgeConfig>,
     updatedSlaEnabled?: boolean,
-    updatedSlaMode?: 'automated' | 'one_click'
+    updatedSlaMode?: 'automated' | 'one_click',
+    updatedServices: string[] = services
   ) => {
     try {
       const docRef = doc(db, 'settings', 'global_config');
@@ -196,6 +211,7 @@ export const Settings: React.FC = () => {
       const newConfig = {
         ...existingData,
         languages: updatedLangs,
+        services: updatedServices,
         statuses: updatedStatuses,
         testingMode: {
           enabled: testEnabled,
@@ -222,6 +238,7 @@ export const Settings: React.FC = () => {
       await setDoc(docRef, newConfig);
 
       localStorage.setItem('mlc_settings_languages', JSON.stringify(updatedLangs));
+      localStorage.setItem('mlc_settings_services', JSON.stringify(updatedServices));
       localStorage.setItem('mlc_settings_statuses_v2', JSON.stringify(updatedStatuses));
       localStorage.setItem('mlc_settings_testing_mode', JSON.stringify({
         enabled: testEnabled,
@@ -238,12 +255,43 @@ export const Settings: React.FC = () => {
         setTimeout(() => {
           banner.classList.remove('opacity-100');
           banner.classList.add('opacity-0');
-        }, 2500);
+        }, 3000);
       }
     } catch (err) {
-      console.error("Failed to save settings directly to Firestore", err);
-      alert("Failed to save configuration: " + (err instanceof Error ? err.message : String(err)));
+      console.error("Failed to save configuration", err);
+      alert("Error saving settings to Firestore.");
     }
+  };
+
+  const handleAddService = () => {
+    const trimmed = newServiceName.trim();
+    if (!trimmed) return;
+    if (services.some(s => s.toLowerCase() === trimmed.toLowerCase())) {
+      alert(`Service "${trimmed}" already exists.`);
+      return;
+    }
+    const updated = [...services, trimmed];
+    setServices(updated);
+    setNewServiceName('');
+    saveConfigDirect(languages, statuses, testingEnabled, testingModeSubtype, testingRecipients, undefined, undefined, undefined, undefined, updated);
+  };
+
+  const handleSaveEditService = (index: number) => {
+    const trimmed = editingServiceName.trim();
+    if (!trimmed) return;
+    const updated = [...services];
+    updated[index] = trimmed;
+    setServices(updated);
+    setEditingServiceIndex(null);
+    setEditingServiceName('');
+    saveConfigDirect(languages, statuses, testingEnabled, testingModeSubtype, testingRecipients, undefined, undefined, undefined, undefined, updated);
+  };
+
+  const handleDeleteService = (serviceName: string) => {
+    if (!confirm(`Are you sure you want to remove service "${serviceName}"?`)) return;
+    const updated = services.filter(s => s !== serviceName);
+    setServices(updated);
+    saveConfigDirect(languages, statuses, testingEnabled, testingModeSubtype, testingRecipients, undefined, undefined, undefined, undefined, updated);
   };
 
   const handleAddLanguage = (e: React.FormEvent) => {
@@ -883,6 +931,140 @@ export const Settings: React.FC = () => {
                     </AnimatePresence>
                   </tbody>
                 </table>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </section>
+
+      {/* Services Management Panel */}
+      <section className="bg-white dark:bg-card-dark rounded-3xl border border-slate-200/50 dark:border-border-dark p-6 space-y-4 shadow-sm">
+        <div 
+          onClick={() => toggleSection('services')}
+          className="flex items-center justify-between cursor-pointer select-none pb-1"
+        >
+          <div>
+            <h3 className="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2">
+              <Briefcase className="w-5 h-5 text-primary" />
+              Services ({services.length})
+            </h3>
+            <p className="text-xs text-slate-400 mt-1">
+              Manage services offered by linguists and referenced in recruitment intake applications.
+            </p>
+          </div>
+          <button type="button" className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 text-slate-400">
+            <motion.div animate={{ rotate: collapsedSections.services ? 0 : 180 }} transition={{ duration: 0.2 }}>
+              <ChevronDown className="w-5 h-5" />
+            </motion.div>
+          </button>
+        </div>
+
+        <AnimatePresence initial={false}>
+          {!collapsedSections.services && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25, ease: 'easeInOut' }}
+              className="space-y-4 border-t border-slate-100 dark:border-white/5 pt-4 overflow-hidden"
+            >
+              {/* Add New Service Input */}
+              <div className="p-4 bg-slate-50 dark:bg-bg-dark/50 rounded-2xl border border-slate-200/50 dark:border-border-dark flex flex-col sm:flex-row items-center gap-3">
+                <input
+                  type="text"
+                  placeholder="New service name (e.g. Dubbing, Transcreation)..."
+                  value={newServiceName}
+                  onChange={(e) => setNewServiceName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddService();
+                    }
+                  }}
+                  className="w-full sm:flex-1 p-2.5 bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:border-primary"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddService}
+                  disabled={!newServiceName.trim()}
+                  className="w-full sm:w-auto px-4 py-2.5 bg-primary text-white text-xs font-bold rounded-xl hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer transition-all shadow-sm"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Service
+                </button>
+              </div>
+
+              {/* Services Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
+                {services.map((srv, index) => (
+                  <div
+                    key={`${srv}-${index}`}
+                    className="p-3 bg-slate-50 dark:bg-card-dark/60 rounded-xl border border-slate-200/50 dark:border-border-dark flex items-center justify-between gap-2 group hover:border-slate-300 dark:hover:border-slate-700 transition-all"
+                  >
+                    {editingServiceIndex === index ? (
+                      <div className="flex items-center gap-2 w-full">
+                        <input
+                          type="text"
+                          value={editingServiceName}
+                          onChange={(e) => setEditingServiceName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleSaveEditService(index);
+                            } else if (e.key === 'Escape') {
+                              setEditingServiceIndex(null);
+                            }
+                          }}
+                          className="flex-1 p-1.5 bg-white dark:bg-bg-dark border border-primary rounded-lg text-xs font-semibold text-slate-900 dark:text-white focus:outline-none"
+                          autoFocus
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleSaveEditService(index)}
+                          className="p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-lg"
+                          title="Save"
+                        >
+                          <CheckCircle2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingServiceIndex(null)}
+                          className="p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-white/5 rounded-lg text-xs"
+                          title="Cancel"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <span className="font-bold text-xs text-slate-800 dark:text-slate-200">
+                          {srv}
+                        </span>
+                        <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingServiceIndex(index);
+                              setEditingServiceName(srv);
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-primary hover:bg-white dark:hover:bg-white/10 rounded-lg transition-colors"
+                            title="Edit Service"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteService(srv)}
+                            className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors"
+                            title="Delete Service"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ))}
               </div>
             </motion.div>
           )}

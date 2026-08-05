@@ -18,7 +18,7 @@ const DEMO_VENDOR_FALLBACK: VendorProfile = {
   confirmedRate: 45,
   workingLanguages: [
     { language: 'Spanish', proficiency: 'native' },
-    { language: 'English', proficiency: 'professional' }
+    { language: 'English', proficiency: 'advanced' }
   ],
   services: ['Translation', 'Localization'],
   classificationTier: 1,
