@@ -79,7 +79,7 @@ export const Dashboard: React.FC = () => {
 
   // Default view is now table view
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('table');
-  const [presetView, setPresetView] = useState<'standard' | 'detailed_eval' | 'workflow_hiring' | 'domain_agility'>('standard');
+  const [presetView, setPresetView] = useState<'standard' | 'all_fields'>('standard');
   
   // Table sorting states
   const [sortField, setSortField] = useState<keyof VendorProfile>('contactName');
@@ -1311,10 +1311,10 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
             >
               <span>
                 {selectedAppFilters.length === 0
-                  ? 'All Applications'
+                  ? 'All Campaigns'
                   : selectedAppFilters.length === 1
                   ? selectedAppFilters[0]
-                  : `Applications (${selectedAppFilters.length})`}
+                  : `Campaigns (${selectedAppFilters.length})`}
               </span>
               <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2" />
             </button>
@@ -1322,7 +1322,7 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
             {isAppDropdownOpen && (
               <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-2xl shadow-xl z-50 p-3 space-y-2">
                 <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2 text-xs font-bold text-slate-500">
-                  <span>Filter by Application</span>
+                  <span>Filter by Campaign</span>
                   {selectedAppFilters.length > 0 && (
                     <button
                       type="button"
@@ -1334,7 +1334,7 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                   )}
                 </div>
                 <div className="max-h-48 overflow-y-auto space-y-1.5 custom-scrollbar pr-1">
-                  {['Default Application', ...applicationsList.map(a => a.name)].map((appName) => {
+                  {Array.from(new Set(['General Intake', ...applicationsList.map(a => a.name), ...vendors.map(v => v.applicationName || 'General Intake')])).sort().map((appName) => {
                     const isChecked = selectedAppFilters.includes(appName);
                     return (
                       <label
@@ -1367,9 +1367,9 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
             <button
               type="button"
               onClick={() => setPresetView('standard')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                 presetView === 'standard'
-                  ? 'bg-white dark:bg-card-dark text-slate-900 dark:text-white shadow-xs'
+                  ? 'bg-white dark:bg-card-dark text-slate-900 dark:text-white shadow-xs font-extrabold'
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
@@ -1377,36 +1377,14 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
             </button>
             <button
               type="button"
-              onClick={() => setPresetView('detailed_eval')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                presetView === 'detailed_eval'
-                  ? 'bg-white dark:bg-card-dark text-primary shadow-xs'
+              onClick={() => setPresetView('all_fields')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                presetView === 'all_fields'
+                  ? 'bg-white dark:bg-card-dark text-primary shadow-xs font-extrabold'
                   : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              Full Detailed View
-            </button>
-            <button
-              type="button"
-              onClick={() => setPresetView('workflow_hiring')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                presetView === 'workflow_hiring'
-                  ? 'bg-white dark:bg-card-dark text-emerald-600 dark:text-emerald-400 shadow-xs'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              Workflow & Hiring View
-            </button>
-            <button
-              type="button"
-              onClick={() => setPresetView('domain_agility')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                presetView === 'domain_agility'
-                  ? 'bg-white dark:bg-card-dark text-purple-600 dark:text-purple-400 shadow-xs'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              All Fields View
+              All Fields
             </button>
           </div>
           
@@ -1722,34 +1700,11 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                       </>
                     )}
 
-                    {presetView === 'detailed_eval' && (
-                      <>
-                        <th className="p-4">Country & Timezone</th>
-                        <th className="p-4">MTQA Exp (Years)</th>
-                        <th className="p-4">Technical Agility Avg</th>
-                        <th className="p-4">Error-Tagging Exp</th>
-                        <th className="p-4">Start Date</th>
-                        <th className="p-4">Availability</th>
-                        <th className="p-4 text-right pr-6">Full Profile</th>
-                      </>
-                    )}
-
-                    {presetView === 'workflow_hiring' && (
-                      <>
-                        <th className="p-4">Workflow Stage</th>
-                        <th className="p-4">Stage Progress</th>
-                        <th className="p-4">Available Start Date</th>
-                        <th className="p-4">Weekly Availability</th>
-                        <th className="p-4">NDA Verification</th>
-                        <th className="p-4">Intake Application</th>
-                        <th className="p-4 text-right pr-6">Actions</th>
-                      </>
-                    )}
-
-                    {presetView === 'domain_agility' && (
+                    {presetView === 'all_fields' && (
                       <>
                         <th className="p-4">Company</th>
                         <th className="p-4">Email Addresses</th>
+                        <th className="p-4">Campaign</th>
                         <th className="p-4">Country & Timezone</th>
                         <th className="p-4">Working Languages</th>
                         <th className="p-4">Other Languages</th>
@@ -1862,125 +1817,8 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                           </>
                         )}
 
-                        {/* Full Detailed Evaluation View Cells */}
-                        {presetView === 'detailed_eval' && (
-                          <>
-                            <td className="p-4 text-xs font-medium text-slate-700 dark:text-slate-300">
-                              {candidate.country || candidate.timeZone ? (
-                                <div>
-                                  <span className="font-bold block">{candidate.country || 'N/A'}</span>
-                                  <span className="text-[10px] text-slate-400 font-mono block">{candidate.timeZone}</span>
-                                </div>
-                              ) : (
-                                <span className="text-slate-400 italic">Not specified</span>
-                              )}
-                            </td>
-                            <td className="p-4 text-xs font-bold text-slate-800 dark:text-slate-200">
-                              {candidate.mtqaExperienceYears ? (
-                                candidate.mtqaExperienceYears.replace('_to_', '–').replace('_plus', '+').replace('less_than_', '< ') + ' yrs'
-                              ) : candidate.mtPeExperience ? (
-                                candidate.mtPeExperience + ' yrs'
-                              ) : (
-                                <span className="text-slate-400 font-normal italic">N/A</span>
-                              )}
-                            </td>
-                            <td className="p-4">
-                              {agilityAvg ? (
-                                <span className={`px-2.5 py-1 rounded-full text-xs font-extrabold border ${
-                                  parseFloat(agilityAvg) >= 2.5 
-                                    ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/25' 
-                                    : 'bg-amber-500/15 text-amber-600 border-amber-500/25'
-                                }`}>
-                                  ★ {agilityAvg} / 3.0
-                                </span>
-                              ) : (
-                                <span className="text-slate-400 text-xs italic">Unrated</span>
-                              )}
-                            </td>
-                            <td className="p-4 text-xs font-medium text-slate-700 dark:text-slate-300">
-                              {candidate.errorTaggingExperience ? (
-                                <span className="capitalize font-bold text-primary">
-                                  {candidate.errorTaggingExperience.replace('_', ' ')}
-                                </span>
-                              ) : (
-                                <span className="text-slate-400 italic">N/A</span>
-                              )}
-                            </td>
-                            <td className="p-4 text-xs font-semibold text-slate-800 dark:text-slate-200">
-                              {candidate.availableStartDate || 'Immediate'}
-                            </td>
-                            <td className="p-4 text-xs font-semibold text-slate-800 dark:text-slate-200">
-                              {candidate.weeklyAvailability ? (
-                                candidate.weeklyAvailability.replace('_than_', ' ').replace('_to_', '–').replace('_plus', '+') + ' hrs/wk'
-                              ) : candidate.hoursAvailable ? (
-                                `${candidate.hoursAvailable} hrs/wk`
-                              ) : (
-                                'N/A'
-                              )}
-                            </td>
-                            <td className="p-4 text-right pr-6">
-                              <button
-                                type="button"
-                                onClick={() => setSelectedVendor(candidate)}
-                                className="px-2.5 py-1 bg-primary/10 text-primary hover:bg-primary hover:text-white rounded-lg text-xs font-bold transition-colors"
-                              >
-                                Full View →
-                              </button>
-                            </td>
-                          </>
-                        )}
-
-                        {/* Workflow & Hiring View Cells */}
-                        {presetView === 'workflow_hiring' && (
-                          <>
-                            <td className="p-4" onClick={(e) => e.stopPropagation()}>
-                              <select
-                                value={candidate.stage}
-                                onChange={(e) => handleStageChangeRequest(candidate.id, e.target.value as WorkflowStage)}
-                                className="p-1.5 text-xs font-bold bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl dark:text-white cursor-pointer focus:outline-none"
-                              >
-                                {stages.map((stg) => (
-                                  <option key={stg.id} value={stg.id}>{stg.name}</option>
-                                ))}
-                              </select>
-                            </td>
-                            <td className="p-4" onClick={(e) => e.stopPropagation()}>
-                              {renderStageStatusSelector(candidate)}
-                            </td>
-                            <td className="p-4 text-xs font-bold text-slate-800 dark:text-slate-200">
-                              {candidate.availableStartDate || 'Immediate'}
-                            </td>
-                            <td className="p-4 text-xs font-bold text-slate-800 dark:text-slate-200">
-                              {candidate.weeklyAvailability ? (
-                                candidate.weeklyAvailability.replace('_than_', ' ').replace('_to_', '–').replace('_plus', '+') + ' hrs/wk'
-                              ) : (
-                                candidate.hoursAvailable ? `${candidate.hoursAvailable} hrs` : 'N/A'
-                              )}
-                            </td>
-                            <td className="p-4">
-                              {candidate.hasSignedNda ? (
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/15 text-emerald-600 border border-emerald-500/20">🟢 Signed</span>
-                              ) : (
-                                <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-rose-500/15 text-rose-600 border border-rose-500/20">🔴 Missing</span>
-                              )}
-                            </td>
-                            <td className="p-4 text-xs font-medium text-slate-600 dark:text-slate-400">
-                              {candidate.applicationName || 'General Form'}
-                            </td>
-                            <td className="p-4 text-right pr-6">
-                              <button
-                                type="button"
-                                onClick={() => setSelectedVendor(candidate)}
-                                className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold transition-colors"
-                              >
-                                Manage
-                              </button>
-                            </td>
-                          </>
-                        )}
-
-                        {/* Domain & Agility View Cells */}
-                        {presetView === 'domain_agility' && (
+                        {/* All Fields View Cells */}
+                        {presetView === 'all_fields' && (
                           <>
                             <td className="p-4 text-slate-600 dark:text-slate-400 font-medium">
                               {candidate.companyName || <span className="text-slate-400 italic">Individual</span>}
@@ -1990,6 +1828,9 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                               {candidate.secondaryEmail && (
                                 <div className="text-[10px] text-slate-400 font-mono">Sec: {candidate.secondaryEmail}</div>
                               )}
+                            </td>
+                            <td className="p-4 text-xs font-bold text-slate-700 dark:text-slate-300">
+                              {candidate.applicationName || 'General Intake'}
                             </td>
                             <td className="p-4 text-xs font-medium text-slate-700 dark:text-slate-300 whitespace-nowrap">
                               <div>{candidate.country || 'N/A'}</div>
@@ -2063,6 +1904,9 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                             <td className="p-4">
                               {candidate.agilitySelfAssessment ? (
                                 <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold">
+                                  {agilityAvg && (
+                                    <span className="px-2 py-0.5 bg-primary/10 text-primary rounded-md font-extrabold mr-1">★ {agilityAvg}</span>
+                                  )}
                                   <span className="px-1.5 py-0.5 bg-blue-500/10 text-blue-600 rounded">QA: {candidate.agilitySelfAssessment.qaPlatforms || 0}/3</span>
                                   <span className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-600 rounded">Grammar: {candidate.agilitySelfAssessment.grammarStyle || 0}/3</span>
                                   <span className="px-1.5 py-0.5 bg-amber-500/10 text-amber-600 rounded">Tags: {candidate.agilitySelfAssessment.errorTagging || 0}/3</span>

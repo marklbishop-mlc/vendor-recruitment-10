@@ -40,9 +40,11 @@ export const TestingPortal: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatusFilters, setSelectedStatusFilters] = useState<string[]>([]);
   const [selectedLanguageFilters, setSelectedLanguageFilters] = useState<string[]>([]);
+  const [selectedCampaignFilters, setSelectedCampaignFilters] = useState<string[]>([]);
   const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
   const [isLangDropdownOpen, setIsLangDropdownOpen] = useState(false);
-  
+  const [isCampaignDropdownOpen, setIsCampaignDropdownOpen] = useState(false);
+
   // Grading Modal Form State
   const [score, setScore] = useState<'1' | '2' | '3'>('2');
   const [grade, setGrade] = useState<TestGrade>('pass');
@@ -86,8 +88,9 @@ export const TestingPortal: React.FC = () => {
 
   const getVendorInfo = (vendorId: string) => {
     const v = vendorsList.find((v) => v.id === vendorId);
-    if (!v) return { name: 'Unknown Candidate', languages: 'N/A' };
+    if (!v) return { name: 'Unknown Candidate', languages: 'N/A', campaign: 'General Intake' };
     const name = v.companyName ? `${v.contactName || 'Candidate'} (${v.companyName})` : (v.contactName || 'Unnamed Candidate');
+    const campaign = v.applicationName || (v.applicationId ? v.applicationId : 'General Intake');
     
     let languages = 'N/A';
     if (Array.isArray(v.workingLanguages) && v.workingLanguages.length > 0) {
@@ -98,7 +101,7 @@ export const TestingPortal: React.FC = () => {
       }).filter(Boolean).join(', ');
     }
 
-    return { name, languages: languages || 'N/A' };
+    return { name, languages: languages || 'N/A', campaign };
   };
 
   const handleOpenGrading = (test: TestRecord) => {
@@ -208,6 +211,17 @@ export const TestingPortal: React.FC = () => {
     return Array.from(langSet).sort();
   }, [tests, vendorsList]);
 
+  // Extract all unique application campaign names
+  const uniqueCampaigns = useMemo(() => {
+    const set = new Set<string>();
+    (vendorsList || []).forEach((v) => {
+      const camp = v.applicationName || (v.applicationId ? v.applicationId : 'General Intake');
+      if (camp) set.add(camp);
+    });
+    if (set.size === 0) set.add('General Intake');
+    return Array.from(set).sort();
+  }, [vendorsList]);
+
   // Filter active test candidates to ONLY include vendors in the 'in_testing' stage (or all tests as fallback)
   const inTestingVendors = useMemo(() => {
     return vendorsList.filter((v) => v.stage === 'in_testing');
@@ -218,18 +232,19 @@ export const TestingPortal: React.FC = () => {
     return candidateTests.length > 0 ? candidateTests : tests;
   }, [tests, inTestingVendors]);
 
-  // Filtered test records based on Search Query, Status, and Language
+  // Filtered test records based on Search Query, Status, Language, and Campaign
   const filteredTests = useMemo(() => {
     return activeInTestingTests.filter((t) => {
       const vendorInfo = getVendorInfo(t.vendorId);
       const query = searchQuery.trim().toLowerCase();
 
-      // 1. Search filter (Candidate Name, Company Name, Project Number/ID, Language)
+      // 1. Search filter (Candidate Name, Company Name, Project Number/ID, Language, Campaign)
       const matchesQuery = !query || 
         vendorInfo.name.toLowerCase().includes(query) ||
         (t.projectNumber && t.projectNumber.toLowerCase().includes(query)) ||
         (t.language && t.language.toLowerCase().includes(query)) ||
-        vendorInfo.languages.toLowerCase().includes(query);
+        vendorInfo.languages.toLowerCase().includes(query) ||
+        vendorInfo.campaign.toLowerCase().includes(query);
 
       // 2. Status filter
       const matchesStatus = selectedStatusFilters.length === 0 || selectedStatusFilters.some((st) => {
@@ -243,16 +258,20 @@ export const TestingPortal: React.FC = () => {
           vendorInfo.languages.toLowerCase().includes(lang.toLowerCase());
       });
 
-      return matchesQuery && matchesStatus && matchesLanguage;
-    });
-  }, [activeInTestingTests, searchQuery, selectedStatusFilters, selectedLanguageFilters, vendorsList]);
+      // 4. Campaign filter
+      const matchesCampaign = selectedCampaignFilters.length === 0 || selectedCampaignFilters.includes(vendorInfo.campaign);
 
-  const isFiltered = searchQuery !== '' || selectedStatusFilters.length > 0 || selectedLanguageFilters.length > 0;
+      return matchesQuery && matchesStatus && matchesLanguage && matchesCampaign;
+    });
+  }, [activeInTestingTests, searchQuery, selectedStatusFilters, selectedLanguageFilters, selectedCampaignFilters, vendorsList]);
+
+  const isFiltered = searchQuery !== '' || selectedStatusFilters.length > 0 || selectedLanguageFilters.length > 0 || selectedCampaignFilters.length > 0;
 
   const handleResetFilters = () => {
     setSearchQuery('');
     setSelectedStatusFilters([]);
     setSelectedLanguageFilters([]);
+    setSelectedCampaignFilters([]);
   };
 
   return (
@@ -367,6 +386,7 @@ export const TestingPortal: React.FC = () => {
             onClick={() => {
               setIsLangDropdownOpen(!isLangDropdownOpen);
               setIsStatusDropdownOpen(false);
+              setIsCampaignDropdownOpen(false);
             }}
             className="pl-3 pr-8 py-2 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-2xl focus:outline-none focus:border-primary transition-all dark:text-white flex items-center gap-2 font-bold cursor-pointer shadow-sm relative"
           >
@@ -421,18 +441,83 @@ export const TestingPortal: React.FC = () => {
               </div>
             </div>
           )}
-          {/* Clear Filters Button */}
-          {isFiltered && (
-            <button
-              onClick={handleResetFilters}
-              className="p-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-2xl text-xs font-bold flex items-center gap-1 btn-animate cursor-pointer"
-              title="Reset search & filters"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              Reset
-            </button>
+        </div>
+
+        {/* Multi-Select Campaign Filter */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => {
+              setIsCampaignDropdownOpen(!isCampaignDropdownOpen);
+              setIsStatusDropdownOpen(false);
+              setIsLangDropdownOpen(false);
+            }}
+            className="pl-3 pr-8 py-2 text-xs bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-2xl focus:outline-none focus:border-primary transition-all dark:text-white flex items-center gap-2 font-bold cursor-pointer shadow-sm relative"
+          >
+            <span>
+              {selectedCampaignFilters.length === 0
+                ? 'All Campaigns'
+                : selectedCampaignFilters.length === 1
+                ? selectedCampaignFilters[0]
+                : `Campaigns (${selectedCampaignFilters.length})`}
+            </span>
+            <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2" />
+          </button>
+
+          {isCampaignDropdownOpen && (
+            <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-2xl shadow-xl z-50 p-3 space-y-2">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2 text-xs font-bold text-slate-500">
+                <span>Filter by Campaign</span>
+                {selectedCampaignFilters.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCampaignFilters([])}
+                    className="text-rose-500 hover:underline text-[10px]"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              <div className="max-h-56 overflow-y-auto space-y-1.5 custom-scrollbar pr-1">
+                {uniqueCampaigns.map((camp) => {
+                  const isChecked = selectedCampaignFilters.includes(camp);
+                  return (
+                    <label
+                      key={camp}
+                      className="flex items-center gap-2 p-1.5 hover:bg-slate-50 dark:hover:bg-white/5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-200 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => {
+                          if (isChecked) {
+                            setSelectedCampaignFilters(selectedCampaignFilters.filter(c => c !== camp));
+                          } else {
+                            setSelectedCampaignFilters([...selectedCampaignFilters, camp]);
+                          }
+                        }}
+                        className="rounded border-slate-300 text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+                      />
+                      <span className="truncate">{camp}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
           )}
         </div>
+
+        {/* Clear Filters Button */}
+        {isFiltered && (
+          <button
+            onClick={handleResetFilters}
+            className="p-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-2xl text-xs font-bold flex items-center gap-1 btn-animate cursor-pointer"
+            title="Reset search & filters"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            Reset
+          </button>
+        )}
       </div>
 
       {/* Grid List of Active Tests */}
@@ -442,6 +527,7 @@ export const TestingPortal: React.FC = () => {
             <thead>
               <tr className="bg-slate-50 dark:bg-bg-dark text-slate-500 dark:text-slate-400 font-bold border-b border-slate-200/50 dark:border-border-dark">
                 <th className="p-4 pl-6">Candidate Company</th>
+                <th className="p-4">Campaign</th>
                 <th className="p-4">Language Pair</th>
                 <th className="p-4">Project ID</th>
                 <th className="p-4">Deadline Date</th>
@@ -453,7 +539,7 @@ export const TestingPortal: React.FC = () => {
             <tbody className="divide-y divide-slate-200/50 dark:divide-white/5">
               {filteredTests.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-12 text-center text-slate-400 text-xs font-semibold">
+                  <td colSpan={8} className="p-12 text-center text-slate-400 text-xs font-semibold">
                     No translation testing assignments found matching your active search query or filter criteria.
                   </td>
                 </tr>
@@ -463,6 +549,7 @@ export const TestingPortal: React.FC = () => {
                   return (
                     <tr key={t.id} className="hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors">
                       <td className="p-4 pl-6 font-bold text-slate-900 dark:text-white">{info.name}</td>
+                      <td className="p-4 text-xs font-bold text-slate-700 dark:text-slate-300">{info.campaign}</td>
                       <td className="p-4 text-xs font-bold text-primary">
                         {t.language || info.languages}
                       </td>

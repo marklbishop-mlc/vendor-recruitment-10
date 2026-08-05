@@ -533,7 +533,7 @@ export const VendorDirectory: React.FC = () => {
             )}
           </div>
 
-          {/* Multi-Select Application Source Filter */}
+          {/* Multi-Select Campaign Filter */}
           <div className="relative">
             <button
               type="button"
@@ -546,10 +546,10 @@ export const VendorDirectory: React.FC = () => {
             >
               <span>
                 {selectedAppFilters.length === 0
-                  ? 'All Applications'
+                  ? 'All Campaigns'
                   : selectedAppFilters.length === 1
                   ? selectedAppFilters[0]
-                  : `Applications (${selectedAppFilters.length})`}
+                  : `Campaigns (${selectedAppFilters.length})`}
               </span>
               <ChevronDown className="w-4 h-4 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2" />
             </button>
@@ -557,7 +557,7 @@ export const VendorDirectory: React.FC = () => {
             {isAppDropdownOpen && (
               <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-2xl shadow-xl z-50 p-3 space-y-2">
                 <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-2 text-xs font-bold text-slate-500">
-                  <span>Filter by Application</span>
+                  <span>Filter by Campaign</span>
                   {selectedAppFilters.length > 0 && (
                     <button
                       type="button"
@@ -569,7 +569,7 @@ export const VendorDirectory: React.FC = () => {
                   )}
                 </div>
                 <div className="max-h-48 overflow-y-auto space-y-1.5 custom-scrollbar pr-1">
-                  {['Default Application', ...applicationsList.map(a => a.name)].map((appName) => {
+                  {Array.from(new Set(['General Intake', ...applicationsList.map(a => a.name), ...vendors.map(v => v.applicationName || 'General Intake')])).sort().map((appName) => {
                     const isChecked = selectedAppFilters.includes(appName);
                     return (
                       <label
@@ -702,6 +702,7 @@ export const VendorDirectory: React.FC = () => {
                 <tr className="bg-slate-50 dark:bg-bg-dark text-slate-500 dark:text-slate-400 font-bold border-b border-slate-200/50 dark:border-border-dark">
                   <th className="p-4 pl-6">Contact Name</th>
                   <th className="p-4">Company</th>
+                  <th className="p-4">Campaign</th>
                   <th className="p-4">Tier</th>
                   <th className="p-4">Languages</th>
                   <th className="p-4">Services</th>
@@ -715,6 +716,9 @@ export const VendorDirectory: React.FC = () => {
                     <tr key={vendor.id} className="hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors">
                       <td className="p-4 pl-6 font-bold text-slate-900 dark:text-white">{vendor.contactName}</td>
                       <td className="p-4 text-slate-500 dark:text-slate-400">{vendor.companyName || <span className="italic text-slate-400">Individual</span>}</td>
+                      <td className="p-4 text-xs font-bold text-slate-700 dark:text-slate-300">
+                        {vendor.applicationName || 'General Intake'}
+                      </td>
                       <td className="p-4">
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
                           vendor.classificationTier === 1 
