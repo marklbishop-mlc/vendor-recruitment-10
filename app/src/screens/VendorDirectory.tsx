@@ -3,8 +3,8 @@ import {
   Search, Globe, Phone, Mail, Award, ChevronRight, ChevronDown, X,
   FileCheck, ShieldAlert, ExternalLink, Download, Grid, List, Edit2, Trash2
 } from 'lucide-react';
-import type { VendorProfile, WorkingLanguage, ApplicationConfig } from '../types';
-import { getActiveSortedLanguages } from '../types';
+import type { VendorProfile, WorkingLanguage, ApplicationConfig, LanguageProficiency } from '../types';
+import { getActiveSortedLanguages, PROFICIENCY_OPTIONS, formatProficiency } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { collection, getDocs, doc, setDoc, query, where, getDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -134,7 +134,7 @@ export const VendorDirectory: React.FC = () => {
   const [editLanguages, setEditLanguages] = useState<WorkingLanguage[]>([]);
   
   const [selectedLangToAdd, setSelectedLangToAdd] = useState('');
-  const [selectedProfToAdd, setSelectedProfToAdd] = useState<WorkingLanguage['proficiency']>('working');
+  const [selectedProfToAdd, setSelectedProfToAdd] = useState<LanguageProficiency>('native');
 
   useEffect(() => {
     if (loading) return;
@@ -1229,7 +1229,7 @@ export const VendorDirectory: React.FC = () => {
                   <div className="flex flex-wrap gap-1.5 p-2 bg-slate-50 dark:bg-bg-dark rounded-2xl border border-slate-200/20 max-h-24 overflow-y-auto">
                     {editLanguages.map((l) => (
                       <span key={l.language} className="inline-flex items-center gap-1.5 text-xs bg-primary/10 text-primary py-1 px-2.5 rounded-lg font-semibold">
-                        {l.language} ({l.proficiency})
+                        {l.language} ({formatProficiency(l.proficiency)})
                         <button type="button" onClick={() => handleRemoveLanguageFromEdit(l.language)} className="hover:text-rose-600 font-bold ml-1 text-slate-400">×</button>
                       </span>
                     ))}
@@ -1248,12 +1248,14 @@ export const VendorDirectory: React.FC = () => {
                     </select>
                     <select
                       value={selectedProfToAdd}
-                      onChange={(e) => setSelectedProfToAdd(e.target.value as any)}
-                      className="p-2 bg-white dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl text-xs dark:text-white cursor-pointer capitalize font-bold"
+                      onChange={(e) => setSelectedProfToAdd(e.target.value as LanguageProficiency)}
+                      className="p-2 bg-white dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl text-xs dark:text-white cursor-pointer font-bold"
                     >
-                      <option value="native">Native</option>
-                      <option value="fluent">Fluent</option>
-                      <option value="working">Professional Working</option>
+                      {PROFICIENCY_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
                     </select>
                     <button
                       type="button"

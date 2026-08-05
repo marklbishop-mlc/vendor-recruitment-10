@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import type { VendorProfile, WorkflowStage, WorkingLanguage, StatusConfig, WorkflowAction, EmailTemplate, TestRecord, WorkflowStageConfig, SlaNudgeConfig, StageProgressConfig, ApplicationConfig, WeeklyAvailabilityOption, MtqaExperienceYears, ErrorTaggingExpLevel, AgilitySelfAssessment } from '../types';
-import { getActiveSortedLanguages, DEFAULT_STAGE_PROGRESS_OPTIONS, getStageProgressStyle, getStageProgressTextColor, FULL_DEFAULT_LANGUAGES } from '../types';
+import { getActiveSortedLanguages, DEFAULT_STAGE_PROGRESS_OPTIONS, getStageProgressStyle, getStageProgressTextColor, FULL_DEFAULT_LANGUAGES, PROFICIENCY_OPTIONS, formatProficiency } from '../types';
 import { COUNTRIES, TIME_ZONES } from '../utils/locationData';
 import { 
   Plus, Search, ShieldAlert, X, ChevronDown,
@@ -482,7 +482,7 @@ export const Dashboard: React.FC = () => {
 
       // Perform full merge-tag replacement for live preview & editing
       const languagesStr = Array.isArray(candidate.workingLanguages) && candidate.workingLanguages.length > 0
-        ? candidate.workingLanguages.map((l) => `${l.language} (${l.proficiency})`).join(", ")
+        ? candidate.workingLanguages.map((l) => `${l.language} (${formatProficiency(l.proficiency)})`).join(", ")
         : "N/A";
 
       const mergeValues: Record<string, string> = {
@@ -2320,10 +2320,11 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                             id="edit-prof-select"
                             className="p-2 text-xs bg-slate-50 dark:bg-bg-dark border rounded-xl font-bold"
                           >
-                            <option value="native">Native</option>
-                            <option value="bilingual">Bilingual</option>
-                            <option value="professional">Professional</option>
-                            <option value="working">Working</option>
+                            {PROFICIENCY_OPTIONS.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
                           </select>
                           <button
                             type="button"
@@ -2922,10 +2923,11 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                         onChange={(e) => setSelectedProfToAdd(e.target.value as any)}
                         className="p-2 text-xs bg-white dark:bg-card-dark border rounded text-slate-900 dark:text-white"
                       >
-                        <option value="native">Native</option>
-                        <option value="bilingual">Bilingual</option>
-                        <option value="professional">Professional</option>
-                        <option value="working">Working</option>
+                        {PROFICIENCY_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
                       </select>
                       
                       <button
@@ -2940,7 +2942,7 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                     <div className="flex flex-wrap gap-1.5 pt-1.5">
                       {formLanguages.map((l) => (
                         <span key={l.language} className="inline-flex items-center gap-1 bg-primary/10 text-primary py-0.5 px-2.5 rounded font-bold">
-                          {l.language} ({l.proficiency})
+                          {l.language} ({formatProficiency(l.proficiency)})
                           <button
                             type="button"
                             onClick={() => handleRemoveLanguageFromForm(l.language)}

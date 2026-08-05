@@ -30,20 +30,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const DEFAULT_SERVICES_LIST = [
-  'Translation',
-  'Editing',
-  'Proofreading',
-  'Interpretation',
-  'Subtitling',
-  'Audio/Video QA',
-  'Voiceover',
-  'DTP',
-  'Desktop Publishing',
-  'MTPE',
-  'Copywriting',
-  'Transcription'
-];
+import { DEFAULT_SERVICES_LIST } from '../types';
 
 interface MultiSelectProps {
   label: string;
@@ -270,11 +257,19 @@ export const ApplicationManager: React.FC = () => {
     return () => unsub();
   }, []);
 
-  // Subscribe to languages config
+  const [servicesList, setServicesList] = useState<string[]>(DEFAULT_SERVICES_LIST);
+
+  // Subscribe to languages and services config
   useEffect(() => {
     const unsub = onSnapshot(doc(db, 'settings', 'global_config'), (snapshot) => {
-      if (snapshot.exists() && snapshot.data().languages) {
-        setLanguages(snapshot.data().languages);
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        if (data.languages) {
+          setLanguages(data.languages);
+        }
+        if (data.services && Array.isArray(data.services) && data.services.length > 0) {
+          setServicesList(data.services);
+        }
       }
     });
     return () => unsub();
@@ -754,7 +749,7 @@ export const ApplicationManager: React.FC = () => {
                 {/* 3. Services Scope Multi-Select Popover */}
                 <MultiSelectPopover
                   label="Allowed Services"
-                  options={DEFAULT_SERVICES_LIST}
+                  options={servicesList}
                   selected={selectedServices}
                   onChange={setSelectedServices}
                   placeholder="Search services..."
