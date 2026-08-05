@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import type { VendorProfile, WorkflowStage, WorkingLanguage, StatusConfig, WorkflowAction, EmailTemplate, TestRecord, WorkflowStageConfig, SlaNudgeConfig, StageProgressConfig, ApplicationConfig, WeeklyAvailabilityOption, MtqaExperienceYears, ErrorTaggingExpLevel, AgilitySelfAssessment } from '../types';
-import { getActiveSortedLanguages, DEFAULT_STAGE_PROGRESS_OPTIONS, getStageProgressStyle, getStageProgressTextColor, FULL_DEFAULT_LANGUAGES, PROFICIENCY_OPTIONS, formatProficiency } from '../types';
+import { getActiveSortedLanguages, DEFAULT_STAGE_PROGRESS_OPTIONS, getStageProgressStyle, getStageProgressTextColor, FULL_DEFAULT_LANGUAGES, PROFICIENCY_OPTIONS, formatProficiency, DEFAULT_SERVICES_LIST } from '../types';
 import { COUNTRIES, TIME_ZONES } from '../utils/locationData';
 import { 
   Plus, Search, ShieldAlert, X, ChevronDown,
@@ -142,6 +142,9 @@ export const Dashboard: React.FC = () => {
   const [editExperience, setEditExperience] = useState<'1-3' | '3-5' | '5+'>('1-3');
   const [editProz, setEditProz] = useState('');
   const [editLinkedin, setEditLinkedin] = useState('');
+  const [activeServices, setActiveServices] = useState<string[]>(DEFAULT_SERVICES_LIST);
+  const [formSelectedServices, setFormSelectedServices] = useState<string[]>(['Translation']);
+  const [editSelectedServices, setEditSelectedServices] = useState<string[]>([]);
   const [editServices, setEditServices] = useState('');
   const [editMlcRate, setEditMlcRate] = useState('');
   const [editTier, setEditTier] = useState<1 | 2 | 3>(2);
@@ -262,6 +265,9 @@ export const Dashboard: React.FC = () => {
         if (config.languages) {
           setActiveLanguages(getActiveSortedLanguages(config.languages).map((l) => l.name));
         }
+        if (config.services && Array.isArray(config.services) && config.services.length > 0) {
+          setActiveServices(config.services);
+        }
         if (config.statuses) {
           setActiveStatuses(config.statuses);
         }
@@ -287,6 +293,9 @@ export const Dashboard: React.FC = () => {
           }
           if (config.languages) {
             setActiveLanguages(getActiveSortedLanguages(config.languages).map((l) => l.name));
+          }
+          if (config.services && Array.isArray(config.services) && config.services.length > 0) {
+            setActiveServices(config.services);
           }
           if (config.statuses) {
             setActiveStatuses(config.statuses);
@@ -657,6 +666,7 @@ export const Dashboard: React.FC = () => {
     setEditProz(vendor.prozProfile || '');
     setEditLinkedin(vendor.linkedInProfile || '');
     setEditServices(vendor.services.join(', '));
+    setEditSelectedServices(vendor.services || []);
     setEditMlcRate(vendor.mlcHourlyRate.toString());
     setEditTier(vendor.classificationTier);
     setEditStatus(vendor.status);
@@ -714,7 +724,7 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
       mtPeExperience: editExperience,
       prozProfile: editProz.trim(),
       linkedInProfile: editLinkedin.trim(),
-      services: editServices.split(',').map((s) => s.trim()).filter(Boolean),
+      services: editSelectedServices.length > 0 ? editSelectedServices : editServices.split(',').map((s) => s.trim()).filter(Boolean),
       classificationTier: editTier,
       mlcHourlyRate: parseFloat(editMlcRate) || 0,
       adjustedRate: Math.round((parseFloat(editMlcRate) || 0) * 0.9),
@@ -827,7 +837,7 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
       phone: formPhone.trim(),
       isGmail: formIsGmail,
       workingLanguages: formLanguages.length > 0 ? formLanguages : [{ language: 'English', proficiency: 'working' }],
-      services: formServices.split(',').map((s) => s.trim()).filter(Boolean),
+      services: formSelectedServices.length > 0 ? formSelectedServices : (formServices ? formServices.split(',').map((s) => s.trim()).filter(Boolean) : ['Translation']),
       classificationTier: parseInt(formTier) as 1 | 2 | 3,
       source: 'external',
       category: 'outreach',
@@ -1619,6 +1629,15 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                             </span>
                           ))}
                         </div>
+                        {Array.isArray(candidate.services) && candidate.services.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1.5 cursor-pointer" onClick={() => setSelectedVendor(candidate)}>
+                            {candidate.services.map((srv, i) => (
+                              <span key={i} className="text-[9px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 py-0.5 px-2 rounded-md font-medium">
+                                {srv}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
                       {/* Quick-Stage & Progress selector directly in Card View */}
@@ -1691,6 +1710,7 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                       <>
                         <th className="p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors" onClick={() => toggleSort('companyName')}>Company Name</th>
                         <th className="p-4">Languages</th>
+                        <th className="p-4">Services</th>
                         <th className="p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors" onClick={() => toggleSort('status')}>Linguist Status</th>
                         <th className="p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors" onClick={() => toggleSort('stage')}>Workflow Stage</th>
                         <th className="p-4">Stage Progress</th>
@@ -1766,6 +1786,15 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                                 {Array.isArray(candidate.workingLanguages) && candidate.workingLanguages.map((l, i) => (
                                   <span key={i} className="text-[10px] bg-primary/10 text-primary py-0.5 px-2 rounded-md font-semibold">
                                     {typeof l === 'string' ? l : (l?.language || 'N/A')}
+                                  </span>
+                                ))}
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              <div className="flex flex-wrap gap-1 max-w-[160px]">
+                                {Array.isArray(candidate.services) && candidate.services.map((srv, i) => (
+                                  <span key={i} className="text-[9px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-1.5 py-0.5 rounded font-medium">
+                                    {srv}
                                   </span>
                                 ))}
                               </div>
@@ -2295,6 +2324,44 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                       <h4 className="text-xs font-extrabold text-primary uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-200/40 dark:border-white/5 pb-2">
                         <Award className="w-4 h-4" /> 3. Evaluation & Agility Matrix
                       </h4>
+
+                      {/* Services Offered Management */}
+                      <div className="space-y-2 p-3 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] text-slate-400 uppercase tracking-wider font-extrabold block">
+                            Services Offered
+                          </span>
+                          <span className="text-[9px] text-slate-400 font-mono">
+                            {editSelectedServices.length} Selected
+                          </span>
+                        </div>
+
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                          {activeServices.map((srv) => {
+                            const isSelected = editSelectedServices.includes(srv);
+                            return (
+                              <button
+                                key={srv}
+                                type="button"
+                                onClick={() => {
+                                  if (isSelected) {
+                                    setEditSelectedServices(editSelectedServices.filter(s => s !== srv));
+                                  } else {
+                                    setEditSelectedServices([...editSelectedServices, srv]);
+                                  }
+                                }}
+                                className={`px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
+                                  isSelected
+                                    ? 'bg-primary text-white shadow-xs'
+                                    : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 hover:bg-slate-200'
+                                }`}
+                              >
+                                {srv} {isSelected && '✓'}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
 
                       {/* Working Languages */}
                       <div className="space-y-2 p-3 bg-white dark:bg-card-dark rounded-xl border border-slate-200/50">
@@ -2952,6 +3019,36 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                           </button>
                         </span>
                       ))}
+                    </div>
+                  </div>
+
+                  {/* Services Offered Selection */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Services Offered</label>
+                    <div className="flex flex-wrap gap-1.5 p-2.5 bg-slate-50 dark:bg-card-dark/60 rounded-xl border border-slate-200 dark:border-border-dark">
+                      {activeServices.map((srv) => {
+                        const isSelected = formSelectedServices.includes(srv);
+                        return (
+                          <button
+                            key={srv}
+                            type="button"
+                            onClick={() => {
+                              if (isSelected) {
+                                setFormSelectedServices(formSelectedServices.filter(s => s !== srv));
+                              } else {
+                                setFormSelectedServices([...formSelectedServices, srv]);
+                              }
+                            }}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-all ${
+                              isSelected
+                                ? 'bg-primary text-white shadow-xs'
+                                : 'bg-white text-slate-600 dark:bg-bg-dark dark:text-slate-300 hover:bg-slate-100 border border-slate-200 dark:border-border-dark'
+                            }`}
+                          >
+                            {srv} {isSelected && '✓'}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
 
