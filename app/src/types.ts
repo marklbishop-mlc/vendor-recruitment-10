@@ -89,6 +89,10 @@ export interface VendorProfile {
   splitLanguage?: string;  // Specific language pair for split candidate profile
   applicationId?: string;  // Application Form ID candidate applied through
   applicationName?: string; // Application Form Name candidate applied through
+  nudgeCount?: number;
+  nudgeCountInStage?: number;
+  stageEnteredAt?: string;
+  lastNudgeAt?: string;
 
   // Detailed Application Tool Fields
   country?: string;
@@ -239,11 +243,20 @@ export interface TestingModeConfig {
   recipientEmails: string[];
 }
 
+export interface StageSlaNudgeConfig {
+  stageId: string;             // e.g. "application", "nda", "grading", "contract", "onboarded"
+  enabled: boolean;            // Enable or disable nudges for this specific stage
+  waitDays: number;            // Number of days to wait between nudges (e.g. 4)
+  maxNudges: 1 | 2 | 3;        // Max number of nudges (1, 2, or 3)
+  customTemplateId?: string;   // Optional custom email template for this stage
+}
+
 export interface SlaNudgeConfig {
   enabled: boolean;
   mode: 'automated' | 'one_click';
-  ndaWaitDays: number;
-  maxNudges: number;
+  stageConfigs?: Record<string, StageSlaNudgeConfig>;
+  ndaWaitDays?: number;
+  maxNudges?: number;
 }
 
 export interface LanguageConfig {

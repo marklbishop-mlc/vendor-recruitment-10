@@ -91,52 +91,90 @@ export const checkRecruitmentStatus = onRequest(
         const slaConfig = config?.slaNudges;
 
         if (slaConfig?.enabled && slaConfig?.mode === 'automated') {
-          const waitDays = Number(slaConfig.ndaWaitDays) || 3;
-          const maxNudges = Number(slaConfig.maxNudges) || 2;
           const nowMs = Date.now();
+          const defaultStageConfigs: Record<string, any> = {
+            application: { enabled: true, waitDays: 3, maxNudges: 2 },
+            nda: { enabled: true, waitDays: 4, maxNudges: 3 },
+            grading: { enabled: true, waitDays: 4, maxNudges: 2 },
+            contract: { enabled: true, waitDays: 3, maxNudges: 2 },
+          };
 
-          const ndaVendors = await db.collection("vendors")
-            .where("stage", "==", "nda")
-            .get();
+          const stageConfigs = slaConfig.stageConfigs || defaultStageConfigs;
 
-          for (const vDoc of ndaVendors.docs) {
-            const vData = vDoc.data();
-            if (vData.hasSignedNda) continue;
+          for (const [stageKey, stgCfg] of Object.entries(stageConfigs)) {
+            const stageSla = stgCfg as any;
+            if (!stageSla?.enabled) continue;
 
-            const updatedMs = new Date(vData.updatedAt || vData.submittedAt || Date.now()).getTime();
-            const daysStagnant = (nowMs - updatedMs) / (1000 * 60 * 60 * 24);
-            const currentNudges = Number(vData.nudgeCount) || 0;
+            const waitDays = Number(stageSla.waitDays) || 4;
+            const maxNudges = Number(stageSla.maxNudges) || 3;
 
-            const lastNudgeMs = vData.lastNudgeAt ? new Date(vData.lastNudgeAt).getTime() : 0;
-            const hoursSinceLastNudge = (nowMs - lastNudgeMs) / (1000 * 60 * 60);
+            const stageVendors = await db.collection("vendors")
+              .where("stage", "==", stageKey)
+              .get();
 
-            if (daysStagnant >= waitDays && currentNudges < maxNudges && hoursSinceLastNudge >= 48) {
-              const ndaUrl = `https://mlc-vendor-recruitment.web.app/portal/nda/${vDoc.id}`;
-              const notificationRef = db.collection("notifications").doc();
+            for (const vDoc of stageVendors.docs) {
+              const vData = vDoc.data();
 
-              await notificationRef.set({
-                id: notificationRef.id,
-                vendorId: vDoc.id,
-                vendorName: vData.contactName || "Specialist",
-                vendorEmail: vData.email || "",
-                actionName: "[Auto SLA Nudge] NDA Signature Reminder",
-                templateId: "t-2",
-                templateName: "NDA Signature Request",
-                recipientType: "vendor",
-                email: vData.email || "",
-                subject: `Reminder: Action Required - Sign NDA for Multilingual Connections (${vData.contactName})`,
-                body: `Hi ${vData.contactName},\n\nWe noticed you haven't completed your Non-Disclosure Agreement (NDA) yet.\n\nPlease click the link below to review and sign your NDA online so we can proceed with your application:\n${ndaUrl}\n\nThank you,\nMLC Recruitment & Compliance Team`,
-                status: "queued",
-                createdAt: new Date().toISOString()
-              });
+              // Skip NDA stage if NDA is already signed
+              if (stageKey === "nda" && vData.hasSignedNda) continue;
+              // Skip onboarded candidates
+              if (stageKey === "onboarded") continue;
 
-              await vDoc.ref.update({
-                nudgeCount: currentNudges + 1,
-                lastNudgeAt: new Date().toISOString()
-              });
+              const stageEnteredMs = vData.stageEnteredAt 
+                ? new Date(vData.stageEnteredAt).getTime()
+                : new Date(vData.updatedAt || vData.submittedAt || Date.now()).getTime();
 
-              nudgesQueued++;
-              logger.info(`Auto SLA Nudge queued for candidate ${vData.contactName} (${vDoc.id})`);
+              const daysInStage = (nowMs - stageEnteredMs) / (1000 * 60 * 60 * 24);
+              const currentNudges = Number(vData.nudgeCountInStage ?? vData.nudgeCount) || 0;
+              const nextNudgeNumber = currentNudges + 1;
+
+              if (nextNudgeNumber > maxNudges) continue;
+
+              // Nudge #1 triggers after 1 * waitDays, Nudge #2 after 2 * waitDays, Nudge #3 after 3 * waitDays
+              const requiredDays = nextNudgeNumber * waitDays;
+              const lastNudgeMs = vData.lastNudgeAt ? new Date(vData.lastNudgeAt).getTime() : 0;
+              const daysSinceLastNudge = (nowMs - lastNudgeMs) / (1000 * 60 * 60 * 24);
+
+              if (daysInStage >= requiredDays && (lastNudgeMs === 0 || daysSinceLastNudge >= (waitDays - 0.2))) {
+                const ndaUrl = `https://mlc-vendor-recruitment.web.app/portal/nda/${vDoc.id}`;
+                const notificationRef = db.collection("notifications").doc();
+
+                let subject = `[Reminder #${nextNudgeNumber}] Application Update - Multilingual Connections (${vData.contactName || "Specialist"})`;
+                let body = `Hi ${vData.contactName || "Specialist"},\n\nWe are following up regarding your recruitment application with Multilingual Connections (Stage: ${stageKey.toUpperCase()}).\n\nPlease check your portal to complete the required steps or reply to this message.\n\nBest regards,\nMLC Recruitment Team`;
+
+                if (stageKey === "nda") {
+                  subject = `[Reminder #${nextNudgeNumber}] Action Required: Sign NDA for Multilingual Connections (${vData.contactName || "Specialist"})`;
+                  body = `Hi ${vData.contactName || "Specialist"},\n\nWe noticed you haven't completed your Non-Disclosure Agreement (NDA) yet.\n\nPlease click the link below to review and sign your NDA online so we can proceed with your application:\n${ndaUrl}\n\nThank you,\nMLC Recruitment & Compliance Team`;
+                } else if (stageKey === "grading") {
+                  subject = `[Reminder #${nextNudgeNumber}] Evaluation Test Status - Multilingual Connections`;
+                  body = `Hi ${vData.contactName || "Specialist"},\n\nThis is a friendly reminder regarding your ongoing linguistic assessment for Multilingual Connections.\n\nPlease reach out if you have any questions or require additional time.\n\nBest regards,\nMLC Evaluation Team`;
+                }
+
+                await notificationRef.set({
+                  id: notificationRef.id,
+                  vendorId: vDoc.id,
+                  vendorName: vData.contactName || "Specialist",
+                  vendorEmail: vData.email || "",
+                  actionName: `[Auto SLA Nudge #${nextNudgeNumber}] Stage: ${stageKey.toUpperCase()}`,
+                  templateId: "sla-stage-reminder",
+                  templateName: `SLA Stage Nudge (${stageKey})`,
+                  recipientType: "vendor",
+                  email: vData.email || "",
+                  subject,
+                  body,
+                  status: "queued",
+                  createdAt: new Date().toISOString()
+                });
+
+                await vDoc.ref.update({
+                  nudgeCountInStage: currentNudges + 1,
+                  nudgeCount: (Number(vData.nudgeCount) || 0) + 1,
+                  lastNudgeAt: new Date().toISOString()
+                });
+
+                nudgesQueued++;
+                logger.info(`Auto SLA Nudge #${nextNudgeNumber} queued for candidate ${vData.contactName} (${vDoc.id}) in stage "${stageKey}"`);
+              }
             }
           }
         }

@@ -3,7 +3,7 @@ import {
   Globe, Shield, Plus, Trash2, Save, RotateCcw, Edit2, Download, UploadCloud, CheckCircle2, FileText, Info, Mail, ChevronDown, ChevronUp, Star
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { StatusConfig, VendorProfile, LanguageConfig } from '../types';
+import type { StatusConfig, VendorProfile, LanguageConfig, StageSlaNudgeConfig } from '../types';
 import { normalizeLanguageList, FULL_DEFAULT_LANGUAGES } from '../types';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -116,8 +116,15 @@ export const Settings: React.FC = () => {
 
   // SLA Nudge States
   const [slaNudgesEnabled, setSlaNudgesEnabled] = useState(true);
-  const [slaNudgeMode, setSlaNudgeMode] = useState<'automated' | 'one_click'>('one_click');
+  const [slaNudgeMode, setSlaNudgeMode] = useState<'automated' | 'one_click'>('automated');
   const [slaNdaWaitDays, setSlaNdaWaitDays] = useState(3);
+  const [stageSlaConfigs, setStageSlaConfigs] = useState<Record<string, StageSlaNudgeConfig>>({
+    application: { stageId: 'application', enabled: true, waitDays: 3, maxNudges: 2 },
+    nda: { stageId: 'nda', enabled: true, waitDays: 4, maxNudges: 3 },
+    grading: { stageId: 'grading', enabled: true, waitDays: 4, maxNudges: 2 },
+    contract: { stageId: 'contract', enabled: true, waitDays: 3, maxNudges: 2 },
+    onboarded: { stageId: 'onboarded', enabled: false, waitDays: 7, maxNudges: 1 },
+  });
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -144,8 +151,11 @@ export const Settings: React.FC = () => {
           }
           if (config.slaNudges) {
             setSlaNudgesEnabled(config.slaNudges.enabled ?? true);
-            setSlaNudgeMode(config.slaNudges.mode || 'one_click');
+            setSlaNudgeMode(config.slaNudges.mode || 'automated');
             setSlaNdaWaitDays(config.slaNudges.ndaWaitDays || 3);
+            if (config.slaNudges.stageConfigs) {
+              setStageSlaConfigs(config.slaNudges.stageConfigs);
+            }
           }
           if (config.smtp) {
             setSmtpHost(config.smtp.host || '');
@@ -173,7 +183,10 @@ export const Settings: React.FC = () => {
     testEnabled: boolean = testingEnabled,
     testSubtype: 'intercept' | 'send_to_admin' = testingModeSubtype,
     testRecipients: string[] = testingRecipients,
-    smtpConfigOverride?: { host: string; port: number; user: string; pass: string; from: string }
+    smtpConfigOverride?: { host: string; port: number; user: string; pass: string; from: string },
+    updatedStageSlaConfigs?: Record<string, StageSlaNudgeConfig>,
+    updatedSlaEnabled?: boolean,
+    updatedSlaMode?: 'automated' | 'one_click'
   ) => {
     try {
       const docRef = doc(db, 'settings', 'global_config');
@@ -190,8 +203,9 @@ export const Settings: React.FC = () => {
           recipientEmails: testRecipients
         },
         slaNudges: {
-          enabled: slaNudgesEnabled,
-          mode: slaNudgeMode,
+          enabled: updatedSlaEnabled ?? slaNudgesEnabled,
+          mode: updatedSlaMode ?? slaNudgeMode,
+          stageConfigs: updatedStageSlaConfigs ?? stageSlaConfigs,
           ndaWaitDays: slaNdaWaitDays,
           maxNudges: 2
         },
@@ -1171,7 +1185,7 @@ export const Settings: React.FC = () => {
         </div>
 
         {!collapsedSections.sla_nudges && (
-          <div className="space-y-4 border-t border-slate-100 dark:border-white/5 pt-4">
+          <div className="space-y-5 border-t border-slate-100 dark:border-white/5 pt-4">
             <div className="flex items-center gap-3">
               <input
                 type="checkbox"
@@ -1180,60 +1194,169 @@ export const Settings: React.FC = () => {
                 onChange={(e) => {
                   const val = e.target.checked;
                   setSlaNudgesEnabled(val);
+                  saveConfigDirect(languages, statuses, testingEnabled, testingModeSubtype, testingRecipients, undefined, stageSlaConfigs, val, slaNudgeMode);
                 }}
                 className="w-5 h-5 rounded text-primary focus:ring-primary bg-slate-50 border-slate-200 cursor-pointer"
               />
-              <label htmlFor="sla-nudges-enabled" className="text-xs font-bold text-slate-700 dark:text-slate-200 cursor-pointer select-none">
-                Enable SLA Follow-Up Nudges & Reminders
+              <label htmlFor="sla-nudges-enabled" className="text-xs font-extrabold text-slate-900 dark:text-white cursor-pointer select-none">
+                Enable SLA Follow-Up Nudges & Automated Reminders
               </label>
             </div>
 
             {slaNudgesEnabled && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-slate-50 dark:bg-bg-dark rounded-2xl border border-slate-200/40">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                    Nudge Execution Mode
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-5">
+                {/* Execution Mode */}
+                <div className="p-4 bg-slate-50 dark:bg-bg-dark rounded-2xl border border-slate-200/50 dark:border-white/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div>
+                    <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Nudge Execution Mode</span>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Automated background triggers or manual 1-click PM approvals.</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 w-full sm:w-auto">
                     <button
                       type="button"
-                      onClick={() => setSlaNudgeMode('one_click')}
+                      onClick={() => {
+                        setSlaNudgeMode('automated');
+                        saveConfigDirect(languages, statuses, testingEnabled, testingModeSubtype, testingRecipients, undefined, stageSlaConfigs, slaNudgesEnabled, 'automated');
+                      }}
                       className={`py-2 px-3 border text-xs font-bold rounded-xl transition-all cursor-pointer text-center ${
-                        slaNudgeMode === 'one_click'
-                          ? 'bg-primary text-white border-primary shadow-sm'
-                          : 'bg-white dark:bg-card-dark text-slate-600 dark:text-slate-300 border-slate-200/40'
+                        slaNudgeMode === 'automated'
+                          ? 'bg-primary text-white border-primary shadow-xs'
+                          : 'bg-white dark:bg-card-dark text-slate-600 dark:text-slate-300 border-slate-200/50 hover:bg-slate-100'
                       }`}
                     >
-                      1-Click PM Approval
+                      🤖 Automated Cron
                     </button>
                     <button
                       type="button"
-                      onClick={() => setSlaNudgeMode('automated')}
+                      onClick={() => {
+                        setSlaNudgeMode('one_click');
+                        saveConfigDirect(languages, statuses, testingEnabled, testingModeSubtype, testingRecipients, undefined, stageSlaConfigs, slaNudgesEnabled, 'one_click');
+                      }}
                       className={`py-2 px-3 border text-xs font-bold rounded-xl transition-all cursor-pointer text-center ${
-                        slaNudgeMode === 'automated'
-                          ? 'bg-primary text-white border-primary shadow-sm'
-                          : 'bg-white dark:bg-card-dark text-slate-600 dark:text-slate-300 border-slate-200/40'
+                        slaNudgeMode === 'one_click'
+                          ? 'bg-primary text-white border-primary shadow-xs'
+                          : 'bg-white dark:bg-card-dark text-slate-600 dark:text-slate-300 border-slate-200/50 hover:bg-slate-100'
                       }`}
                     >
-                      Fully Automated (Background)
+                      👇 1-Click Approval
                     </button>
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                    NDA Wait Days (Threshold)
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      min={1}
-                      max={14}
-                      value={slaNdaWaitDays}
-                      onChange={(e) => setSlaNdaWaitDays(parseInt(e.target.value) || 3)}
-                      className="w-24 p-2 text-xs bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-xl font-bold text-slate-900 dark:text-white focus:outline-none"
-                    />
-                    <span className="text-xs text-slate-500 font-semibold">Days in NDA stage before reminder</span>
+                {/* Per-Stage Matrix */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-[11px] font-extrabold text-slate-700 dark:text-slate-200 uppercase tracking-wider block">Stage SLA Nudge Matrix</span>
+                      <p className="text-xs text-slate-400">Configure reminder frequency (1-3 nudges) and wait intervals (in days) per workflow stage.</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {[
+                      { id: 'application', label: 'Applied / Screening', icon: '📝' },
+                      { id: 'nda', label: 'NDA Pending', icon: '🛡️' },
+                      { id: 'grading', label: 'Grading / Assessment', icon: '📝' },
+                      { id: 'contract', label: 'Rates & Contract', icon: '💼' },
+                      { id: 'onboarded', label: 'Onboarded', icon: '🎉' },
+                    ].map((stg) => {
+                      const currentCfg: StageSlaNudgeConfig = stageSlaConfigs[stg.id] || {
+                        stageId: stg.id,
+                        enabled: stg.id === 'nda' || stg.id === 'grading',
+                        waitDays: 4,
+                        maxNudges: 3
+                      };
+
+                      const updateStageCfg = (partial: Partial<StageSlaNudgeConfig>) => {
+                        const updated = {
+                          ...stageSlaConfigs,
+                          [stg.id]: { ...currentCfg, ...partial }
+                        };
+                        setStageSlaConfigs(updated);
+                        saveConfigDirect(languages, statuses, testingEnabled, testingModeSubtype, testingRecipients, undefined, updated, slaNudgesEnabled, slaNudgeMode);
+                      };
+
+                      return (
+                        <div
+                          key={stg.id}
+                          className={`p-4 rounded-2xl border transition-all ${
+                            currentCfg.enabled
+                              ? 'bg-white dark:bg-card-dark border-slate-200/80 dark:border-border-dark shadow-xs'
+                              : 'bg-slate-50/50 dark:bg-bg-dark/40 border-slate-200/40 opacity-60'
+                          }`}
+                        >
+                          <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+                            {/* Stage Info & Toggle */}
+                            <div className="flex items-center gap-3 min-w-[200px]">
+                              <input
+                                type="checkbox"
+                                id={`stage-nudge-${stg.id}`}
+                                checked={currentCfg.enabled}
+                                onChange={(e) => updateStageCfg({ enabled: e.target.checked })}
+                                className="w-4 h-4 rounded text-primary focus:ring-primary bg-slate-50 border-slate-300 cursor-pointer"
+                              />
+                              <label htmlFor={`stage-nudge-${stg.id}`} className="cursor-pointer select-none">
+                                <span className="font-extrabold text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
+                                  <span>{stg.icon}</span>
+                                  <span>{stg.label}</span>
+                                </span>
+                                <span className="text-[10px] text-slate-400 block font-normal">
+                                  {currentCfg.enabled ? 'SLA Nudges Enabled' : 'Nudges Disabled'}
+                                </span>
+                              </label>
+                            </div>
+
+                            {currentCfg.enabled && (
+                              <div className="flex-1 flex flex-col md:flex-row items-stretch md:items-center justify-end gap-4 border-t lg:border-t-0 border-slate-100 dark:border-white/5 pt-3 lg:pt-0">
+                                {/* Wait Days Selection */}
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider shrink-0">Wait Days:</span>
+                                  <select
+                                    value={currentCfg.waitDays}
+                                    onChange={(e) => updateStageCfg({ waitDays: parseInt(e.target.value) || 4 })}
+                                    className="py-1.5 px-3 bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl text-xs font-bold text-slate-900 dark:text-white cursor-pointer"
+                                  >
+                                    {[1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14].map((d) => (
+                                      <option key={d} value={d}>{d} Day{d > 1 ? 's' : ''}</option>
+                                    ))}
+                                  </select>
+                                </div>
+
+                                {/* Max Nudges Selection */}
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider shrink-0">Max Nudges:</span>
+                                  <div className="flex gap-1">
+                                    {([1, 2, 3] as const).map((n) => (
+                                      <button
+                                        key={n}
+                                        type="button"
+                                        onClick={() => updateStageCfg({ maxNudges: n })}
+                                        className={`px-2.5 py-1 text-xs font-extrabold rounded-lg border transition-all cursor-pointer ${
+                                          currentCfg.maxNudges === n
+                                            ? 'bg-primary text-white border-primary shadow-xs'
+                                            : 'bg-slate-50 dark:bg-bg-dark text-slate-600 dark:text-slate-300 border-slate-200 dark:border-border-dark hover:border-primary/50'
+                                        }`}
+                                      >
+                                        {n} Nudge{n > 1 ? 's' : ''}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                {/* Schedule Timeline Preview Badge */}
+                                <div className="px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-[11px] font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
+                                  <span>📅 Timeline:</span>
+                                  <span>
+                                    {Array.from({ length: currentCfg.maxNudges }, (_, idx) => `#${idx + 1} @ Day ${(idx + 1) * currentCfg.waitDays}`).join(' ➔ ')}
+                                    <span className="text-slate-400 ml-1">➔ Stop</span>
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
