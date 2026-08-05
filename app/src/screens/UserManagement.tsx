@@ -71,13 +71,54 @@ export const UserManagement: React.FC = () => {
       try {
         // 1. Fetch Users
         const usersSnap = await getDocs(collection(db, 'users'));
-        const uList: UserProfile[] = [];
+        const rawList: UserProfile[] = [];
         usersSnap.forEach((d) => {
-          uList.push(d.data() as UserProfile);
+          rawList.push({ ...d.data(), uid: d.id } as UserProfile);
         });
 
-        if (uList.length > 0) {
-          setUsersList(uList);
+        if (rawList.length > 0) {
+          // Group by email to merge duplicate accounts (e.g. pre-created 'user-xxx' and Google Auth UID)
+          const emailMap = new Map<string, { profile: UserProfile; docIds: string[] }>();
+          const roleRank = (r: UserRole) => (r === 'admin' ? 3 : r === 'manager' ? 2 : 1);
+
+          rawList.forEach((u) => {
+            const emailKey = (u.email || '').toLowerCase();
+            if (!emailKey) return;
+
+            if (!emailMap.has(emailKey)) {
+              emailMap.set(emailKey, { profile: u, docIds: [u.uid] });
+            } else {
+              const existing = emailMap.get(emailKey)!;
+              existing.docIds.push(u.uid);
+              const existingRank = roleRank(existing.profile.role);
+              const newRank = roleRank(u.role);
+
+              if (newRank > existingRank || (newRank === existingRank && !u.uid.startsWith('user-') && existing.profile.uid.startsWith('user-'))) {
+                existing.profile = u;
+              }
+            }
+          });
+
+          const deduplicatedList: UserProfile[] = [];
+          const { deleteDoc, doc: docFn } = await import('firebase/firestore');
+
+          for (const [, { profile, docIds }] of emailMap) {
+            deduplicatedList.push(profile);
+            // Clean up orphan duplicate documents if multiple docs exist for one email
+            if (docIds.length > 1) {
+              for (const id of docIds) {
+                if (id !== profile.uid) {
+                  try {
+                    await deleteDoc(docFn(db, 'users', id));
+                  } catch (err) {
+                    console.warn("Failed to delete orphan user doc", err);
+                  }
+                }
+              }
+            }
+          }
+
+          setUsersList(deduplicatedList);
         } else {
           // Seed initial users if empty
           for (const u of INITIAL_USERS) {
@@ -139,16 +180,18 @@ export const UserManagement: React.FC = () => {
     e.preventDefault();
     if (!displayName.trim() || !email.trim()) return;
 
+    const userEmail = email.trim().toLowerCase();
     const isEdit = modalMode === 'edit';
     const timestamp = new Date().toISOString();
     const currentActor = user || { uid: 'system', displayName: 'System Administrator' };
 
-    const originalUser = usersList.find((u) => u.uid === targetUid);
+    const originalUser = usersList.find((u) => u.uid === targetUid || u.email.toLowerCase() === userEmail);
+    const effectiveUid = originalUser ? originalUser.uid : targetUid;
     
     const userProfile: UserProfile = {
-      uid: targetUid,
+      uid: effectiveUid,
       displayName: displayName.trim(),
-      email: email.trim().toLowerCase(),
+      email: userEmail,
       role,
       createdAt: originalUser ? originalUser.createdAt : timestamp,
       updatedAt: timestamp
@@ -159,7 +202,7 @@ export const UserManagement: React.FC = () => {
     if (isEdit && originalUser) {
       const changes: string[] = [];
       if (originalUser.displayName !== displayName) changes.push(`name to "${displayName}"`);
-      if (originalUser.email !== email) changes.push(`email to "${email}"`);
+      if (originalUser.email !== userEmail) changes.push(`email to "${userEmail}"`);
       if (originalUser.role !== role) changes.push(`role to "${role}"`);
       details = `Updated staff user profile of ${originalUser.displayName}: ${changes.join(', ') || 'no changes'}`;
     }
@@ -169,25 +212,22 @@ export const UserManagement: React.FC = () => {
       actorId: currentActor.uid,
       actorName: currentActor.displayName,
       action: isEdit ? 'ROLE_UPDATE' : 'USER_CREATE',
-      targetId: targetUid,
+      targetId: effectiveUid,
       timestamp,
       details
     };
 
     try {
-      // Write user to cloud db
-      await setDoc(doc(db, 'users', targetUid), userProfile);
+      // Write user to cloud db under effective UID
+      await setDoc(doc(db, 'users', effectiveUid), userProfile);
       
       // Write audit log to cloud db
       await setDoc(doc(db, 'audit_logs', log.id), log);
 
       // Update state locally
       setUsersList((prev) => {
-        if (isEdit) {
-          return prev.map((u) => u.uid === targetUid ? userProfile : u);
-        } else {
-          return [...prev, userProfile];
-        }
+        const filtered = prev.filter(u => u.uid !== effectiveUid && u.email.toLowerCase() !== userEmail);
+        return [...filtered, userProfile];
       });
 
       setAuditLogs((prev) => [log, ...prev]);

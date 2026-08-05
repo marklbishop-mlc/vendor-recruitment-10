@@ -41,30 +41,71 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const userDocSnap = await getDoc(userDocRef);
       let profile: UserProfile;
+      const userEmail = (firebaseUser.email || '').toLowerCase();
+
+      // Check if there are any pre-created user records for this email address
+      let preCreatedProfile: UserProfile | null = null;
+      let orphanDocId: string | null = null;
+
+      if (userEmail) {
+        try {
+          const { collection, query, where, getDocs } = await import('firebase/firestore');
+          const q = query(collection(db, 'users'), where('email', '==', userEmail));
+          const emailSnap = await getDocs(q);
+          emailSnap.forEach((d) => {
+            if (d.id !== firebaseUser.uid) {
+              const data = d.data() as UserProfile;
+              const currentPre = preCreatedProfile as UserProfile | null;
+              if (!currentPre || data.role === 'admin' || (data.role === 'manager' && currentPre.role !== 'admin')) {
+                preCreatedProfile = data;
+              }
+              orphanDocId = d.id;
+            }
+          });
+        } catch (e) {
+          console.warn("Could not query users by email", e);
+        }
+      }
+
+      const preRole = preCreatedProfile ? (preCreatedProfile as UserProfile).role : null;
+      const preName = preCreatedProfile ? (preCreatedProfile as UserProfile).displayName : null;
+      const preCreated = preCreatedProfile ? (preCreatedProfile as UserProfile).createdAt : null;
 
       if (!userDocSnap.exists()) {
-        // Automatically promote mark@mlconnections.com to Admin, otherwise default to User
-        const assignedRole: UserRole = firebaseUser.email === GOOGLE_ADMIN_EMAIL ? 'admin' : 'user';
-        
+        // Automatically promote mark@mlconnections.com to Admin, otherwise inherit pre-created role or default to 'user'
+        let assignedRole: UserRole = userEmail === GOOGLE_ADMIN_EMAIL ? 'admin' : 'user';
+        if (preRole) {
+          assignedRole = preRole;
+        }
+
         profile = {
           uid: firebaseUser.uid,
-          email: firebaseUser.email || '',
-          displayName: firebaseUser.displayName || 'MLC User',
+          email: userEmail,
+          displayName: firebaseUser.displayName || preName || 'MLC User',
           role: assignedRole,
-          createdAt: new Date().toISOString(),
+          createdAt: preCreated || new Date().toISOString(),
           updatedAt: new Date().toISOString()
         };
         
-        // Save to named firestore database
         await setDoc(userDocRef, profile);
       } else {
         const existingData = userDocSnap.data() as UserProfile;
         
-        // Double check mark@mlconnections.com is admin
-        if (firebaseUser.email === GOOGLE_ADMIN_EMAIL && existingData.role !== 'admin') {
+        // Determine highest role between existing profile and pre-created profile
+        let finalRole: UserRole = existingData.role;
+        if (userEmail === GOOGLE_ADMIN_EMAIL) {
+          finalRole = 'admin';
+        } else if (preRole === 'admin') {
+          finalRole = 'admin';
+        } else if (preRole === 'manager' && existingData.role === 'user') {
+          finalRole = 'manager';
+        }
+
+        if (finalRole !== existingData.role || (preName && (!existingData.displayName || existingData.displayName === 'MLC User'))) {
           profile = {
             ...existingData,
-            role: 'admin',
+            displayName: (existingData.displayName && existingData.displayName !== 'MLC User') ? existingData.displayName : (firebaseUser.displayName || preName || existingData.displayName),
+            role: finalRole,
             updatedAt: new Date().toISOString()
           };
           await setDoc(userDocRef, profile, { merge: true });
@@ -72,7 +113,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           profile = existingData;
         }
       }
-      
+
+      // Delete the orphan dummy document if found so duplicate rows don't exist
+      if (orphanDocId) {
+        try {
+          const { doc: docFn, deleteDoc } = await import('firebase/firestore');
+          await deleteDoc(docFn(db, 'users', orphanDocId));
+        } catch (e) {
+          console.warn("Could not clean up orphan user doc", e);
+        }
+      }
+
       setUser(profile);
       setIsMockMode(false);
       setSyncError(null);
