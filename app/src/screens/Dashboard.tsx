@@ -997,7 +997,7 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
       v.phone || '',
       Array.isArray(v.services) ? v.services.join('; ') : '',
       Array.isArray(v.workingLanguages) 
-        ? v.workingLanguages.map((l) => typeof l === 'string' ? l : `${l?.language || 'N/A'} (${l?.proficiency || 'working'})`).join('; ') 
+        ? v.workingLanguages.map((l) => typeof l === 'string' ? l : `${l?.language || 'N/A'} (${formatProficiency(l?.proficiency)})`).join('; ') 
         : '',
       v.classificationTier || 2,
       v.mlcHourlyRate || 0,
@@ -1615,7 +1615,7 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                         <div className="flex flex-wrap gap-1.5 cursor-pointer" onClick={() => setSelectedVendor(candidate)}>
                           {Array.isArray(candidate.workingLanguages) && candidate.workingLanguages.map((l, i) => (
                             <span key={i} className="text-[10px] bg-primary/10 text-primary py-0.5 px-2.5 rounded-md font-semibold">
-                              {typeof l === 'string' ? l : `${l?.language || 'N/A'} (${l?.proficiency || 'working'})`}
+                              {typeof l === 'string' ? l : `${l?.language || 'N/A'} (${formatProficiency(l?.proficiency)})`}
                             </span>
                           ))}
                         </div>
@@ -2349,7 +2349,7 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                             >
                               <span className="font-extrabold">{l.language}</span>
                               <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-primary/10 text-primary capitalize">
-                                {l.proficiency}
+                                {formatProficiency(l.proficiency)}
                               </span>
                               <button
                                 type="button"
@@ -3430,7 +3430,7 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                     {splitPrompt.vendor.workingLanguages?.map((l) => (
                       <div key={l.language} className="flex items-center gap-2 text-xs font-bold text-slate-800 dark:text-slate-200">
                         <span className="w-2 h-2 rounded-full bg-primary"></span>
-                        {splitPrompt.vendor.contactName} ({l.language}) — <span className="text-[10px] text-slate-400 font-normal capitalize">{l.proficiency}</span>
+                        {splitPrompt.vendor.contactName} ({l.language}) — <span className="text-[10px] text-slate-400 font-normal capitalize">{formatProficiency(l.proficiency)}</span>
                       </div>
                     ))}
                   </div>

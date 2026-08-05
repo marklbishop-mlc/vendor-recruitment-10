@@ -234,7 +234,7 @@ export const VendorDirectory: React.FC = () => {
       v.phone || '',
       Array.isArray(v.services) ? v.services.join('; ') : '',
       Array.isArray(v.workingLanguages) 
-        ? v.workingLanguages.map((l) => typeof l === 'string' ? l : `${l?.language || 'N/A'} (${l?.proficiency || 'working'})`).join('; ') 
+        ? v.workingLanguages.map((l) => typeof l === 'string' ? l : `${l?.language || 'N/A'} (${formatProficiency(l?.proficiency)})`).join('; ') 
         : '',
       v.classificationTier || 2,
       v.mlcHourlyRate || 0,
@@ -652,7 +652,7 @@ export const VendorDirectory: React.FC = () => {
                               title={isVerified ? 'Tested & Verified Language Pair' : 'Untested / Self-Reported Language Pair'}
                             >
                               <Globe className="w-2.5 h-2.5" />
-                              {l.language} ({l.proficiency})
+                              {l.language} ({formatProficiency(l.proficiency)})
                               {isVerified && <span className="text-[9px]">🟢</span>}
                             </span>
                           );
@@ -855,7 +855,7 @@ export const VendorDirectory: React.FC = () => {
                         <div className="flex flex-wrap gap-1.5">
                           {selectedVendor.workingLanguages.map((l, i) => (
                             <span key={i} className="text-xs bg-primary/15 text-primary py-0.5 px-2.5 rounded-md font-semibold">
-                              {l.language} ({l.proficiency})
+                              {l.language} ({formatProficiency(l.proficiency)})
                             </span>
                           ))}
                         </div>
