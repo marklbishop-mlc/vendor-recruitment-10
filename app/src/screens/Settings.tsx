@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Globe, Shield, Plus, Trash2, Save, RotateCcw, Edit2, Download, UploadCloud, CheckCircle2, FileText, Info, Mail, ChevronDown, ChevronUp, Star
+  Globe, Shield, Plus, Trash2, Save, RotateCcw, Edit2, Download, UploadCloud, CheckCircle2, FileText, Info, Mail, ChevronDown, Star
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { StatusConfig, VendorProfile, LanguageConfig, StageSlaNudgeConfig } from '../types';
@@ -638,12 +638,21 @@ export const Settings: React.FC = () => {
             </p>
           </div>
           <button type="button" className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 text-slate-400">
-            {collapsedSections.languages ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
+            <motion.div animate={{ rotate: collapsedSections.languages ? 0 : 180 }} transition={{ duration: 0.2 }}>
+              <ChevronDown className="w-5 h-5" />
+            </motion.div>
           </button>
         </div>
 
+        <AnimatePresence initial={false}>
           {!collapsedSections.languages && (
-            <div className="space-y-4 border-t border-slate-100 dark:border-white/5 pt-4">
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25, ease: 'easeInOut' }}
+              className="space-y-4 border-t border-slate-100 dark:border-white/5 pt-4 overflow-hidden"
+            >
               {/* CSV Upload & Download Buttons */}
               <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-slate-50 dark:bg-bg-dark rounded-2xl border border-slate-200/30 dark:border-white/5">
                 <div className="text-xs font-semibold text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
@@ -875,9 +884,10 @@ export const Settings: React.FC = () => {
                   </tbody>
                 </table>
               </div>
-            </div>
+            </motion.div>
           )}
-        </section>
+        </AnimatePresence>
+      </section>
 
       {/* CSV Import Panel */}
       <section className="bg-white dark:bg-card-dark rounded-3xl border border-slate-200/50 dark:border-border-dark p-6 space-y-4 shadow-sm">
@@ -895,12 +905,21 @@ export const Settings: React.FC = () => {
             </p>
           </div>
           <button type="button" className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 text-slate-400">
-            {collapsedSections.import ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
+            <motion.div animate={{ rotate: collapsedSections.import ? 0 : 180 }} transition={{ duration: 0.2 }}>
+              <ChevronDown className="w-5 h-5" />
+            </motion.div>
           </button>
         </div>
 
-        {!collapsedSections.import && (
-          <div className="space-y-6 border-t border-slate-100 dark:border-white/5 pt-4">
+        <AnimatePresence initial={false}>
+          {!collapsedSections.import && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25, ease: 'easeInOut' }}
+              className="space-y-6 border-t border-slate-100 dark:border-white/5 pt-4 overflow-hidden"
+            >
             <div className="flex justify-end">
               <button
                 onClick={handleDownloadSampleCSV}
@@ -1008,8 +1027,9 @@ export const Settings: React.FC = () => {
                 </div>
               </div>
             )}
-          </div>
-        )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </section>
 
       {/* Email Testing Mode Card */}
@@ -1028,12 +1048,21 @@ export const Settings: React.FC = () => {
             </p>
           </div>
           <button type="button" className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 text-slate-400">
-            {collapsedSections.testing_mode ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
+            <motion.div animate={{ rotate: collapsedSections.testing_mode ? 0 : 180 }} transition={{ duration: 0.2 }}>
+              <ChevronDown className="w-5 h-5" />
+            </motion.div>
           </button>
         </div>
 
-        {!collapsedSections.testing_mode && (
-          <div className="space-y-5 border-t border-slate-100 dark:border-white/5 pt-4">
+        <AnimatePresence initial={false}>
+          {!collapsedSections.testing_mode && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25, ease: 'easeInOut' }}
+              className="space-y-5 border-t border-slate-100 dark:border-white/5 pt-4 overflow-hidden"
+            >
             {/* Enable Toggle */}
             <div className="flex items-center gap-3">
               <input
@@ -1160,8 +1189,9 @@ export const Settings: React.FC = () => {
                 )}
               </div>
             )}
-          </div>
-        )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </section>
 
       {/* SLA Nudges & Follow-Up Reminders Card */}
@@ -1180,12 +1210,21 @@ export const Settings: React.FC = () => {
             </p>
           </div>
           <button type="button" className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 text-slate-400">
-            {collapsedSections.sla_nudges ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
+            <motion.div animate={{ rotate: collapsedSections.sla_nudges ? 0 : 180 }} transition={{ duration: 0.2 }}>
+              <ChevronDown className="w-5 h-5" />
+            </motion.div>
           </button>
         </div>
 
-        {!collapsedSections.sla_nudges && (
-          <div className="space-y-5 border-t border-slate-100 dark:border-white/5 pt-4">
+        <AnimatePresence initial={false}>
+          {!collapsedSections.sla_nudges && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25, ease: 'easeInOut' }}
+              className="space-y-5 border-t border-slate-100 dark:border-white/5 pt-4 overflow-hidden"
+            >
             <div className="flex items-center gap-3">
               <input
                 type="checkbox"
@@ -1361,8 +1400,9 @@ export const Settings: React.FC = () => {
                 </div>
               </div>
             )}
-          </div>
-        )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </section>
 
       {/* SMTP Mail Server Configuration Panel */}
@@ -1381,12 +1421,21 @@ export const Settings: React.FC = () => {
             </p>
           </div>
           <button type="button" className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 text-slate-400">
-            {collapsedSections.smtp ? <ChevronDown className="w-5 h-5" /> : <ChevronUp className="w-5 h-5" />}
+            <motion.div animate={{ rotate: collapsedSections.smtp ? 0 : 180 }} transition={{ duration: 0.2 }}>
+              <ChevronDown className="w-5 h-5" />
+            </motion.div>
           </button>
         </div>
 
-        {!collapsedSections.smtp && (
-          <div className="space-y-4 border-t border-slate-100 dark:border-white/5 pt-4">
+        <AnimatePresence initial={false}>
+          {!collapsedSections.smtp && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25, ease: 'easeInOut' }}
+              className="space-y-4 border-t border-slate-100 dark:border-white/5 pt-4 overflow-hidden"
+            >
             <div className="flex justify-end">
               <button
                 onClick={() => {
@@ -1461,8 +1510,9 @@ export const Settings: React.FC = () => {
                 />
               </div>
             </div>
-          </div>
-        )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </section>
     </div>
   );
