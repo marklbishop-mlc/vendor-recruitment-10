@@ -235,6 +235,7 @@ export const getStageProgressTextColor = (color?: string, key?: string) => {
 
 export interface TestingModeConfig {
   enabled: boolean;
+  mode?: 'intercept' | 'send_to_admin'; // 'intercept' = log only (no SMTP dispatch), 'send_to_admin' = reroute to admin emails
   recipientEmails: string[];
 }
 
@@ -344,11 +345,23 @@ export const FULL_DEFAULT_LANGUAGES: LanguageConfig[] = [
 
 export interface NotificationLog {
   id: string;
-  vendorId: string;
-  email: string;
+  vendorId?: string;
+  vendorName?: string;
+  vendorEmail?: string;
+  email?: string;
   subject: string;
-  status: 'queued' | 'sent' | 'failed';
+  body?: string;
+  actionName?: string;
+  templateName?: string;
+  actualRecipients?: string[];
+  dispatchedTo?: string;
+  status: 'queued' | 'sent' | 'failed' | 'intercepted';
+  isIntercepted?: boolean;
+  isTestMode?: boolean;
+  testingModeSubtype?: 'intercept' | 'send_to_admin';
+  createdAt?: string;
   sentAt?: string;
+  interceptedAt?: string;
   error?: string;
 }
 

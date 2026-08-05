@@ -11,7 +11,7 @@ export const DashboardLayout: React.FC = () => {
   const { user, logout, isMockMode, syncError } = useAuth();
   const location = useLocation();
   const [isMobileOpen, setIsMobileOpen] = React.useState(false);
-  const [emailTestingActive, setEmailTestingActive] = React.useState(false);
+  const [emailTestingConfig, setEmailTestingConfig] = React.useState<{ enabled: boolean; mode?: 'intercept' | 'send_to_admin' }>({ enabled: false, mode: 'send_to_admin' });
 
   const adminPaths = ['/templates', '/users', '/settings', '/notifications'];
   const isAdminActive = adminPaths.includes(location.pathname);
@@ -26,7 +26,8 @@ export const DashboardLayout: React.FC = () => {
       const saved = localStorage.getItem('mlc_settings_testing_mode');
       if (saved) {
         try {
-          setEmailTestingActive(JSON.parse(saved).enabled);
+          const parsed = JSON.parse(saved);
+          setEmailTestingConfig({ enabled: !!parsed.enabled, mode: parsed.mode || 'send_to_admin' });
         } catch {}
       }
     };
@@ -40,11 +41,11 @@ export const DashboardLayout: React.FC = () => {
         if (snap.exists()) {
           const config = snap.data();
           if (config?.testingMode) {
-            setEmailTestingActive(!!config.testingMode.enabled);
+            setEmailTestingConfig({ enabled: !!config.testingMode.enabled, mode: config.testingMode.mode || 'send_to_admin' });
             localStorage.setItem('mlc_settings_testing_mode', JSON.stringify(config.testingMode));
           } else {
-            setEmailTestingActive(false);
-            localStorage.setItem('mlc_settings_testing_mode', JSON.stringify({ enabled: false, recipientEmails: [] }));
+            setEmailTestingConfig({ enabled: false, mode: 'send_to_admin' });
+            localStorage.setItem('mlc_settings_testing_mode', JSON.stringify({ enabled: false, mode: 'send_to_admin', recipientEmails: [] }));
           }
         }
       } catch (err) {
@@ -255,10 +256,18 @@ export const DashboardLayout: React.FC = () => {
         <div className="flex-1 overflow-y-auto relative">
           
           {/* Email Testing Mode warning banner */}
-          {emailTestingActive && (
-            <div className="bg-rose-600 border-b border-rose-700 text-white text-xs px-6 py-2.5 font-bold flex items-center justify-center gap-2 select-none shadow-sm">
+          {emailTestingConfig.enabled && (
+            <div className={`border-b text-white text-xs px-6 py-2.5 font-bold flex items-center justify-center gap-2 select-none shadow-sm ${
+              emailTestingConfig.mode === 'intercept' 
+                ? 'bg-purple-600 border-purple-700' 
+                : 'bg-rose-600 border-rose-700'
+            }`}>
               <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
-              <span>⚠️ SYSTEM EMAIL TESTING MODE ACTIVE: All trigger notifications are intercepted and redirected to administrators.</span>
+              {emailTestingConfig.mode === 'intercept' ? (
+                <span>🛡️ SYSTEM EMAIL TESTING MODE ACTIVE (INTERCEPT): All trigger emails are logged only and NOT sent via SMTP.</span>
+              ) : (
+                <span>⚠️ SYSTEM EMAIL TESTING MODE ACTIVE (ADMIN DISPATCH): All trigger emails are redirected to administrators.</span>
+              )}
             </div>
           )}
 

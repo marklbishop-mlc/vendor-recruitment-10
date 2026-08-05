@@ -414,6 +414,7 @@ export const processMailQueue = onDocumentCreated(
     let finalSubject = data.subject;
     let finalBody = data.body;
     let isTestMode = false;
+    let testingModeSubtype: 'intercept' | 'send_to_admin' = 'send_to_admin';
     let smtpConfig: any = null;
 
     try {
@@ -426,6 +427,25 @@ export const processMailQueue = onDocumentCreated(
         }
         if (config?.testingMode?.enabled) {
           isTestMode = true;
+          testingModeSubtype = config.testingMode.mode || 'send_to_admin';
+
+          if (testingModeSubtype === 'intercept') {
+            // Mode: Intercept emails (log only, do NOT send via SMTP)
+            const originalTarget = data.email || data.vendorEmail || "N/A";
+            await snap.ref.update({
+              status: 'intercepted',
+              interceptedAt: new Date().toISOString(),
+              isTestMode: true,
+              testingModeSubtype: 'intercept',
+              dispatchedTo: 'Logged (Not Sent via SMTP)',
+              logMessage: `Email intercepted during Testing Mode (Log Only). Intended candidate recipient: ${originalTarget}`
+            });
+
+            logger.info(`Mail ID ${event.params.notificationId} INTERCEPTED (log-only mode). Intended candidate: ${originalTarget}. No email dispatched.`);
+            return;
+          }
+
+          // Mode: Send emails to admin(s)
           const emails = config.testingMode.recipientEmails || [];
           finalRecipient = emails.length > 0 ? emails.join(", ") : "mark@mlconnections.com";
           finalSubject = `[TEST MODE] ${data.subject}`;
@@ -433,7 +453,7 @@ export const processMailQueue = onDocumentCreated(
           // Format HTML with red testing warning banner
           finalBody = `
             <div style="background-color: #ec6757; color: white; padding: 12px; text-align: center; font-weight: bold; font-family: sans-serif; margin-bottom: 20px; font-size: 14px; border-radius: 6px; letter-spacing: 0.5px;">
-              ⚠️ SYSTEM EMAIL TESTING MODE ACTIVE
+              ⚠️ SYSTEM EMAIL TESTING MODE ACTIVE (ADMIN DISPATCH)
             </div>
             <div style="background-color: #fef2f2; color: #991b1b; padding: 12px; border: 1px solid #fee2e2; border-radius: 6px; margin-bottom: 20px; font-family: sans-serif; font-size: 12px; line-height: 1.5;">
               <strong>⚠️ TESTING MODE DETAILS:</strong><br/>
@@ -474,6 +494,7 @@ ${data.body}
         status: 'sent',
         sentAt: new Date().toISOString(),
         isTestMode,
+        testingModeSubtype,
         dispatchedTo: finalRecipient
       });
 

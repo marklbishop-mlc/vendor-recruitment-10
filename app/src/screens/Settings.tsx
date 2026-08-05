@@ -38,6 +38,7 @@ export const Settings: React.FC = () => {
   
   // Testing Mode states
   const [testingEnabled, setTestingEnabled] = useState(false);
+  const [testingModeSubtype, setTestingModeSubtype] = useState<'intercept' | 'send_to_admin'>('send_to_admin');
   const [testingRecipients, setTestingRecipients] = useState<string[]>(['mark@mlconnections.com']);
   const [adminsList, setAdminsList] = useState<{name: string, email: string}[]>([]);
 
@@ -138,6 +139,7 @@ export const Settings: React.FC = () => {
           }
           if (config.testingMode) {
             setTestingEnabled(config.testingMode.enabled || false);
+            setTestingModeSubtype(config.testingMode.mode || 'send_to_admin');
             setTestingRecipients(config.testingMode.recipientEmails || ['mark@mlconnections.com']);
           }
           if (config.slaNudges) {
@@ -169,6 +171,7 @@ export const Settings: React.FC = () => {
     updatedLangs: LanguageConfig[], 
     updatedStatuses: StatusConfig[],
     testEnabled: boolean = testingEnabled,
+    testSubtype: 'intercept' | 'send_to_admin' = testingModeSubtype,
     testRecipients: string[] = testingRecipients,
     smtpConfigOverride?: { host: string; port: number; user: string; pass: string; from: string }
   ) => {
@@ -183,6 +186,7 @@ export const Settings: React.FC = () => {
         statuses: updatedStatuses,
         testingMode: {
           enabled: testEnabled,
+          mode: testSubtype,
           recipientEmails: testRecipients
         },
         slaNudges: {
@@ -207,6 +211,7 @@ export const Settings: React.FC = () => {
       localStorage.setItem('mlc_settings_statuses_v2', JSON.stringify(updatedStatuses));
       localStorage.setItem('mlc_settings_testing_mode', JSON.stringify({
         enabled: testEnabled,
+        mode: testSubtype,
         recipientEmails: testRecipients
       }));
 
@@ -1014,7 +1019,8 @@ export const Settings: React.FC = () => {
         </div>
 
         {!collapsedSections.testing_mode && (
-          <div className="flex flex-col md:flex-row gap-6 items-stretch md:items-center justify-between border-t border-slate-100 dark:border-white/5 pt-4">
+          <div className="space-y-5 border-t border-slate-100 dark:border-white/5 pt-4">
+            {/* Enable Toggle */}
             <div className="flex items-center gap-3">
               <input
                 type="checkbox"
@@ -1023,52 +1029,123 @@ export const Settings: React.FC = () => {
                 onChange={(e) => {
                   const val = e.target.checked;
                   setTestingEnabled(val);
-                  saveConfigDirect(languages, statuses, val, testingRecipients);
+                  saveConfigDirect(languages, statuses, val, testingModeSubtype, testingRecipients);
                 }}
                 className="w-5 h-5 rounded text-rose-600 focus:ring-rose-500 bg-slate-50 border-slate-200 cursor-pointer"
               />
-              <label htmlFor="testing-mode-active" className="text-xs font-bold text-slate-700 dark:text-slate-200 cursor-pointer select-none">
-                Enable System Email Testing Mode (Redirect all outbound mails)
+              <label htmlFor="testing-mode-active" className="text-xs font-extrabold text-slate-900 dark:text-white cursor-pointer select-none">
+                Enable System Email Testing Mode
               </label>
             </div>
 
-            <div className="flex-1 flex flex-col sm:flex-row gap-3 justify-end items-stretch sm:items-center">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Admins Intercept:</span>
-              <div className="flex flex-wrap gap-2">
-                {adminsList.map((admin) => {
-                  const isSelected = testingRecipients.includes(admin.email);
-                  return (
-                    <button
-                      key={admin.email}
-                      type="button"
-                      onClick={() => {
-                        const updated = testingRecipients.includes(admin.email)
-                          ? testingRecipients.filter((e) => e !== admin.email)
-                          : [...testingRecipients, admin.email];
-                        setTestingRecipients(updated);
-                        saveConfigDirect(languages, statuses, testingEnabled, updated);
-                      }}
-                      disabled={!testingEnabled}
-                      className={`py-2 px-3 rounded-xl border text-[11px] font-bold transition-all text-left flex items-center justify-between gap-3 cursor-pointer ${
-                        !testingEnabled 
-                          ? 'opacity-40 cursor-not-allowed bg-slate-50 dark:bg-bg-dark border-slate-200/40 text-slate-400'
-                          : isSelected
-                          ? 'bg-rose-500/10 text-rose-600 border-rose-500/20'
-                          : 'bg-white dark:bg-card-dark text-slate-700 dark:text-slate-300 border-slate-200/50 hover:bg-slate-50'
-                      }`}
-                    >
-                      <div>
-                        <span className="block font-bold">{admin.name}</span>
-                        <span className="text-[9px] font-normal text-slate-400 block">{admin.email}</span>
-                      </div>
-                      {testingEnabled && isSelected && (
-                        <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
-                      )}
-                    </button>
-                  );
-                })}
+            {testingEnabled && (
+              <div className="space-y-4 p-4 bg-slate-50 dark:bg-bg-dark rounded-2xl border border-slate-200/50 dark:border-white/5">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Testing Mode Dispatch Behavior</span>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Choose whether to intercept emails (log only) or redirect email delivery to system administrators.</p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Option 1: Intercept */}
+                  <div
+                    onClick={() => {
+                      setTestingModeSubtype('intercept');
+                      saveConfigDirect(languages, statuses, testingEnabled, 'intercept', testingRecipients);
+                    }}
+                    className={`p-4 rounded-xl border text-xs cursor-pointer transition-all flex flex-col justify-between space-y-2 ${
+                      testingModeSubtype === 'intercept'
+                        ? 'bg-purple-500/10 border-purple-500/40 text-purple-700 dark:text-purple-300 shadow-xs'
+                        : 'bg-white dark:bg-card-dark border-slate-200/50 dark:border-border-dark text-slate-600 dark:text-slate-400 hover:border-purple-400'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-extrabold flex items-center gap-2">
+                        <Shield className="w-4 h-4 text-purple-500" />
+                        🛡️ Intercept (Log Only)
+                      </span>
+                      <input
+                        type="radio"
+                        name="testing-mode-subtype"
+                        checked={testingModeSubtype === 'intercept'}
+                        onChange={() => {}}
+                        className="text-purple-600 focus:ring-purple-500"
+                      />
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                      Log all triggered emails to the notifications database, but <strong>do NOT send via SMTP</strong>. No emails will leave the system.
+                    </p>
+                  </div>
+
+                  {/* Option 2: Send to Admin */}
+                  <div
+                    onClick={() => {
+                      setTestingModeSubtype('send_to_admin');
+                      saveConfigDirect(languages, statuses, testingEnabled, 'send_to_admin', testingRecipients);
+                    }}
+                    className={`p-4 rounded-xl border text-xs cursor-pointer transition-all flex flex-col justify-between space-y-2 ${
+                      testingModeSubtype === 'send_to_admin'
+                        ? 'bg-rose-500/10 border-rose-500/40 text-rose-700 dark:text-rose-300 shadow-xs'
+                        : 'bg-white dark:bg-card-dark border-slate-200/50 dark:border-border-dark text-slate-600 dark:text-slate-400 hover:border-rose-400'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-extrabold flex items-center gap-2">
+                        <Mail className="w-4 h-4 text-rose-500" />
+                        ✉️ Send Emails to Admin(s)
+                      </span>
+                      <input
+                        type="radio"
+                        name="testing-mode-subtype"
+                        checked={testingModeSubtype === 'send_to_admin'}
+                        onChange={() => {}}
+                        className="text-rose-600 focus:ring-rose-500"
+                      />
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                      Reroute all triggered emails to specified admin email address(es) instead of candidate candidates.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Admin Recipients list when send_to_admin mode selected */}
+                {testingModeSubtype === 'send_to_admin' && (
+                  <div className="pt-3 border-t border-slate-200/40 dark:border-white/5 space-y-2">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Designated Admin Recipient Email(s):</span>
+                    <div className="flex flex-wrap gap-2">
+                      {adminsList.map((admin) => {
+                        const isSelected = testingRecipients.includes(admin.email);
+                        return (
+                          <button
+                            key={admin.email}
+                            type="button"
+                            onClick={() => {
+                              const updated = testingRecipients.includes(admin.email)
+                                ? testingRecipients.filter((e) => e !== admin.email)
+                                : [...testingRecipients, admin.email];
+                              setTestingRecipients(updated);
+                              saveConfigDirect(languages, statuses, testingEnabled, testingModeSubtype, updated);
+                            }}
+                            className={`py-2 px-3 rounded-xl border text-[11px] font-bold transition-all text-left flex items-center justify-between gap-3 cursor-pointer ${
+                              isSelected
+                                ? 'bg-rose-500/10 text-rose-600 border-rose-500/20'
+                                : 'bg-white dark:bg-card-dark text-slate-700 dark:text-slate-300 border-slate-200/50 hover:bg-slate-50'
+                            }`}
+                          >
+                            <div>
+                              <span className="block font-bold">{admin.name}</span>
+                              <span className="text-[9px] font-normal text-slate-400 block">{admin.email}</span>
+                            </div>
+                            {isSelected && (
+                              <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
+            )}
           </div>
         )}
       </section>
@@ -1197,7 +1274,7 @@ export const Settings: React.FC = () => {
                     pass: smtpPass.trim(),
                     from: smtpFrom.trim() || '"MLC Recruiting Team" <vm@mlconnections.com>'
                   };
-                  saveConfigDirect(languages, statuses, testingEnabled, testingRecipients, configObj);
+                  saveConfigDirect(languages, statuses, testingEnabled, testingModeSubtype, testingRecipients, configObj);
                 }}
                 className="py-2 px-4 bg-primary hover:bg-primary-dark text-white rounded-xl text-xs font-bold btn-animate shadow-sm cursor-pointer"
               >
