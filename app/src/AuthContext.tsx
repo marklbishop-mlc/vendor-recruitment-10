@@ -71,9 +71,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const preName = preCreatedProfile ? (preCreatedProfile as UserProfile).displayName : null;
       const preCreated = preCreatedProfile ? (preCreatedProfile as UserProfile).createdAt : null;
 
+      const isMlcDomain = userEmail.endsWith('@mlconnections.com');
+
       if (!userDocSnap.exists()) {
-        // Automatically promote mark@mlconnections.com to Admin, otherwise inherit pre-created role or default to 'user'
-        let assignedRole: UserRole = userEmail === GOOGLE_ADMIN_EMAIL ? 'admin' : 'user';
+        // Promote all @mlconnections.com staff to Admin by default, or inherit pre-created role
+        let assignedRole: UserRole = isMlcDomain ? 'admin' : 'user';
         if (preRole) {
           assignedRole = preRole;
         }
@@ -81,7 +83,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         profile = {
           uid: firebaseUser.uid,
           email: userEmail,
-          displayName: firebaseUser.displayName || preName || 'MLC User',
+          displayName: firebaseUser.displayName || preName || 'MLC Staff Member',
           role: assignedRole,
           createdAt: preCreated || new Date().toISOString(),
           updatedAt: new Date().toISOString()
@@ -93,7 +95,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         // Determine highest role between existing profile and pre-created profile
         let finalRole: UserRole = existingData.role;
-        if (userEmail === GOOGLE_ADMIN_EMAIL) {
+        if (isMlcDomain && (existingData.role === 'user' || !existingData.role)) {
           finalRole = 'admin';
         } else if (preRole === 'admin') {
           finalRole = 'admin';
@@ -131,11 +133,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.warn("Firestore connection failed. Running in simulation mode.", err);
       setSyncError(err instanceof Error ? err.message : String(err));
       // Fallback to local sandbox user on connection failures (useful if database is not provisioned yet)
-      const assignedRole: UserRole = firebaseUser.email === GOOGLE_ADMIN_EMAIL ? 'admin' : 'user';
+      const userEmail = (firebaseUser.email || '').toLowerCase();
+      const isMlcDomain = userEmail.endsWith('@mlconnections.com');
+      const assignedRole: UserRole = isMlcDomain ? 'admin' : 'user';
       setUser({
         uid: firebaseUser.uid,
-        email: firebaseUser.email || '',
-        displayName: firebaseUser.displayName || 'MLC Sandbox User',
+        email: userEmail,
+        displayName: firebaseUser.displayName || 'MLC Staff Member',
         role: assignedRole,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
