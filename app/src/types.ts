@@ -206,7 +206,7 @@ export interface WorkflowAction {
   triggerStage: WorkflowStage;
   triggerStatus?: string; // When rule triggers e.g. 'started', 'completed', 'failed', 'non_responsive', or 'any'
   field?: string; // Optional e.g. "isGmail" or "hasSignedNda"
-  operator: '==' | '!=' | 'empty' | 'not_empty' | 'always';
+  operator: '==' | '!=' | 'empty' | 'not_empty' | 'always' | 'stage_exit';
   value?: string; // Optional target value
   actionType?: 'send_email' | 'update_status' | 'both'; // Optional legacy field
   templateId?: string; // Optional email template to send ('none' or template ID)
