@@ -760,9 +760,6 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): Record<string, 
                   >
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-sm">{tmpl.name}</span>
-                      <span className="text-[10px] font-semibold text-primary uppercase bg-primary/10 px-2 py-0.5 rounded">
-                        {stages.find(s => s.id === tmpl.stage)?.name || tmpl.stage}
-                      </span>
                     </div>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-1">{tmpl.subject}</p>
                   </button>
@@ -809,33 +806,14 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): Record<string, 
             </div>
 
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Template Name</label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full p-2.5 bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl text-xs font-semibold focus:outline-none focus:border-primary dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Target Workflow Stage</label>
-                  <select
-                    value={selectedTemplate.stage}
-                    onChange={(e) => {
-                      const newStage = e.target.value as WorkflowStage;
-                      const updated = { ...selectedTemplate, stage: newStage };
-                      setSelectedTemplate(updated);
-                      setTemplates((prev) => prev.map((t) => t.id === updated.id ? updated : t));
-                    }}
-                    className="w-full p-2.5 bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl text-xs font-semibold focus:outline-none focus:border-primary dark:text-white cursor-pointer"
-                  >
-                    {stages.map((stg) => (
-                      <option key={stg.id} value={stg.id}>{stg.name}</option>
-                    ))}
-                  </select>
-                </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Template Name</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full p-2.5 bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl text-xs font-semibold focus:outline-none focus:border-primary dark:text-white"
+                />
               </div>
 
               <div>
