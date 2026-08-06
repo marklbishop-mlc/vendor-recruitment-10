@@ -895,7 +895,7 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): Record<string, 
                     </td>
                     <td className="p-4 font-mono text-[11px] text-slate-500">
                       {act.operator === 'always' || !act.field ? (
-                        <span className="italic text-slate-400 font-sans font-normal">Always (Unconditional)</span>
+                        <span className="italic text-slate-500 font-sans font-semibold">On Stage Entry</span>
                       ) : (
                         `${act.field} ${act.operator} "${act.value || ''}"`
                       )}
@@ -1436,7 +1436,7 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): Record<string, 
                           onChange={(e) => setNewActOperator(e.target.value as any)}
                           className="w-full p-2 bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-lg text-xs dark:text-white cursor-pointer font-bold"
                         >
-                          <option value="always">-- Always Trigger (No Condition) --</option>
+                          <option value="always">On Stage Entry (Unconditional)</option>
                           <option value="==">Equals (==)</option>
                           <option value="!=">Not Equals (!=)</option>
                           <option value="empty">Is Empty / Missing</option>
@@ -1472,7 +1472,7 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): Record<string, 
                         </>
                       ) : (
                         <div className="col-span-2 text-[11px] text-slate-500 italic flex items-center">
-                          This rule triggers unconditionally whenever a candidate enters this stage, unless a specific conditional rule matches first.
+                          This rule triggers automatically on stage entry, unless a specific conditional rule matches first.
                         </div>
                       )}
                     </div>
