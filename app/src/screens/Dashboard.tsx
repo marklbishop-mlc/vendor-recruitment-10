@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import type { VendorProfile, WorkflowStage, WorkingLanguage, StatusConfig, WorkflowAction, EmailTemplate, TestRecord, WorkflowStageConfig, SlaNudgeConfig, StageProgressConfig, ApplicationConfig, WeeklyAvailabilityOption, MtqaExperienceYears, ErrorTaggingExpLevel, AgilitySelfAssessment } from '../types';
+import type { VendorProfile, WorkflowStage, WorkingLanguage, StatusConfig, WorkflowAction, EmailTemplate, TestRecord, WorkflowStageConfig, SlaNudgeConfig, StageProgressConfig, ApplicationConfig, CampaignConfig, WeeklyAvailabilityOption, MtqaExperienceYears, ErrorTaggingExpLevel, AgilitySelfAssessment } from '../types';
 import { getActiveSortedLanguages, DEFAULT_STAGE_PROGRESS_OPTIONS, getStageProgressStyle, getStageProgressTextColor, FULL_DEFAULT_LANGUAGES, PROFICIENCY_OPTIONS, formatProficiency, DEFAULT_SERVICES_LIST } from '../types';
 import { COUNTRIES, TIME_ZONES } from '../utils/locationData';
 import { 
@@ -153,6 +153,7 @@ export const Dashboard: React.FC = () => {
   const [editHasSignedNda, setEditHasSignedNda] = useState(false);
   const [editLanguages, setEditLanguages] = useState<WorkingLanguage[]>([]);
   const [editConfirmedRate, setEditConfirmedRate] = useState('');
+  const [editCampaignId, setEditCampaignId] = useState('');
 
   // Detailed Evaluation Fields for Edit Candidate
   const [editCountry, setEditCountry] = useState('');
@@ -172,6 +173,7 @@ export const Dashboard: React.FC = () => {
 
   // Applications Multi-Link States
   const [applicationsList, setApplicationsList] = useState<ApplicationConfig[]>([]);
+  const [campaignsList, setCampaignsList] = useState<CampaignConfig[]>([]);
   const [isCopyLinkModalOpen, setIsCopyLinkModalOpen] = useState(false);
   const [copiedAppSlug, setCopiedAppSlug] = useState<string | null>(null);
 
@@ -375,6 +377,15 @@ export const Dashboard: React.FC = () => {
             list.push({ id: docSnap.id, ...docSnap.data() } as ApplicationConfig);
           });
           setApplicationsList(list);
+        });
+
+        // 6. Subscribe to Campaigns
+        onSnapshot(collection(db, 'campaigns'), (snapshot) => {
+          const list: CampaignConfig[] = [];
+          snapshot.forEach((docSnap) => {
+            list.push({ id: docSnap.id, ...docSnap.data() } as CampaignConfig);
+          });
+          setCampaignsList(list);
         });
       } catch (err) {
         console.error("Dashboard failed to load database collections", err);
@@ -672,8 +683,9 @@ export const Dashboard: React.FC = () => {
     setEditStatus(vendor.status);
     setEditNdaUrl(vendor.ndaUrl || '');
     setEditHasSignedNda(vendor.hasSignedNda);
-    setEditLanguages([...vendor.workingLanguages]);
-    setEditConfirmedRate(vendor.confirmedRate.toString());
+    setEditLanguages(vendor.workingLanguages || []);
+    setEditConfirmedRate(vendor.confirmedRate ? vendor.confirmedRate.toString() : '');
+    setEditCampaignId(vendor.campaignId || '');
 
     // Populate Detailed Evaluation fields for edit mode
     setEditCountry(vendor.country || '');
@@ -712,6 +724,9 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
       return;
     }
 
+    const newConfirmedRate = parseFloat(editConfirmedRate) || 0;
+    const selectedCampaign = campaignsList.find(c => c.id === editCampaignId);
+
     const updatedProfile: VendorProfile = {
       ...selectedVendor,
       contactName: editContactName.trim(),
@@ -728,13 +743,15 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
       classificationTier: editTier,
       mlcHourlyRate: parseFloat(editMlcRate) || 0,
       adjustedRate: Math.round((parseFloat(editMlcRate) || 0) * 0.9),
-      confirmedRate: parseFloat(editConfirmedRate) || 0,
+      confirmedRate: newConfirmedRate,
+      campaignId: editCampaignId || undefined,
+      campaignName: selectedCampaign?.name || undefined,
       status: editStatus,
       ndaUrl: editNdaUrl.trim(),
       hasSignedNda: editHasSignedNda,
       workingLanguages: editLanguages.length > 0 ? editLanguages : [{ language: 'English', proficiency: 'working' }],
-      country: editCountry,
-      timeZone: editTimeZone,
+      country: editCountry.trim() || undefined,
+      timeZone: editTimeZone.trim() || undefined,
       availableStartDate: editAvailableStartDate,
       weeklyAvailability: editWeeklyAvailability,
       otherLanguages: editOtherLanguages,
@@ -1338,35 +1355,32 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                       type="button"
                       onClick={() => setSelectedAppFilters([])}
                       className="text-rose-500 hover:underline text-[10px]"
-                    >
-                      Clear
-                    </button>
-                  )}
-                </div>
                 <div className="max-h-48 overflow-y-auto space-y-1.5 custom-scrollbar pr-1">
-                  {Array.from(new Set(['General Intake', ...applicationsList.map(a => a.name), ...vendors.map(v => v.applicationName || 'General Intake')])).sort().map((appName) => {
-                    const isChecked = selectedAppFilters.includes(appName);
-                    return (
-                      <label
-                        key={appName}
-                        className="flex items-center gap-2 p-1.5 hover:bg-slate-50 dark:hover:bg-white/5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-200 cursor-pointer"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => {
-                            if (isChecked) {
-                              setSelectedAppFilters(selectedAppFilters.filter(a => a !== appName));
-                            } else {
-                              setSelectedAppFilters([...selectedAppFilters, appName]);
-                            }
-                          }}
-                          className="rounded border-slate-300 text-primary focus:ring-primary w-4 h-4 cursor-pointer"
-                        />
-                        <span className="truncate text-xs">{appName}</span>
-                      </label>
-                    );
-                  })}
+                  <div className="space-y-1 mt-2">
+                    {Array.from(new Set(['General Intake', ...campaignsList.map(c => c.name), ...applicationsList.map(a => a.name), ...vendors.map(v => v.campaignName || v.applicationName || 'General Intake')])).sort().map((appName) => {
+                      const isChecked = selectedAppFilters.includes(appName);
+                      return (
+                        <label
+                          key={appName}
+                          className="flex items-center gap-2 p-1.5 hover:bg-slate-50 dark:hover:bg-white/5 rounded-lg text-xs font-medium text-slate-700 dark:text-slate-200 cursor-pointer"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => {
+                              if (isChecked) {
+                                setSelectedAppFilters(selectedAppFilters.filter(a => a !== appName));
+                              } else {
+                                setSelectedAppFilters([...selectedAppFilters, appName]);
+                              }
+                            }}
+                            className="rounded border-slate-300 text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+                          />
+                          <span className="truncate text-xs">{appName}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             )}
@@ -1859,7 +1873,7 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                               )}
                             </td>
                             <td className="p-4 text-xs font-bold text-slate-700 dark:text-slate-300">
-                              {candidate.applicationName || 'General Intake'}
+                              {candidate.campaignName || candidate.applicationName || 'General Intake'}
                             </td>
                             <td className="p-4 text-xs font-medium text-slate-700 dark:text-slate-300 whitespace-nowrap">
                               <div>{candidate.country || 'N/A'}</div>
@@ -2099,6 +2113,21 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                           onChange={(e) => setEditCompanyName(e.target.value)}
                           className="w-full p-2.5 text-xs bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary dark:text-white"
                         />
+                      </div>
+
+                      {/* Campaign */}
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-slate-400 uppercase tracking-wider block">Campaign (Optional)</label>
+                        <select
+                          value={editCampaignId}
+                          onChange={(e) => setEditCampaignId(e.target.value)}
+                          className="w-full p-2.5 text-xs bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-xl focus:outline-none focus:border-primary dark:text-white cursor-pointer"
+                        >
+                          <option value="">None (General Intake)</option>
+                          {campaignsList.filter(c => c.isActive).map(c => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                          ))}
+                        </select>
                       </div>
 
                       {/* Email and Google Workspace Verification */}
@@ -2699,15 +2728,10 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                       </div>
 
                       {/* Application Intake Source Campaign */}
-                      {selectedVendor.applicationName && (
-                        <div className="p-3 bg-primary/5 dark:bg-primary/10 rounded-xl border border-primary/20 flex items-center justify-between text-xs mt-4">
-                          <div className="flex items-center gap-2">
-                            <Layers className="w-4 h-4 text-primary shrink-0" />
-                            <div>
-                              <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Intake Campaign</span>
-                              <span className="font-extrabold text-slate-900 dark:text-white">{selectedVendor.applicationName}</span>
-                            </div>
-                          </div>
+                      {(selectedVendor.campaignName || selectedVendor.applicationName) && (
+                        <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-bg-dark rounded-xl border border-slate-200/50 dark:border-white/5">
+                          <span className="text-xs text-slate-500 font-medium">Campaign / Form:</span>
+                          <span className="font-extrabold text-slate-900 dark:text-white text-right break-words">{selectedVendor.campaignName || selectedVendor.applicationName}</span>
                         </div>
                       )}
                     </div>

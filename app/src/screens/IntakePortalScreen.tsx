@@ -326,6 +326,8 @@ export const IntakePortalScreen: React.FC = () => {
       status: 'pending',
       applicationId: appConfig?.id || 'default',
       applicationName: appConfig?.name || 'General Application',
+      campaignId: appConfig?.campaignId,
+      campaignName: appConfig?.campaignName,
 
       // Detailed evaluation fields (populated when enabled)
       country: appConfig?.enableCountryTimeZone ? country : undefined,
