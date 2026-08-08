@@ -553,27 +553,56 @@ export const Settings: React.FC = () => {
         return;
       }
 
+      const headers = lines[0].split(',').map(h => h.replace(/^"(.*)"$/, '$1').trim().toLowerCase());
+      
+      const getIndex = (possibleNames: string[]) => {
+        for (const name of possibleNames) {
+          const idx = headers.indexOf(name);
+          if (idx !== -1) return idx;
+        }
+        return -1;
+      };
+
+      const idxCompany = getIndex(['company name', 'company']);
+      const idxContact = getIndex(['contact name', 'contact', 'name']);
+      const idxEmail = getIndex(['email', 'primary email', 'email address']);
+      const idxSecondaryEmail = getIndex(['secondary email', 'alt email']);
+      const idxPhone = getIndex(['phone', 'phone number']);
+      const idxServices = getIndex(['services']);
+      const idxLanguages = getIndex(['languages', 'language']);
+      const idxTier = getIndex(['tier', 'classification tier']);
+      const idxRateClient = getIndex(['hourly rate (client)', 'client rate', 'hourly rate', 'rate']);
+      const idxRateOffer = getIndex(['adjusted rate (offer)', 'offer rate']);
+      const idxRateAgreed = getIndex(['confirmed rate (negotiated)', 'confirmed rate']);
+      const idxStage = getIndex(['stage', 'workflow stage']);
+      const idxStatus = getIndex(['status', 'vendor status']);
+      const idxStageProgress = getIndex(['stage progress', 'progress']);
+      const idxNda = getIndex(['signed nda', 'nda']);
+
       const parsedVendors: VendorProfile[] = [];
 
       for (let i = 1; i < lines.length; i++) {
         const row = lines[i].split(',').map(cell => cell.replace(/^"(.*)"$/, '$1').trim());
 
-        if (row.length >= 3 && row[1] && row[2]) {
-          const companyName = row[0] || '';
-          const contactName = row[1];
-          const email = row[2];
-          const secondaryEmail = row[3] || '';
-          const phone = row[4] || '';
-          const servicesRaw = row[5] || 'Translation';
-          const langsRaw = row[6] || 'English:native';
-          const tierRaw = parseInt(row[7]) || 2;
-          const rateClient = parseFloat(row[8]) || 45;
-          const rateOffer = parseFloat(row[9]) || 40;
-          const rateAgreed = parseFloat(row[10]) || 45;
-          const stageRaw = (row[11] || 'outreach').toLowerCase();
-          const statusRaw = (row[12] || 'pending').toLowerCase();
-          const stageProgressRaw = (row[13] || '').toLowerCase();
-          const ndaRaw = (row[14] || 'false').toLowerCase() === 'true';
+        if (row.length > 0) {
+          const contactName = idxContact >= 0 ? row[idxContact] : '';
+          const email = idxEmail >= 0 ? row[idxEmail] : '';
+          
+          if (!contactName || !email) continue; // Contact Name and Email are required
+
+          const companyName = idxCompany >= 0 ? row[idxCompany] : '';
+          const secondaryEmail = idxSecondaryEmail >= 0 ? row[idxSecondaryEmail] : '';
+          const phone = idxPhone >= 0 ? row[idxPhone] : '';
+          const servicesRaw = (idxServices >= 0 && row[idxServices]) ? row[idxServices] : 'Translation';
+          const langsRaw = (idxLanguages >= 0 && row[idxLanguages]) ? row[idxLanguages] : 'English:native';
+          const tierRaw = (idxTier >= 0 && row[idxTier]) ? parseInt(row[idxTier]) : 2;
+          const rateClient = (idxRateClient >= 0 && row[idxRateClient]) ? parseFloat(row[idxRateClient]) : 45;
+          const rateOffer = (idxRateOffer >= 0 && row[idxRateOffer]) ? parseFloat(row[idxRateOffer]) : 40;
+          const rateAgreed = (idxRateAgreed >= 0 && row[idxRateAgreed]) ? parseFloat(row[idxRateAgreed]) : 45;
+          const stageRaw = (idxStage >= 0 && row[idxStage]) ? row[idxStage].toLowerCase() : 'outreach';
+          const statusRaw = (idxStatus >= 0 && row[idxStatus]) ? row[idxStatus].toLowerCase() : 'pending';
+          const stageProgressRaw = (idxStageProgress >= 0 && row[idxStageProgress]) ? row[idxStageProgress].toLowerCase() : '';
+          const ndaRaw = (idxNda >= 0 && row[idxNda]) ? row[idxNda].toLowerCase() === 'true' : false;
 
           const services = servicesRaw.split(';').map(s => s.trim()).filter(Boolean);
           const workingLanguages = langsRaw.split(';').map(lStr => {
