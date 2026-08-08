@@ -8,27 +8,7 @@ import { collection, getDocs, doc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../AuthContext';
 
-// Mock active testing records
-const INITIAL_TESTS: TestRecord[] = [
-  {
-    id: 't-rec-1',
-    vendorId: 'v-2',
-    assignmentLink: 'https://mlconnections.com/portal/assess-ja-eng-098',
-    projectNumber: 'PR-4690-JA',
-    deadline: '2026-08-05T17:00:00Z',
-    status: 'in_progress',
-    graderId: 'mock-admin-mark',
-  },
-  {
-    id: 't-rec-2',
-    vendorId: 'v-3',
-    assignmentLink: 'https://mlconnections.com/portal/assess-sv-eng-551',
-    projectNumber: 'PR-8710-SV',
-    deadline: '2026-08-01T12:00:00Z',
-    status: 'assigned',
-    graderId: 'mock-manager-sarah',
-  }
-];
+
 
 export const TestingPortal: React.FC = () => {
   const { user, loading } = useAuth();
@@ -62,15 +42,7 @@ export const TestingPortal: React.FC = () => {
           testList.push(doc.data() as TestRecord);
         });
         
-        if (testList.length > 0) {
-          setTests(testList);
-        } else {
-          // Seed
-          for (const t of INITIAL_TESTS) {
-            await setDoc(doc(db, 'tests', t.id), t);
-          }
-          setTests(INITIAL_TESTS);
-        }
+        setTests(testList);
 
         // 2. Load vendor list to map names and languages dynamically
         const vendorSnap = await getDocs(collection(db, 'vendors'));
@@ -86,9 +58,15 @@ export const TestingPortal: React.FC = () => {
     loadTestingData();
   }, [loading, user]);
 
-  const getVendorInfo = (vendorId: string) => {
-    const v = vendorsList.find((v) => v.id === vendorId);
-    if (!v) return { name: 'Unknown Candidate', languages: 'N/A', campaign: 'General Intake' };
+  const getVendorInfo = (vendorId: string, test?: TestRecord) => {
+    const v = vendorsList.find((v) => v.id === vendorId || v.email === vendorId);
+    if (!v) {
+      return { 
+        name: test?.vendorName || test?.vendorEmail || 'Candidate', 
+        languages: test?.language || 'N/A', 
+        campaign: 'General Intake' 
+      };
+    }
     const name = v.companyName ? `${v.contactName || 'Candidate'} (${v.companyName})` : (v.contactName || 'Unnamed Candidate');
     const campaign = v.applicationName || (v.applicationId ? v.applicationId : 'General Intake');
     
@@ -222,20 +200,38 @@ export const TestingPortal: React.FC = () => {
     return Array.from(set).sort();
   }, [vendorsList]);
 
-  // Filter active test candidates to ONLY include vendors in the 'in_testing' stage (or all tests as fallback)
+  // Filter active test candidates to include vendors in testing stages
   const inTestingVendors = useMemo(() => {
-    return vendorsList.filter((v) => v.stage === 'in_testing');
+    return vendorsList.filter((v) => v.stage === 'in_testing' || v.stage === 'ready_for_testing');
   }, [vendorsList]);
 
   const activeInTestingTests = useMemo(() => {
-    const candidateTests = tests.filter((t) => inTestingVendors.some((v) => v.id === t.vendorId));
-    return candidateTests.length > 0 ? candidateTests : tests;
-  }, [tests, inTestingVendors]);
+    // 1. Existing saved tests matching active vendors
+    const validTests = tests.filter((t) => vendorsList.some((v) => v.id === t.vendorId || v.email === t.vendorId));
+
+    // 2. Dynamic test records for vendors in testing stage who don't have a test record in Firestore yet
+    const dynamicVendorTests: TestRecord[] = inTestingVendors
+      .filter((v) => !tests.some((t) => t.vendorId === v.id || t.vendorId === v.email))
+      .map((v) => ({
+        id: `test-${v.id}`,
+        vendorId: v.id,
+        vendorName: v.contactName,
+        vendorEmail: v.email,
+        assignmentLink: `https://mlconnections.com/portal/assess-${v.id}`,
+        projectNumber: `PR-${(v.id || 'TEST').slice(-4).toUpperCase()}`,
+        deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        status: (v.stageStatus === 'completed' ? 'completed' : 'in_progress') as any,
+        score: (v.workingLanguages?.[0] as any)?.score || undefined,
+        grade: (v.workingLanguages?.[0] as any)?.testGrade || undefined,
+      }));
+
+    return [...validTests, ...dynamicVendorTests];
+  }, [tests, vendorsList, inTestingVendors]);
 
   // Filtered test records based on Search Query, Status, Language, and Campaign
   const filteredTests = useMemo(() => {
     return activeInTestingTests.filter((t) => {
-      const vendorInfo = getVendorInfo(t.vendorId);
+      const vendorInfo = getVendorInfo(t.vendorId, t);
       const query = searchQuery.trim().toLowerCase();
 
       // 1. Search filter (Candidate Name, Company Name, Project Number/ID, Language, Campaign)
