@@ -1521,20 +1521,7 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): Record<string, 
                     <div className="pt-2 border-t border-slate-200/30 dark:border-white/5 space-y-3">
                       <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Candidate Field Updates</span>
                       
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div>
-                          <label className="block text-slate-500 uppercase tracking-wider mb-1 text-[9px]">Candidate Status</label>
-                          <select
-                            value={newActUpdateStatus}
-                            onChange={(e) => setNewActUpdateStatus(e.target.value)}
-                            className="w-full p-2 bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-lg text-xs dark:text-white capitalize font-bold cursor-pointer"
-                          >
-                            <option value="none">-- Keep Current --</option>
-                            {statuses.map((st) => (
-                              <option key={st.key} value={st.key}>{st.key}</option>
-                            ))}
-                          </select>
-                        </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 
                         <div>
                           <label className="block text-slate-500 uppercase tracking-wider mb-1 text-[9px]">Workflow Stage</label>

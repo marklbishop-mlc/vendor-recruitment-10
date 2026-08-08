@@ -3,8 +3,8 @@ import {
   Globe, Shield, Plus, Trash2, Save, RotateCcw, Edit2, Download, UploadCloud, CheckCircle2, FileText, Info, Mail, ChevronDown, Star, Briefcase, Database, Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import type { StatusConfig, VendorProfile, LanguageConfig, StageSlaNudgeConfig } from '../types';
-import { normalizeLanguageList, FULL_DEFAULT_LANGUAGES, DEFAULT_SERVICES_LIST } from '../types';
+import type { StatusConfig, VendorProfile, LanguageConfig, StageSlaNudgeConfig, WorkflowStageConfig } from '../types';
+import { normalizeLanguageList, FULL_DEFAULT_LANGUAGES, DEFAULT_SERVICES_LIST, FULL_DEFAULT_STAGES } from '../types';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
@@ -77,9 +77,12 @@ export const Settings: React.FC = () => {
   const [editingServiceIndex, setEditingServiceIndex] = useState<number | null>(null);
   const [editingServiceName, setEditingServiceName] = useState('');
 
+  const [stages, setStages] = useState<WorkflowStageConfig[]>(FULL_DEFAULT_STAGES);
+
   // Collapsible section cards state (defaulted to collapsed)
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
     applications: false,
+    pipeline_stages: true,
     languages: true,
     services: true,
     statuses: true,
@@ -161,6 +164,11 @@ export const Settings: React.FC = () => {
           } else {
             setStatuses(DEFAULT_STATUSES);
           }
+          if (config.stages && Array.isArray(config.stages)) {
+            setStages(config.stages);
+          } else {
+            setStages(FULL_DEFAULT_STAGES);
+          }
           if (config.testingMode) {
             setTestingEnabled(config.testingMode.enabled || false);
             setTestingModeSubtype(config.testingMode.mode || 'send_to_admin');
@@ -206,7 +214,8 @@ export const Settings: React.FC = () => {
     updatedStageSlaConfigs?: Record<string, StageSlaNudgeConfig>,
     updatedSlaEnabled?: boolean,
     updatedSlaMode?: 'automated' | 'one_click',
-    updatedServices: string[] = services
+    updatedServices: string[] = services,
+    updatedStages?: WorkflowStageConfig[]
   ) => {
     try {
       const docRef = doc(db, 'settings', 'global_config');
@@ -218,6 +227,7 @@ export const Settings: React.FC = () => {
         languages: updatedLangs,
         services: updatedServices,
         statuses: updatedStatuses,
+        stages: updatedStages ?? stages,
         testingMode: {
           enabled: testEnabled,
           mode: testSubtype,
@@ -800,6 +810,65 @@ export const Settings: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* Pipeline Stage Status Mappings Panel */}
+      <section className="bg-white dark:bg-card-dark rounded-3xl border border-slate-200/50 dark:border-border-dark p-6 space-y-4 shadow-sm">
+        <div 
+          onClick={() => toggleSection('pipeline_stages')}
+          className="flex items-center justify-between cursor-pointer select-none pb-1"
+        >
+          <div>
+            <h3 className="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2">
+              <Briefcase className="w-5 h-5 text-primary" />
+              Pipeline Stage Status Mappings ({stages.length})
+            </h3>
+            <p className="text-xs text-slate-400 mt-1">
+              Automatically assign an overall Linguist Status when a candidate enters each stage in the recruitment funnel.
+            </p>
+          </div>
+          <button type="button" className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 text-slate-400">
+            <motion.div animate={{ rotate: collapsedSections.pipeline_stages ? 0 : 180 }} transition={{ duration: 0.2 }}>
+              <ChevronDown className="w-5 h-5" />
+            </motion.div>
+          </button>
+        </div>
+
+        {!collapsedSections.pipeline_stages && (
+          <div className="pt-2 border-t border-slate-100 dark:border-white/5 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {stages.map((stg) => (
+                <div key={stg.id} className="p-4 bg-slate-50 dark:bg-bg-dark rounded-2xl border border-slate-200/60 dark:border-border-dark space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-xs text-slate-800 dark:text-slate-200">{stg.name}</span>
+                    <span className="text-[10px] text-slate-400 font-mono">Stage #{stg.order}</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">{stg.description}</p>
+                  
+                  <div className="pt-2">
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                      Mapped Status
+                    </label>
+                    <select
+                      value={stg.mappedStatus || 'pending'}
+                      onChange={(e) => {
+                        const newMapped = e.target.value;
+                        const updated = stages.map(s => s.id === stg.id ? { ...s, mappedStatus: newMapped } : s);
+                        setStages(updated);
+                        saveConfigDirect(languages, statuses, testingEnabled, testingModeSubtype, testingRecipients, undefined, undefined, undefined, undefined, services, updated);
+                      }}
+                      className="w-full p-2 bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-xl text-xs font-bold text-slate-700 dark:text-white cursor-pointer focus:ring-2 focus:ring-primary/20"
+                    >
+                      {statuses.map(st => (
+                        <option key={st.key} value={st.key}>{st.key.replace(/_/g, ' ').toUpperCase()}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
 
       {/* Languages Panel (Full Width) */}
       <section className="bg-white dark:bg-card-dark rounded-3xl border border-slate-200/50 dark:border-border-dark p-6 space-y-4 shadow-sm">

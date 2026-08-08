@@ -228,7 +228,18 @@ export interface WorkflowStageConfig {
   name: string;
   description: string;
   order: number;
+  mappedStatus?: string; // Overall Status to automatically set when candidate enters this stage
 }
+
+export const FULL_DEFAULT_STAGES: WorkflowStageConfig[] = [
+  { id: 'outreach', name: 'Outreach', description: 'Initial contact and profile submission', order: 1, mappedStatus: 'pending' },
+  { id: 'nda', name: 'NDA Sign', description: 'Non-disclosure agreement verification', order: 2, mappedStatus: 'pending' },
+  { id: 'ready_for_testing', name: 'Ready for Testing', description: 'Vetted candidate queued for assessment', order: 3, mappedStatus: 'pending' },
+  { id: 'in_testing', name: 'In Testing', description: 'Active translation test evaluation', order: 4, mappedStatus: 'pending' },
+  { id: 'xtrf_onboarding', name: 'XTRF Onboarding', description: 'Portal account & system registration', order: 5, mappedStatus: 'pending' },
+  { id: 'ready_for_pm', name: 'Ready for PM', description: 'Compliance approved and available in PM Directory', order: 6, mappedStatus: 'active' },
+  { id: 'dnu', name: 'DNU', description: 'Do Not Use / Disqualified candidate', order: 7, mappedStatus: 'blacklisted' }
+];
 
 export interface StatusConfig {
   key: string;

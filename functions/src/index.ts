@@ -262,13 +262,51 @@ export const onVendorStageChange = onDocumentUpdated(
 
     logger.info(`Candidate ${vendorId} updated: Stage=${currentStage}, StageStatus=${currentStageStatus}`);
 
-    // Skip automated backend email dispatch if frontend handled custom dispatch or user selected "Confirm (No Email)"
-    if (afterData?.suppressWorkflowEmail) {
-      logger.info(`Candidate ${vendorId} updated with suppressWorkflowEmail flag. Skipping automatic backend email dispatch.`);
-      return;
-    }
-
     try {
+      // 1. Auto-update overall Status based on Stage Mappings if Stage changed
+      if (stageChanged && currentStage) {
+        const configDoc = await db.collection("settings").doc("global_config").get();
+        let mappedStatus: string | undefined;
+
+        if (configDoc.exists) {
+          const stagesConfig = configDoc.data()?.stages;
+          if (Array.isArray(stagesConfig)) {
+            const stageEntry = stagesConfig.find((s: any) => s.id === currentStage);
+            if (stageEntry?.mappedStatus) {
+              mappedStatus = stageEntry.mappedStatus;
+            }
+          }
+        }
+
+        // Fallbacks if not in global_config
+        if (!mappedStatus) {
+          const DEFAULT_MAP: Record<string, string> = {
+            outreach: 'pending',
+            nda: 'pending',
+            ready_for_testing: 'pending',
+            in_testing: 'pending',
+            xtrf_onboarding: 'pending',
+            ready_for_pm: 'active',
+            dnu: 'blacklisted'
+          };
+          mappedStatus = DEFAULT_MAP[currentStage];
+        }
+
+        if (mappedStatus && afterData?.status !== mappedStatus) {
+          await change.after.ref.update({
+            status: mappedStatus,
+            updatedAt: new Date().toISOString()
+          });
+          logger.info(`Automatically mapped Candidate ${vendorId} Status to '${mappedStatus}' for Stage '${currentStage}'`);
+        }
+      }
+
+      // Skip automated backend email dispatch if frontend handled custom dispatch or user selected "Confirm (No Email)"
+      if (afterData?.suppressWorkflowEmail) {
+        logger.info(`Candidate ${vendorId} updated with suppressWorkflowEmail flag. Skipping automatic backend email dispatch.`);
+        return;
+      }
+
       // Query all workflow actions registered for this stage
       const actionsQuery = await db.collection("workflow_actions")
         .where("triggerStage", "==", currentStage)
@@ -399,13 +437,8 @@ export const onVendorStageChange = onDocumentUpdated(
           }
         }
 
-        // Apply configured candidate field updates (Status, Stage, Stage Status)
+        // Apply configured candidate field updates (Stage, Stage Status)
         const fieldUpdates: Record<string, any> = {};
-
-        const targetStatus = action.updateStatus || action.updateValue;
-        if (targetStatus && targetStatus !== 'none') {
-          fieldUpdates.status = targetStatus;
-        }
 
         const targetStage = action.updateStage || action.autoAdvanceStage;
         if (targetStage && targetStage !== 'none') {
