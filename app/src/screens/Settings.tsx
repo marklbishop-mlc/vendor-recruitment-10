@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Globe, Shield, Plus, Trash2, Save, RotateCcw, Edit2, Download, UploadCloud, CheckCircle2, FileText, Info, Mail, ChevronDown, Star, Briefcase
+  Globe, Shield, Plus, Trash2, Save, RotateCcw, Edit2, Download, UploadCloud, CheckCircle2, FileText, Info, Mail, ChevronDown, Star, Briefcase, Database, Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { StatusConfig, VendorProfile, LanguageConfig, StageSlaNudgeConfig } from '../types';
@@ -66,6 +66,10 @@ export const Settings: React.FC = () => {
   const [importFileName, setImportFileName] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [importSuccessMsg, setImportSuccessMsg] = useState('');
+  
+  // Database Management States
+  const [isClearingDb, setIsClearingDb] = useState(false);
+  const [dbActionMsg, setDbActionMsg] = useState('');
 
   // Services Management States
   const [services, setServices] = useState<string[]>(DEFAULT_SERVICES_LIST);
@@ -82,7 +86,8 @@ export const Settings: React.FC = () => {
     import: true,
     testing_mode: true,
     sla_nudges: true,
-    smtp: true
+    smtp: true,
+    db_management: true
   });
 
   const toggleSection = (key: string) => {
@@ -503,7 +508,7 @@ export const Settings: React.FC = () => {
     const headers = [
       'Company Name', 'Contact Name', 'Email', 'Secondary Email', 'Phone',
       'Services', 'Languages', 'Tier', 'Hourly Rate (Client)', 'Adjusted Rate (Offer)',
-      'Confirmed Rate (Negotiated)', 'Stage', 'Status', 'Signed NDA', 'ProZ Link', 'LinkedIn Link'
+      'Confirmed Rate (Negotiated)', 'Stage', 'Stage Progress', 'Signed NDA', 'ProZ Link', 'LinkedIn Link'
     ];
 
     const sampleRow1 = [
@@ -629,6 +634,100 @@ export const Settings: React.FC = () => {
       alert("Failed to commit CSV import: " + (err instanceof Error ? err.message : String(err)));
     } finally {
       setIsImporting(false);
+    }
+  };
+
+  const handleBackupDatabase = async () => {
+    try {
+      const { collection, getDocs } = await import('firebase/firestore');
+      const vendorsSnap = await getDocs(collection(db, 'vendors'));
+      
+      const headers = [
+        'Company Name', 'Contact Name', 'Email', 'Secondary Email', 'Phone',
+        'Services', 'Languages', 'Tier', 'Hourly Rate (Client)', 'Adjusted Rate (Offer)',
+        'Confirmed Rate (Negotiated)', 'Stage', 'Stage Progress', 'Signed NDA', 'Submitted At'
+      ];
+      
+      const rows = vendorsSnap.docs.map(doc => {
+        const v = doc.data() as VendorProfile;
+        return [
+          v.companyName || 'N/A',
+          v.contactName || 'N/A',
+          v.email || '',
+          v.secondaryEmail || '',
+          v.phone || '',
+          Array.isArray(v.services) ? v.services.join('; ') : '',
+          Array.isArray(v.workingLanguages) ? v.workingLanguages.map(l => `${l.language}:${l.proficiency}`).join('; ') : '',
+          v.classificationTier || 2,
+          v.mlcHourlyRate || 0,
+          v.adjustedRate || 0,
+          v.confirmedRate || 0,
+          v.stage || 'outreach',
+          v.status || 'pending', // This is the stage progress mapped field
+          v.hasSignedNda ? 'true' : 'false',
+          v.submittedAt || ''
+        ];
+      });
+
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.map(val => `"${String(val).replace(/"/g, '""')}"`).join(','))
+      ].join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `mlc_linguist_full_backup_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      setDbActionMsg('Database backup downloaded successfully.');
+      setTimeout(() => setDbActionMsg(''), 4000);
+    } catch (err) {
+      console.error("Backup failed", err);
+      alert("Failed to backup database: " + (err instanceof Error ? err.message : String(err)));
+    }
+  };
+
+  const handleClearDatabase = async () => {
+    const confirmClear = window.prompt("WARNING: This will permanently delete ALL linguist records. Type 'DELETE' to confirm.");
+    if (confirmClear !== 'DELETE') {
+      alert("Database clear cancelled.");
+      return;
+    }
+    
+    setIsClearingDb(true);
+    try {
+      const { collection, getDocs, writeBatch } = await import('firebase/firestore');
+      const vendorsSnap = await getDocs(collection(db, 'vendors'));
+      
+      const batchSize = 500;
+      let batch = writeBatch(db);
+      let count = 0;
+      
+      for (const doc of vendorsSnap.docs) {
+        batch.delete(doc.ref);
+        count++;
+        if (count % batchSize === 0) {
+          await batch.commit();
+          batch = writeBatch(db);
+        }
+      }
+      
+      if (count % batchSize !== 0) {
+        await batch.commit();
+      }
+      
+      setDbActionMsg(`Successfully deleted all ${count} linguist records.`);
+      setTimeout(() => setDbActionMsg(''), 5000);
+    } catch (err) {
+      console.error("Failed to clear database", err);
+      alert("Failed to clear database: " + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setIsClearingDb(false);
     }
   };
 
@@ -1131,6 +1230,7 @@ export const Settings: React.FC = () => {
                   <li><strong className="text-slate-700 dark:text-slate-200">Languages:</strong> Semicolon-separated pairs with proficiency (e.g. <code className="bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded">Japanese:native; English:professional</code>)</li>
                   <li><strong className="text-slate-700 dark:text-slate-200">Tier:</strong> Candidate tier rating (<code className="bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded">1</code>, <code className="bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded">2</code>, or <code className="bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded">3</code>)</li>
                   <li><strong className="text-slate-700 dark:text-slate-200">Stage:</strong> Stage ID (<code className="bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded">outreach, nda, ready_for_testing, in_testing, ready_for_pm</code>)</li>
+                  <li><strong className="text-slate-700 dark:text-slate-200">Stage Progress:</strong> Status ID (<code className="bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded">pending, outreach, started, completed, failed</code>)</li>
                   <li><strong className="text-slate-700 dark:text-slate-200">Signed NDA:</strong> NDA status (<code className="bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded">true</code> or <code className="bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded">false</code>)</li>
                 </ul>
               </div>
@@ -1692,6 +1792,78 @@ export const Settings: React.FC = () => {
                 />
               </div>
             </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </section>
+
+      {/* Database Management Panel */}
+      <section className="bg-rose-50 dark:bg-rose-950/20 rounded-3xl border border-rose-200/50 dark:border-rose-900/50 p-6 space-y-4 shadow-sm relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-1 h-full bg-rose-500"></div>
+        <div 
+          onClick={() => toggleSection('db_management')}
+          className="flex items-center justify-between cursor-pointer select-none pb-1 pl-2"
+        >
+          <div>
+            <h3 className="font-extrabold text-base text-rose-900 dark:text-rose-400 flex items-center gap-2">
+              <Database className="w-5 h-5 text-rose-600 dark:text-rose-500" />
+              Database Management (Danger Zone)
+            </h3>
+            <p className="text-xs text-rose-600/70 dark:text-rose-400/70 mt-1">
+              Admin actions to backup or clear the entire linguist database. Use with extreme caution.
+            </p>
+          </div>
+          <button type="button" className="p-1.5 rounded-xl hover:bg-rose-100 dark:hover:bg-rose-900/40 text-rose-500">
+            <motion.div animate={{ rotate: collapsedSections.db_management ? 0 : 180 }} transition={{ duration: 0.2 }}>
+              <ChevronDown className="w-5 h-5" />
+            </motion.div>
+          </button>
+        </div>
+
+        <AnimatePresence initial={false}>
+          {!collapsedSections.db_management && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25, ease: 'easeInOut' }}
+              className="space-y-4 border-t border-rose-200 dark:border-rose-900/50 pt-4 overflow-hidden"
+            >
+              
+              {dbActionMsg && (
+                <div className="p-3 bg-white dark:bg-card-dark text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-border-dark text-xs font-bold rounded-xl flex items-center gap-2 shadow-sm">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                  {dbActionMsg}
+                </div>
+              )}
+              
+              <div className="flex flex-col sm:flex-row gap-4 pt-2">
+                <button
+                  onClick={handleBackupDatabase}
+                  className="flex-1 py-3 px-4 bg-white hover:bg-slate-50 dark:bg-card-dark dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-border-dark rounded-xl text-xs font-bold btn-animate shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Download className="w-4 h-4 text-primary" />
+                  Backup Linguist Database (CSV)
+                </button>
+
+                <button
+                  onClick={handleClearDatabase}
+                  disabled={isClearingDb}
+                  className="flex-1 py-3 px-4 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold btn-animate shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isClearingDb ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Clearing Database...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4 text-white" />
+                      Clear Entire Database
+                    </>
+                  )}
+                </button>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>

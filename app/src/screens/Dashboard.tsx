@@ -1059,7 +1059,7 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
         <div>
           <div className="flex items-center gap-3">
             <img src="/logomark.png" alt="Logomark" className="w-10 h-10 object-contain" />
-            <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">Pipeline Dashboard</h2>
+            <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">Funnel Dashboard</h2>
           </div>
           <p className="text-slate-500 dark:text-slate-400 mt-1 text-sm pl-1.5">
             Evaluate, transition, and onboard language specialists across active workflows.
