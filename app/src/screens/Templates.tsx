@@ -760,9 +760,6 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): Record<string, 
                   >
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-sm">{tmpl.name}</span>
-                      <span className="text-[10px] font-semibold text-primary uppercase bg-primary/10 px-2 py-0.5 rounded">
-                        {stages.find(s => s.id === tmpl.stage)?.name || tmpl.stage}
-                      </span>
                     </div>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-1">{tmpl.subject}</p>
                   </button>
@@ -809,33 +806,14 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): Record<string, 
             </div>
 
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Template Name</label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full p-2.5 bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl text-xs font-semibold focus:outline-none focus:border-primary dark:text-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Target Workflow Stage</label>
-                  <select
-                    value={selectedTemplate.stage}
-                    onChange={(e) => {
-                      const newStage = e.target.value as WorkflowStage;
-                      const updated = { ...selectedTemplate, stage: newStage };
-                      setSelectedTemplate(updated);
-                      setTemplates((prev) => prev.map((t) => t.id === updated.id ? updated : t));
-                    }}
-                    className="w-full p-2.5 bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl text-xs font-semibold focus:outline-none focus:border-primary dark:text-white cursor-pointer"
-                  >
-                    {stages.map((stg) => (
-                      <option key={stg.id} value={stg.id}>{stg.name}</option>
-                    ))}
-                  </select>
-                </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Template Name</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full p-2.5 bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl text-xs font-semibold focus:outline-none focus:border-primary dark:text-white"
+                />
               </div>
 
               <div>
@@ -916,8 +894,12 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): Record<string, 
                       {stages.find(s => s.id === act.triggerStage)?.name || act.triggerStage}
                     </td>
                     <td className="p-4 font-mono text-[11px] text-slate-500">
-                      {act.operator === 'always' || !act.field ? (
-                        <span className="italic text-slate-400 font-sans font-normal">Always (Unconditional)</span>
+                      {act.operator === 'always' ? (
+                        <span className="italic text-slate-500 font-sans font-semibold">On Stage Entry</span>
+                      ) : act.operator === 'stage_exit' ? (
+                        <span className="italic text-amber-600 dark:text-amber-400 font-sans font-semibold">On Stage Exit</span>
+                      ) : !act.field ? (
+                        <span className="italic text-slate-500 font-sans font-semibold">On Stage Entry</span>
                       ) : (
                         `${act.field} ${act.operator} "${act.value || ''}"`
                       )}
@@ -1439,6 +1421,7 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): Record<string, 
                         className="w-full p-2.5 bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl text-xs dark:text-white cursor-pointer font-bold"
                       >
                         <option value="started">🟡 On Stage Entry (Started)</option>
+                        <option value="exited">🚪 On Stage Exit (Exited)</option>
                         <option value="completed">🟢 On Stage Completion (Completed)</option>
                         <option value="failed">🔴 On Stage Failure (Failed)</option>
                         <option value="non_responsive">🟣 On Non Responsive</option>
@@ -1458,7 +1441,8 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): Record<string, 
                           onChange={(e) => setNewActOperator(e.target.value as any)}
                           className="w-full p-2 bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-lg text-xs dark:text-white cursor-pointer font-bold"
                         >
-                          <option value="always">-- Always Trigger (No Condition) --</option>
+                          <option value="always">On Stage Entry (Unconditional)</option>
+                          <option value="stage_exit">On Stage Exit (Unconditional)</option>
                           <option value="==">Equals (==)</option>
                           <option value="!=">Not Equals (!=)</option>
                           <option value="empty">Is Empty / Missing</option>
@@ -1466,7 +1450,7 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): Record<string, 
                         </select>
                       </div>
 
-                      {newActOperator !== 'always' ? (
+                      {newActOperator !== 'always' && newActOperator !== 'stage_exit' ? (
                         <>
                           <div>
                             <label className="block text-slate-400 uppercase tracking-wider mb-1 text-[9px]">Condition Field</label>
@@ -1494,7 +1478,9 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): Record<string, 
                         </>
                       ) : (
                         <div className="col-span-2 text-[11px] text-slate-500 italic flex items-center">
-                          This rule triggers unconditionally whenever a candidate enters this stage, unless a specific conditional rule matches first.
+                          {newActOperator === 'stage_exit'
+                            ? 'This rule triggers automatically when a candidate exits this stage.'
+                            : 'This rule triggers automatically on stage entry, unless a specific conditional rule matches first.'}
                         </div>
                       )}
                     </div>

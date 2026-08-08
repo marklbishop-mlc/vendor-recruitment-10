@@ -7,7 +7,7 @@ import {
   deleteDoc 
 } from 'firebase/firestore';
 import { db } from '../firebase';
-import type { ApplicationConfig, LanguageConfig, CustomApplicationQuestion } from '../types';
+import type { ApplicationConfig, LanguageConfig, CustomApplicationQuestion, CampaignConfig } from '../types';
 import { FULL_DEFAULT_LANGUAGES, getActiveSortedLanguages } from '../types';
 import { 
   Plus, 
@@ -206,6 +206,7 @@ const MultiSelectPopover: React.FC<MultiSelectProps> = ({
 export const ApplicationManager: React.FC = () => {
   const [applications, setApplications] = useState<ApplicationConfig[]>([]);
   const [languages, setLanguages] = useState<LanguageConfig[]>(FULL_DEFAULT_LANGUAGES);
+  const [campaigns, setCampaigns] = useState<CampaignConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
 
@@ -216,6 +217,7 @@ export const ApplicationManager: React.FC = () => {
   // Core Form State
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
+  const [campaignId, setCampaignId] = useState('');
   const [description, setDescription] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [collectRates, setCollectRates] = useState(true);
@@ -256,6 +258,25 @@ export const ApplicationManager: React.FC = () => {
 
     return () => unsub();
   }, []);
+
+  // Subscribe to campaigns collection
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'campaigns'), (snapshot) => {
+      const docs: CampaignConfig[] = [];
+      snapshot.forEach((docSnap) => {
+        docs.push({ id: docSnap.id, ...docSnap.data() } as CampaignConfig);
+      });
+      docs.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      setCampaigns(docs);
+    });
+    return () => unsub();
+  }, []);
+
+  // Campaign Modal State
+  const [isCampaignModalOpen, setIsCampaignModalOpen] = useState(false);
+  const [editingCampaign, setEditingCampaign] = useState<CampaignConfig | null>(null);
+  const [campaignName, setCampaignName] = useState('');
+  const [campaignIsActive, setCampaignIsActive] = useState(true);
 
   const [servicesList, setServicesList] = useState<string[]>(DEFAULT_SERVICES_LIST);
 
@@ -307,6 +328,7 @@ export const ApplicationManager: React.FC = () => {
     setEditingApp(null);
     setName('');
     setSlug(generateCleanSlug());
+    setCampaignId('');
     setDescription('');
     setIsActive(true);
     setCollectRates(true);
@@ -326,6 +348,7 @@ export const ApplicationManager: React.FC = () => {
     setEditingApp(app);
     setName(app.name);
     setSlug(app.slug || app.id);
+    setCampaignId(app.campaignId || '');
     setDescription(app.description || '');
     setIsActive(app.isActive);
     setCollectRates(app.collectRates ?? true);
@@ -373,17 +396,20 @@ export const ApplicationManager: React.FC = () => {
   const handleSaveApplication = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      alert("Please provide an internal application name.");
+      alert("Please provide an Application Internal Title.");
       return;
     }
 
     const cleanSlugValue = slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-') || generateCleanSlug();
     const appId = editingApp ? editingApp.id : cleanSlugValue;
+    const selectedCampaign = campaigns.find(c => c.id === campaignId);
 
     const newApp: ApplicationConfig = {
       id: appId,
       slug: cleanSlugValue,
       name: name.trim(),
+      campaignId: campaignId || undefined,
+      campaignName: selectedCampaign?.name || undefined,
       description: description.trim(),
       isActive,
       allowedServices: selectedServices.length === 0 ? ['all'] : selectedServices,
@@ -420,13 +446,64 @@ export const ApplicationManager: React.FC = () => {
     }
   };
 
-  const handleDeleteApplication = async (appId: string, appName: string) => {
-    if (confirm(`Are you sure you want to delete application "${appName}"? Applicants using this link will revert to the default application.`)) {
+  const handleDeleteApplication = async (id: string, name: string) => {
+    if (id === 'default') return;
+    if (confirm(`Are you sure you want to delete application "${name}"?\n\nExisting candidate profiles will retain this application name for history, but the intake link will stop working immediately.`)) {
       try {
-        await deleteDoc(doc(db, 'applications', appId));
+        await deleteDoc(doc(db, 'applications', id));
       } catch (err) {
-        console.error("Failed to delete application", err);
-        alert("Error deleting application.");
+        console.error("Error deleting application", err);
+        alert("Failed to delete application.");
+      }
+    }
+  };
+
+  const handleOpenAddCampaignModal = () => {
+    setEditingCampaign(null);
+    setCampaignName('');
+    setCampaignIsActive(true);
+    setIsCampaignModalOpen(true);
+  };
+
+  const handleOpenEditCampaignModal = (c: CampaignConfig) => {
+    setEditingCampaign(c);
+    setCampaignName(c.name);
+    setCampaignIsActive(c.isActive);
+    setIsCampaignModalOpen(true);
+  };
+
+  const handleSaveCampaign = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!campaignName.trim()) {
+      alert("Please provide a Campaign Name.");
+      return;
+    }
+
+    const campaignId = editingCampaign ? editingCampaign.id : doc(collection(db, 'campaigns')).id;
+    
+    const newCampaign: CampaignConfig = {
+      id: campaignId,
+      name: campaignName.trim(),
+      isActive: campaignIsActive,
+      createdAt: editingCampaign ? editingCampaign.createdAt : new Date().toISOString()
+    };
+
+    try {
+      await setDoc(doc(db, 'campaigns', campaignId), newCampaign);
+      setIsCampaignModalOpen(false);
+    } catch (err) {
+      console.error("Error saving campaign", err);
+      alert("Failed to save Campaign.");
+    }
+  };
+
+  const handleDeleteCampaign = async (id: string, name: string) => {
+    if (confirm(`Are you sure you want to delete campaign "${name}"?`)) {
+      try {
+        await deleteDoc(doc(db, 'campaigns', id));
+      } catch (err) {
+        console.error("Error deleting campaign", err);
+        alert("Failed to delete campaign.");
       }
     }
   };
@@ -623,6 +700,60 @@ export const ApplicationManager: React.FC = () => {
         </div>
       )}
 
+      {/* Campaigns Section */}
+      <div className="mt-12 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t border-slate-200/60 dark:border-border-dark pt-8">
+        <div>
+          <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+            <Layers className="w-6 h-6 text-indigo-500" /> Campaign Groupings
+          </h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400 font-medium mt-1">
+            Create top-level campaigns to standardize and group vendor applications on the dashboard.
+          </p>
+        </div>
+        <button
+          onClick={handleOpenAddCampaignModal}
+          className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-xl font-bold transition-all shadow-md cursor-pointer shrink-0"
+        >
+          <Plus className="w-4 h-4" />
+          Create Campaign
+        </button>
+      </div>
+
+      <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {campaigns.length === 0 ? (
+          <div className="col-span-full py-8 text-center text-slate-500 text-sm font-medium border border-dashed border-slate-200 dark:border-border-dark rounded-3xl">
+            No Campaigns created yet.
+          </div>
+        ) : (
+          campaigns.map((c) => (
+            <div key={c.id} className="bg-white dark:bg-card-dark rounded-2xl p-4 border border-slate-200/60 dark:border-border-dark shadow-sm flex items-center justify-between">
+              <div>
+                <h3 className="font-extrabold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                  {c.name}
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${c.isActive ? 'bg-emerald-500/10 text-emerald-600' : 'bg-slate-100 text-slate-500'}`}>
+                    {c.isActive ? 'Active' : 'Disabled'}
+                  </span>
+                </h3>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => handleOpenEditCampaignModal(c)}
+                  className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/5 text-slate-500 cursor-pointer"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => handleDeleteCampaign(c.id, c.name)}
+                  className="p-1.5 rounded-lg hover:bg-rose-50 text-rose-500 cursor-pointer"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
       {/* CREATE / EDIT APPLICATION MODAL */}
       <AnimatePresence>
         {isModalOpen && (
@@ -658,7 +789,7 @@ export const ApplicationManager: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-slate-700 dark:text-slate-200 block">
-                      Internal Campaign Name *
+                      Application Internal Title *
                     </label>
                     <input
                       type="text"
@@ -668,7 +799,24 @@ export const ApplicationManager: React.FC = () => {
                       placeholder="e.g. YouTube Localization Q3"
                       className="w-full p-2.5 bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-primary"
                     />
-                    <span className="text-[10px] text-slate-400 block">Private internal name (hidden from public applicants).</span>
+                    <span className="text-[10px] text-slate-400 block">Private internal title for this form.</span>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-bold text-slate-700 dark:text-slate-200 block">
+                      Campaign (Optional)
+                    </label>
+                    <select
+                      value={campaignId}
+                      onChange={(e) => setCampaignId(e.target.value)}
+                      className="w-full p-2.5 bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-primary cursor-pointer"
+                    >
+                      <option value="">None (General Intake)</option>
+                      {campaigns.filter(c => c.isActive).map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                    <span className="text-[10px] text-slate-400 block">Group this application link under a specific campaign.</span>
                   </div>
 
                   <div className="space-y-1">
@@ -998,6 +1146,86 @@ export const ApplicationManager: React.FC = () => {
                     className="flex-1 py-2.5 bg-primary hover:bg-primary-dark text-white text-xs font-bold rounded-xl cursor-pointer shadow-md shadow-primary/20"
                   >
                     {editingApp ? 'Save Application Config' : 'Create Application Link'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* CREATE / EDIT CAMPAIGN MODAL */}
+      <AnimatePresence>
+        {isCampaignModalOpen && (
+          <>
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsCampaignModalOpen(false)}
+              className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md bg-white dark:bg-card-dark rounded-3xl p-6 shadow-2xl border border-slate-200/50 dark:border-border-dark z-50 space-y-6"
+            >
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/5 pb-4">
+                <h3 className="font-extrabold text-lg text-slate-900 dark:text-white flex items-center gap-2">
+                  <Layers className="w-5 h-5 text-indigo-500" />
+                  {editingCampaign ? 'Edit Campaign' : 'Create Campaign'}
+                </h3>
+                <button 
+                  onClick={() => setIsCampaignModalOpen(false)}
+                  className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-white/5 text-slate-400"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveCampaign} className="space-y-6">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-200 block">
+                    Campaign Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={campaignName}
+                    onChange={(e) => setCampaignName(e.target.value)}
+                    placeholder="e.g. Q3 Outreach, Localisation 2026..."
+                    className="w-full p-2.5 bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-bg-dark rounded-xl border border-slate-200/50 dark:border-border-dark">
+                  <div>
+                    <span className="font-bold text-xs text-slate-900 dark:text-white block">Status</span>
+                    <span className="text-[10px] text-slate-400 block">Enable or disable this campaign</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setCampaignIsActive(!campaignIsActive)}
+                    className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer ${campaignIsActive ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700'}`}
+                  >
+                    <div className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-transform ${campaignIsActive ? 'right-1' : 'left-1'}`} />
+                  </button>
+                </div>
+
+                <div className="pt-4 border-t border-slate-100 dark:border-white/5 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsCampaignModalOpen(false)}
+                    className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold rounded-xl cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-bold rounded-xl cursor-pointer shadow-md shadow-indigo-500/20"
+                  >
+                    Save Campaign
                   </button>
                 </div>
               </form>

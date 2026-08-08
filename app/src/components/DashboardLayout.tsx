@@ -3,7 +3,7 @@ import { Link, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { 
   BarChart2, BookOpen, Users, Mail, Compass, 
-  ShieldCheck, LogOut, Menu, X, Sparkles, Settings, Sliders, ChevronDown 
+  ShieldCheck, LogOut, Menu, X, Sparkles, Settings, Sliders, ChevronDown, ChevronLeft, ChevronRight 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -11,6 +11,7 @@ export const DashboardLayout: React.FC = () => {
   const { user, logout, isMockMode, syncError } = useAuth();
   const location = useLocation();
   const [isMobileOpen, setIsMobileOpen] = React.useState(false);
+  const [isDesktopCollapsed, setIsDesktopCollapsed] = React.useState(false);
   const [emailTestingConfig, setEmailTestingConfig] = React.useState<{ enabled: boolean; mode?: 'intercept' | 'send_to_admin' }>({ enabled: false, mode: 'send_to_admin' });
 
   const adminPaths = ['/templates', '/users', '/settings', '/notifications'];
@@ -80,14 +81,25 @@ export const DashboardLayout: React.FC = () => {
     <div className="min-h-screen flex bg-slate-50 dark:bg-bg-dark text-slate-800 dark:text-slate-100 transition-colors duration-300">
       
       {/* Sidebar - Desktop Layout */}
-      <aside className="hidden lg:flex flex-col w-64 border-r border-slate-200/50 dark:border-border-dark bg-white dark:bg-card-dark transition-all duration-300">
+      <aside className={`hidden lg:flex flex-col border-r border-slate-200/50 dark:border-border-dark bg-white dark:bg-card-dark transition-all duration-300 relative ${isDesktopCollapsed ? 'w-20' : 'w-64'}`}>
+        
+        {/* Toggle Button */}
+        <button
+          onClick={() => setIsDesktopCollapsed(prev => !prev)}
+          className="absolute -right-3.5 top-6 bg-white dark:bg-slate-800 border border-slate-200 dark:border-border-dark rounded-full p-1 text-slate-400 hover:text-primary hover:border-primary transition-colors z-50 shadow-sm cursor-pointer"
+        >
+          {isDesktopCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+        </button>
+
         {/* Logo and Head */}
-        <div className="px-6 py-4.5 border-b border-slate-200/50 dark:border-border-dark flex items-center gap-3">
-          <img src="/logomark.png" alt="Multilingual Connections Logo" className="w-9 h-9 object-contain" />
-          <div>
-            <span className="font-extrabold text-sm text-slate-900 dark:text-white leading-none block">MLC Onboarding</span>
-            <span className="text-[10px] text-primary font-bold uppercase tracking-wider">Linguist Onboarding</span>
-          </div>
+        <div className={`px-4 py-4.5 border-b border-slate-200/50 dark:border-border-dark flex items-center ${isDesktopCollapsed ? 'justify-center' : 'gap-3'}`}>
+          <img src="/logomark.png" alt="Multilingual Connections Logo" className="w-9 h-9 object-contain shrink-0" />
+          {!isDesktopCollapsed && (
+            <div className="min-w-0">
+              <span className="font-extrabold text-sm text-slate-900 dark:text-white leading-none block truncate">MLC Onboarding</span>
+              <span className="text-[10px] text-primary font-bold uppercase tracking-wider truncate block">Linguist Onboarding</span>
+            </div>
+          )}
         </div>
 
         {/* Navigation Items */}
@@ -99,16 +111,19 @@ export const DashboardLayout: React.FC = () => {
               <Link
                 key={item.path}
                 to={item.path}
-                className={`flex items-center gap-3 px-4 py-3 text-sm font-semibold rounded-xl transition-all duration-150 group ${
+                title={isDesktopCollapsed ? item.name : undefined}
+                className={`flex items-center gap-3 py-3 text-sm font-semibold rounded-xl transition-all duration-150 group ${
+                  isDesktopCollapsed ? 'justify-center px-0' : 'px-4'
+                } ${
                   isActive
                     ? 'bg-primary text-white shadow-md shadow-primary/20'
                     : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/5'
                 }`}
               >
-                <Icon className={`w-4 h-4 transition-transform duration-200 group-hover:scale-110 ${
+                <Icon className={`w-5 h-5 transition-transform duration-200 shrink-0 group-hover:scale-110 ${
                   isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300'
                 }`} />
-                {item.name}
+                {!isDesktopCollapsed && <span className="truncate">{item.name}</span>}
               </Link>
             );
           })}
@@ -118,22 +133,30 @@ export const DashboardLayout: React.FC = () => {
             <div className="pt-2">
               <button
                 type="button"
-                onClick={() => setIsAdminOpen((prev) => !prev)}
-                className={`w-full flex items-center justify-between px-4 py-3 text-sm font-semibold rounded-xl transition-all duration-150 cursor-pointer ${
+                onClick={() => {
+                  if (isDesktopCollapsed) {
+                    setIsDesktopCollapsed(false);
+                    setIsAdminOpen(true);
+                  } else {
+                    setIsAdminOpen((prev) => !prev);
+                  }
+                }}
+                title={isDesktopCollapsed ? 'Administration' : undefined}
+                className={`w-full flex items-center ${isDesktopCollapsed ? 'justify-center px-0' : 'justify-between px-4'} py-3 text-sm font-semibold rounded-xl transition-all duration-150 cursor-pointer ${
                   isAdminActive
                     ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white font-bold'
                     : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/5'
                 }`}
               >
-                <div className="flex items-center gap-3">
-                  <Sliders className={`w-4 h-4 ${isAdminActive ? 'text-primary' : 'text-slate-400'}`} />
-                  <span>Administration</span>
+                <div className={`flex items-center gap-3 ${isDesktopCollapsed ? 'justify-center w-full' : ''}`}>
+                  <Sliders className={`w-5 h-5 shrink-0 ${isAdminActive ? 'text-primary' : 'text-slate-400'}`} />
+                  {!isDesktopCollapsed && <span className="truncate">Administration</span>}
                 </div>
-                <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isAdminOpen ? 'rotate-180' : ''}`} />
+                {!isDesktopCollapsed && <ChevronDown className={`w-4 h-4 shrink-0 text-slate-400 transition-transform duration-200 ${isAdminOpen ? 'rotate-180' : ''}`} />}
               </button>
 
               <AnimatePresence>
-                {isAdminOpen && (
+                {isAdminOpen && !isDesktopCollapsed && (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
@@ -153,8 +176,8 @@ export const DashboardLayout: React.FC = () => {
                               : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100/70 dark:hover:bg-white/5'
                           }`}
                         >
-                          <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                          {item.name}
+                          <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                          <span className="truncate">{item.name}</span>
                         </Link>
                       );
                     })}
@@ -166,27 +189,30 @@ export const DashboardLayout: React.FC = () => {
         </nav>
 
         {/* Profile Card & Logout */}
-        <div className="p-4 border-t border-slate-200/50 dark:border-border-dark space-y-4">
-          <div className="flex items-center gap-3 p-2 bg-slate-50 dark:bg-bg-dark rounded-xl border border-slate-200/20 dark:border-border-dark">
-            <div className="w-9 h-9 rounded-lg bg-indigo-500/10 text-indigo-500 flex items-center justify-center font-bold text-sm uppercase">
+        <div className={`p-4 border-t border-slate-200/50 dark:border-border-dark space-y-4 ${isDesktopCollapsed ? 'flex flex-col items-center' : ''}`}>
+          <div className={`flex items-center gap-3 p-2 bg-slate-50 dark:bg-bg-dark rounded-xl border border-slate-200/20 dark:border-border-dark ${isDesktopCollapsed ? 'w-auto justify-center' : ''}`}>
+            <div className="w-9 h-9 shrink-0 rounded-lg bg-indigo-500/10 text-indigo-500 flex items-center justify-center font-bold text-sm uppercase">
               {user?.displayName.slice(0, 2)}
             </div>
-            <div className="flex-1 min-w-0">
-              <span className="font-bold text-xs text-slate-900 dark:text-white truncate block">
-                {user?.displayName}
-              </span>
-              <span className="inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase bg-primary/10 text-primary border border-primary/10">
-                <ShieldCheck className="w-2.5 h-2.5" />
-                {user?.role}
-              </span>
-            </div>
+            {!isDesktopCollapsed && (
+              <div className="flex-1 min-w-0">
+                <span className="font-bold text-xs text-slate-900 dark:text-white truncate block">
+                  {user?.displayName}
+                </span>
+                <span className="inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase bg-primary/10 text-primary border border-primary/10">
+                  <ShieldCheck className="w-2.5 h-2.5" />
+                  {user?.role}
+                </span>
+              </div>
+            )}
           </div>
           <button
             onClick={logout}
-            className="w-full py-2.5 px-4 bg-slate-100 hover:bg-red-500/10 hover:text-red-500 text-slate-600 dark:bg-slate-800/40 dark:text-slate-400 dark:hover:bg-red-500/10 dark:hover:text-red-400 font-semibold text-xs rounded-xl flex items-center justify-center gap-2 btn-animate cursor-pointer border border-transparent hover:border-red-500/20"
+            title={isDesktopCollapsed ? 'Sign Out' : undefined}
+            className={`w-full py-2.5 ${isDesktopCollapsed ? 'px-0 justify-center' : 'px-4'} bg-slate-100 hover:bg-red-500/10 hover:text-red-500 text-slate-600 dark:bg-slate-800/40 dark:text-slate-400 dark:hover:bg-red-500/10 dark:hover:text-red-400 font-semibold text-xs rounded-xl flex items-center gap-2 btn-animate cursor-pointer border border-transparent hover:border-red-500/20`}
           >
-            <LogOut className="w-3.5 h-3.5" />
-            Sign Out
+            <LogOut className="w-4 h-4 shrink-0" />
+            {!isDesktopCollapsed && <span>Sign Out</span>}
           </button>
         </div>
       </aside>

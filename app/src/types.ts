@@ -138,6 +138,8 @@ export interface VendorProfile {
   nudgeCountInStage?: number;
   stageEnteredAt?: string;
   lastNudgeAt?: string;
+  campaignId?: string;     // Explicit Campaign ID
+  campaignName?: string;   // Explicit Campaign Name
 
   // Detailed Application Tool Fields
   country?: string;
@@ -155,7 +157,9 @@ export interface VendorProfile {
 export interface ApplicationConfig {
   id: string;
   slug: string;               // Public clean key (e.g. "app-8f2a9")
-  name: string;               // Internal campaign name (e.g. "YouTube Localization Q3")
+  name: string;               // Application Internal Title (e.g. "YouTube Localization Q3")
+  campaignId?: string;        // Selected Campaign ID this application belongs to
+  campaignName?: string;      // Selected Campaign Name for denormalization
   description?: string;        // Internal notes/description
   isActive: boolean;
   
@@ -206,7 +210,7 @@ export interface WorkflowAction {
   triggerStage: WorkflowStage;
   triggerStatus?: string; // When rule triggers e.g. 'started', 'completed', 'failed', 'non_responsive', or 'any'
   field?: string; // Optional e.g. "isGmail" or "hasSignedNda"
-  operator: '==' | '!=' | 'empty' | 'not_empty' | 'always';
+  operator: '==' | '!=' | 'empty' | 'not_empty' | 'always' | 'stage_exit';
   value?: string; // Optional target value
   actionType?: 'send_email' | 'update_status' | 'both'; // Optional legacy field
   templateId?: string; // Optional email template to send ('none' or template ID)
@@ -310,6 +314,13 @@ export interface LanguageConfig {
   shortName?: string;  // Short abbreviation e.g. "SPA"
   isActive: boolean;   // If false, hidden from candidate dropdowns
   isPriority?: boolean;// If true, displayed at top of language lists
+}
+
+export interface CampaignConfig {
+  id: string;
+  name: string;
+  isActive: boolean;
+  createdAt: string;
 }
 
 export interface SystemConfig {

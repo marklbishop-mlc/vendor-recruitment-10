@@ -3,7 +3,7 @@ import {
   Search, Globe, Phone, Mail, Award, ChevronRight, ChevronDown, X,
   FileCheck, ShieldAlert, ExternalLink, Download, Grid, List, Edit2, Trash2
 } from 'lucide-react';
-import type { VendorProfile, WorkingLanguage, ApplicationConfig, LanguageProficiency } from '../types';
+import type { VendorProfile, WorkingLanguage, LanguageProficiency, ApplicationConfig, CampaignConfig } from '../types';
 import { getActiveSortedLanguages, PROFICIENCY_OPTIONS, formatProficiency } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { collection, getDocs, doc, setDoc, query, where, getDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
@@ -110,6 +110,7 @@ export const VendorDirectory: React.FC = () => {
   const [isLangDropdownOpen, setIsLangDropdownOpen] = useState(false);
   const [isAppDropdownOpen, setIsAppDropdownOpen] = useState(false);
   const [applicationsList, setApplicationsList] = useState<ApplicationConfig[]>([]);
+  const [campaignsList, setCampaignsList] = useState<CampaignConfig[]>([]);
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
   const [selectedVendor, setSelectedVendor] = useState<VendorProfile | null>(null);
   
@@ -187,7 +188,16 @@ export const VendorDirectory: React.FC = () => {
       setApplicationsList(apps);
     });
 
-    return () => unsubApps();
+    const unsubCampaigns = onSnapshot(collection(db, 'campaigns'), (snapshot) => {
+      const camps: CampaignConfig[] = [];
+      snapshot.forEach((docSnap) => camps.push({ id: docSnap.id, ...docSnap.data() } as CampaignConfig));
+      setCampaignsList(camps);
+    });
+
+    return () => {
+      unsubApps();
+      unsubCampaigns();
+    };
   }, [user, loading]);
 
   // Filter approved directory
@@ -213,7 +223,7 @@ export const VendorDirectory: React.FC = () => {
         return selectedLangFilters.includes(langName);
       }));
 
-      const candidateApp = v.applicationName || (v.applicationId ? v.applicationId : 'Default Application');
+      const candidateApp = v.campaignName || v.applicationName || (v.applicationId ? v.applicationId : 'Default Application');
       const matchesApp = selectedAppFilters.length === 0 || selectedAppFilters.includes(candidateApp);
 
       return matchesSearch && matchesTier && matchesLang && matchesApp;
@@ -569,7 +579,7 @@ export const VendorDirectory: React.FC = () => {
                   )}
                 </div>
                 <div className="max-h-48 overflow-y-auto space-y-1.5 custom-scrollbar pr-1">
-                  {Array.from(new Set(['General Intake', ...applicationsList.map(a => a.name), ...vendors.map(v => v.applicationName || 'General Intake')])).sort().map((appName) => {
+                  {Array.from(new Set(['General Intake', ...campaignsList.map(c => c.name), ...applicationsList.map(a => a.name), ...vendors.map(v => v.campaignName || v.applicationName || 'General Intake')])).sort().map((appName) => {
                     const isChecked = selectedAppFilters.includes(appName);
                     return (
                       <label
@@ -717,7 +727,7 @@ export const VendorDirectory: React.FC = () => {
                       <td className="p-4 pl-6 font-bold text-slate-900 dark:text-white">{vendor.contactName}</td>
                       <td className="p-4 text-slate-500 dark:text-slate-400">{vendor.companyName || <span className="italic text-slate-400">Individual</span>}</td>
                       <td className="p-4 text-xs font-bold text-slate-700 dark:text-slate-300">
-                        {vendor.applicationName || 'General Intake'}
+                        {vendor.campaignName || vendor.applicationName || 'General Intake'}
                       </td>
                       <td className="p-4">
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
