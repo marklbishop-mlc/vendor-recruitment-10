@@ -112,6 +112,7 @@ export const Templates: React.FC = () => {
   const [stageName, setStageName] = useState('');
   const [stageDesc, setStageDesc] = useState('');
   const [stageOrder, setStageOrder] = useState<number>(1);
+  const [stageMappedStatus, setStageMappedStatus] = useState<string>('pending');
 
   // Candidate Statuses states
   const [statuses, setStatuses] = useState<StatusConfig[]>(DEFAULT_STATUSES);
@@ -535,6 +536,7 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): Record<string, 
     setStageName('');
     setStageDesc('');
     setStageOrder(stages.length + 1);
+    setStageMappedStatus('pending');
     setIsStageModalOpen(true);
   };
 
@@ -543,6 +545,7 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): Record<string, 
     setStageName(stg.name);
     setStageDesc(stg.description);
     setStageOrder(stg.order);
+    setStageMappedStatus(stg.mappedStatus || 'pending');
     setIsStageModalOpen(true);
   };
 
@@ -554,7 +557,7 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): Record<string, 
     if (editingStage) {
       updatedStages = stages.map((s) => 
         s.id === editingStage.id 
-          ? { ...s, name: stageName.trim(), description: stageDesc.trim(), order: stageOrder } 
+          ? { ...s, name: stageName.trim(), description: stageDesc.trim(), order: stageOrder, mappedStatus: stageMappedStatus } 
           : s
       );
     } else {
@@ -563,7 +566,8 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): Record<string, 
         id: generatedId,
         name: stageName.trim(),
         description: stageDesc.trim(),
-        order: stageOrder || stages.length + 1
+        order: stageOrder || stages.length + 1,
+        mappedStatus: stageMappedStatus
       };
       updatedStages = [...stages, newStage];
     }
@@ -998,6 +1002,7 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): Record<string, 
                     <th className="p-4">Stage Name</th>
                     <th className="p-4">Internal ID</th>
                     <th className="p-4">Short Description</th>
+                    <th className="p-4">Auto-Mapped Status</th>
                     <th className="p-4 pr-6 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -1037,6 +1042,11 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): Record<string, 
                       </td>
                       <td className="p-4 font-mono text-[11px] text-primary">{stg.id}</td>
                       <td className="p-4 text-slate-500 max-w-xs">{stg.description}</td>
+                      <td className="p-4 font-bold">
+                        <span className="text-[10px] font-extrabold uppercase px-2.5 py-1 bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 rounded-full">
+                          {stg.mappedStatus || 'pending'}
+                        </span>
+                      </td>
                       <td className="p-4 pr-6 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button
@@ -1640,6 +1650,19 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): Record<string, 
                     onChange={(e) => setStageOrder(parseInt(e.target.value) || 1)}
                     className="w-full p-2.5 bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl text-xs dark:text-white focus:outline-none focus:border-primary"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-slate-500 uppercase tracking-wider mb-1 text-[10px]">Auto-Mapped Linguist Status</label>
+                  <select
+                    value={stageMappedStatus}
+                    onChange={(e) => setStageMappedStatus(e.target.value)}
+                    className="w-full p-2.5 bg-slate-50 dark:bg-bg-dark border border-slate-200 dark:border-border-dark rounded-xl text-xs dark:text-white focus:outline-none focus:border-primary font-bold cursor-pointer capitalize"
+                  >
+                    {statuses.map((st) => (
+                      <option key={st.key} value={st.key}>{st.key.replace(/_/g, ' ')}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="pt-4 flex gap-3">
