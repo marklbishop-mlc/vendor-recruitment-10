@@ -1708,7 +1708,7 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
               <table className="w-full text-left text-sm border-collapse">
                 <thead>
                   <tr className="bg-slate-50 dark:bg-bg-dark border-b border-slate-200/50 dark:border-border-dark text-slate-500 dark:text-slate-400 font-bold text-xs select-none">
-                    <th className="p-4 pl-6 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors" onClick={() => toggleSort('contactName')}>
+                    <th className="p-4 pl-6 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors w-56 min-w-[200px]" onClick={() => toggleSort('contactName')}>
                       <div className="flex items-center gap-1.5">
                         Candidate Name
                         <ArrowUpDown className="w-3.5 h-3.5" />
@@ -1717,15 +1717,15 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
 
                     {presetView === 'standard' && (
                       <>
-                        <th className="p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors" onClick={() => toggleSort('companyName')}>Company Name</th>
-                        <th className="p-4">Languages</th>
-                        <th className="p-4">Services</th>
-                        <th className="p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors" onClick={() => toggleSort('status')}>Linguist Status</th>
-                        <th className="p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors" onClick={() => toggleSort('stage')}>Workflow Stage</th>
-                        <th className="p-4">Stage Progress</th>
-                        <th className="p-4 text-center">Hours</th>
-                        <th className="p-4">NDA</th>
-                        <th className="p-4 text-right pr-6 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors" onClick={() => toggleSort('confirmedRate')}>Agreed Rate</th>
+                        <th className="p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors w-36 min-w-[130px]" onClick={() => toggleSort('companyName')}>Company Name</th>
+                        <th className="p-4 w-44 min-w-[140px]">Languages</th>
+                        <th className="p-4 w-36 min-w-[120px]">Services</th>
+                        <th className="p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors w-32 min-w-[110px]" onClick={() => toggleSort('status')}>Linguist Status</th>
+                        <th className="p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors w-36 min-w-[130px]" onClick={() => toggleSort('stage')}>Workflow Stage</th>
+                        <th className="p-4 w-36 min-w-[130px]">Stage Progress</th>
+                        <th className="p-4 text-center w-20 min-w-[70px]">Hours</th>
+                        <th className="p-4 w-24 min-w-[90px]">NDA</th>
+                        <th className="p-4 text-right pr-6 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors w-28 min-w-[100px]" onClick={() => toggleSort('confirmedRate')}>Agreed Rate</th>
                       </>
                     )}
 
@@ -1775,11 +1775,11 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                         className="hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors cursor-pointer"
                         onClick={() => setSelectedVendor(candidate)}
                       >
-                        <td className="p-4 pl-6 font-bold text-slate-900 dark:text-white">
-                          <div>
-                            <span>{candidate.contactName}</span>
+                        <td className="p-4 pl-6 font-bold text-slate-900 dark:text-white max-w-[220px]">
+                          <div className="truncate">
+                            <span className="truncate block">{candidate.contactName}</span>
                             {candidate.email && (
-                              <span className="text-[10px] text-slate-400 font-mono block font-normal">{candidate.email}</span>
+                              <span className="text-[10px] text-slate-400 font-mono block font-normal truncate">{candidate.email}</span>
                             )}
                           </div>
                         </td>
