@@ -10,94 +10,7 @@ import { collection, getDocs, doc, setDoc, query, where, getDoc, deleteDoc, onSn
 import { db } from '../firebase';
 import { useAuth } from '../AuthContext';
 
-// Mock list of approved vendors specifically filtered for PM Directory
-const APPROVED_VENDORS_MOCK: VendorProfile[] = [
-  {
-    id: 'approved-1',
-    companyName: 'Apex Translations LLC',
-    contactName: 'Carlos Santillan',
-    email: 'carlos@apextrans.com',
-    phone: '+1 (555) 123-4567',
-    status: 'approved',
-    category: 'active',
-    stage: 'ready_for_pm',
-    services: ['Translation', 'Localization'],
-    workingLanguages: [
-      { language: 'Spanish', proficiency: 'native' },
-      { language: 'English', proficiency: 'professional' }
-    ],
-    classificationTier: 1,
-    source: 'external',
-    mlcHourlyRate: 45,
-    adjustedRate: 42,
-    confirmedRate: 45,
-    isGmail: false,
-    secondaryEmail: 'carlos.santillan.mlc@gmail.com',
-    mtPeExperience: '5+',
-    prozProfile: 'https://proz.com/profile/carlos-trans',
-    linkedInProfile: 'https://linkedin.com/in/carlos-santillan',
-    hoursAvailable: 35,
-    hasSignedNda: true,
-    resumeName: 'carlos_resume_2026.pdf',
-    submittedAt: '2026-07-20T10:00:00Z',
-    updatedAt: '2026-07-20T10:00:00Z'
-  },
-  {
-    id: 'approved-2',
-    companyName: 'EuroLoc Group',
-    contactName: 'Elena Rostova',
-    email: 'elena@euroloc.de',
-    phone: '+49 30 9876543',
-    status: 'approved',
-    category: 'active',
-    stage: 'ready_for_pm',
-    services: ['Translation', 'Subtitling', 'Interpretation'],
-    workingLanguages: [
-      { language: 'German', proficiency: 'native' },
-      { language: 'English', proficiency: 'professional' },
-      { language: 'Russian', proficiency: 'working' }
-    ],
-    classificationTier: 2,
-    source: 'xtrf',
-    mlcHourlyRate: 55,
-    adjustedRate: 50,
-    confirmedRate: 52,
-    isGmail: false,
-    mtPeExperience: '3-5',
-    hoursAvailable: 30,
-    hasSignedNda: true,
-    resumeName: 'elena_cv.pdf',
-    submittedAt: '2026-06-12T08:30:00Z',
-    updatedAt: '2026-07-15T11:00:00Z'
-  },
-  {
-    id: 'approved-3',
-    companyName: 'East-West Lingua',
-    contactName: 'Li Wei',
-    email: 'li.wei@ewlingua.cn',
-    phone: '+86 10 5551234',
-    status: 'approved',
-    category: 'active',
-    stage: 'ready_for_pm',
-    services: ['Translation', 'Proofreading'],
-    workingLanguages: [
-      { language: 'Mandarin', proficiency: 'native' },
-      { language: 'English', proficiency: 'professional' }
-    ],
-    classificationTier: 1,
-    source: 'external',
-    mlcHourlyRate: 50,
-    adjustedRate: 45,
-    confirmedRate: 48,
-    isGmail: true,
-    mtPeExperience: '5+',
-    hoursAvailable: 40,
-    hasSignedNda: true,
-    resumeName: 'li_wei_cv_trans.pdf',
-    submittedAt: '2026-07-02T09:15:00Z',
-    updatedAt: '2026-07-12T14:30:00Z'
-  }
-];
+
 
 export const VendorDirectory: React.FC = () => {
   const { user, loading } = useAuth();
@@ -167,15 +80,7 @@ export const VendorDirectory: React.FC = () => {
           list.push(doc.data() as VendorProfile);
         });
 
-        if (list.length > 0) {
-          setVendors(list);
-        } else {
-          // Seed fallback if DB is empty
-          for (const v of APPROVED_VENDORS_MOCK) {
-            await setDoc(doc(db, 'vendors', v.id), v);
-          }
-          setVendors(APPROVED_VENDORS_MOCK);
-        }
+        setVendors(list);
       } catch (err) {
         console.error("Failed to load directory data from Firestore", err);
       }
@@ -200,9 +105,11 @@ export const VendorDirectory: React.FC = () => {
     };
   }, [user, loading]);
 
-  // Filter approved directory
+  // Filter approved directory (Only linguists in 'Ready for PM' stage)
   const filteredVendors = useMemo(() => {
     return vendors.filter((v) => {
+      // Must be in the 'ready_for_pm' stage
+      if (v.stage !== 'ready_for_pm') return false;
       const contact = (v.contactName || '').toLowerCase();
       const company = (v.companyName || '').toLowerCase();
       const query = (search || '').trim().toLowerCase();
