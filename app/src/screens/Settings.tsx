@@ -563,36 +563,78 @@ export const Settings: React.FC = () => {
         return;
       }
 
-      const headers = lines[0].split(',').map(h => h.replace(/^"(.*)"$/, '$1').trim().toLowerCase());
+      const parseCsvLine = (line: string): string[] => {
+        const result: string[] = [];
+        let current = '';
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+          const char = line[i];
+          if (char === '"') {
+            inQuotes = !inQuotes;
+          } else if (char === ',' && !inQuotes) {
+            result.push(current.replace(/^"(.*)"$/, '$1').trim());
+            current = '';
+          } else {
+            current += char;
+          }
+        }
+        result.push(current.replace(/^"(.*)"$/, '$1').trim());
+        return result;
+      };
+
+      const headers = parseCsvLine(lines[0]).map(h => h.toLowerCase());
       
       const getIndex = (possibleNames: string[]) => {
-        for (const name of possibleNames) {
-          const idx = headers.indexOf(name);
-          if (idx !== -1) return idx;
+        // 1. Try exact match first
+        for (let i = 0; i < headers.length; i++) {
+          const cleanH = headers[i].replace(/[^a-z0-9]/g, '');
+          for (const pName of possibleNames) {
+            const cleanP = pName.toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (cleanH === cleanP) return i;
+          }
+        }
+        // 2. Try substring match
+        for (let i = 0; i < headers.length; i++) {
+          const cleanH = headers[i].replace(/[^a-z0-9]/g, '');
+          for (const pName of possibleNames) {
+            const cleanP = pName.toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (cleanH && cleanP && (cleanH.includes(cleanP) || cleanP.includes(cleanH))) return i;
+          }
         }
         return -1;
       };
 
       const idxCompany = getIndex(['company name', 'company']);
-      const idxContact = getIndex(['contact name', 'contact', 'name']);
+      const idxContact = getIndex(['contact name', 'contact', 'name', 'full name', 'linguist']);
       const idxEmail = getIndex(['email', 'primary email', 'email address']);
-      const idxSecondaryEmail = getIndex(['secondary email', 'alt email']);
-      const idxPhone = getIndex(['phone', 'phone number']);
-      const idxServices = getIndex(['services']);
-      const idxLanguages = getIndex(['languages', 'language']);
+      const idxSecondaryEmail = getIndex(['secondary email', 'alt email', 'alternate email']);
+      const idxPhone = getIndex(['phone', 'phone number', 'mobile']);
+      const idxServices = getIndex(['services', 'service']);
+      const idxLanguages = getIndex(['languages', 'language', 'working languages']);
       const idxTier = getIndex(['tier', 'classification tier']);
       const idxRateClient = getIndex(['hourly rate (client)', 'client rate', 'hourly rate', 'rate']);
       const idxRateOffer = getIndex(['adjusted rate (offer)', 'offer rate']);
       const idxRateAgreed = getIndex(['confirmed rate (negotiated)', 'confirmed rate']);
-      const idxStage = getIndex(['stage', 'workflow stage']);
-      const idxStatus = getIndex(['status', 'vendor status']);
-      const idxStageProgress = getIndex(['stage progress', 'progress']);
-      const idxNda = getIndex(['signed nda', 'nda']);
+      const idxStageProgress = getIndex(['stage progress', 'progress', 'substatus', 'sub status']);
+      
+      const idxStage = (() => {
+        const primaryIdx = getIndex(['stage', 'workflow stage', 'current stage', 'pipeline stage', 'stage name']);
+        if (primaryIdx !== -1 && primaryIdx !== idxStageProgress) return primaryIdx;
+        for (let i = 0; i < headers.length; i++) {
+          if (i === idxStageProgress) continue;
+          const cleanH = headers[i].replace(/[^a-z0-9]/g, '');
+          if (cleanH.includes('stage') || cleanH.includes('workflow')) return i;
+        }
+        return -1;
+      })();
+
+      const idxStatus = getIndex(['status', 'vendor status', 'linguist status', 'overall status']);
+      const idxNda = getIndex(['signed nda', 'nda', 'nda signed']);
 
       const parsedVendors: VendorProfile[] = [];
 
       for (let i = 1; i < lines.length; i++) {
-        const row = lines[i].split(',').map(cell => cell.replace(/^"(.*)"$/, '$1').trim());
+        const row = parseCsvLine(lines[i]);
 
         if (row.length > 0) {
           const contactName = idxContact >= 0 ? row[idxContact] : '';
@@ -614,12 +656,16 @@ export const Settings: React.FC = () => {
           // Resolve internal stage ID against configured stages
           const resolveStageId = (inputRaw: string, availableStages: WorkflowStageConfig[]): string => {
             if (!inputRaw) return availableStages[0]?.id || 'outreach';
-            const cleanInput = inputRaw.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+            const rawLower = inputRaw.toLowerCase().trim();
+            const cleanInput = rawLower.replace(/[^a-z0-9]/g, '');
 
             for (const stg of availableStages) {
               const cleanId = stg.id.toLowerCase().replace(/[^a-z0-9]/g, '');
               const cleanName = stg.name.toLowerCase().replace(/[^a-z0-9]/g, '');
-              if (cleanInput === cleanId || cleanInput === cleanName) {
+              if (cleanInput === cleanId || cleanInput === cleanName || rawLower === stg.id.toLowerCase() || rawLower === stg.name.toLowerCase()) {
+                return stg.id;
+              }
+              if (String(stg.order) === rawLower || String(stg.order) === cleanInput) {
                 return stg.id;
               }
             }
@@ -627,17 +673,16 @@ export const Settings: React.FC = () => {
             for (const stg of availableStages) {
               const cleanId = stg.id.toLowerCase().replace(/[^a-z0-9]/g, '');
               const cleanName = stg.name.toLowerCase().replace(/[^a-z0-9]/g, '');
-              if (cleanId.includes(cleanInput) || cleanInput.includes(cleanId) || cleanName.includes(cleanInput) || cleanInput.includes(cleanName)) {
-                return stg.id;
-              }
+              if (cleanId && (cleanInput.includes(cleanId) || cleanId.includes(cleanInput))) return stg.id;
+              if (cleanName && (cleanInput.includes(cleanName) || cleanName.includes(cleanInput))) return stg.id;
             }
 
             if (cleanInput.includes('xtrf')) return 'xtrf_onboarding';
             if (cleanInput.includes('test')) return 'in_testing';
             if (cleanInput.includes('nda')) return 'nda';
             if (cleanInput.includes('pm')) return 'ready_for_pm';
-            if (cleanInput.includes('dnu')) return 'dnu';
-            if (cleanInput.includes('outreach') || cleanInput.includes('new')) return 'outreach';
+            if (cleanInput.includes('dnu') || cleanInput.includes('disqual') || cleanInput.includes('black')) return 'dnu';
+            if (cleanInput.includes('outreach') || cleanInput.includes('new') || cleanInput.includes('intake')) return 'outreach';
 
             return availableStages[0]?.id || 'outreach';
           };
