@@ -189,18 +189,18 @@ export const DashboardLayout: React.FC = () => {
         </nav>
 
         {/* Profile Card & Logout */}
-        <div className={`p-4 border-t border-slate-200/50 dark:border-border-dark space-y-4 ${isDesktopCollapsed ? 'flex flex-col items-center' : ''}`}>
-          <div className={`flex items-center gap-3 p-2 bg-slate-50 dark:bg-bg-dark rounded-xl border border-slate-200/20 dark:border-border-dark ${isDesktopCollapsed ? 'w-auto justify-center' : ''}`}>
-            <div className="w-9 h-9 shrink-0 rounded-lg bg-indigo-500/10 text-indigo-500 flex items-center justify-center font-bold text-sm uppercase">
-              {user?.displayName.slice(0, 2)}
+        <div className={`p-4 border-t border-slate-200/50 dark:border-border-dark flex items-center ${isDesktopCollapsed ? 'flex-col gap-3' : 'gap-2'}`}>
+          <div className={`flex items-center gap-3 min-w-0 flex-1 ${isDesktopCollapsed ? 'justify-center w-full' : ''}`}>
+            <div className="w-9 h-9 shrink-0 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center font-bold text-sm uppercase">
+              {user?.displayName?.slice(0, 2) || 'US'}
             </div>
             {!isDesktopCollapsed && (
               <div className="flex-1 min-w-0">
                 <span className="font-bold text-xs text-slate-900 dark:text-white truncate block">
                   {user?.displayName}
                 </span>
-                <span className="inline-flex items-center gap-1 mt-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase bg-primary/10 text-primary border border-primary/10">
-                  <ShieldCheck className="w-2.5 h-2.5" />
+                <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide flex items-center gap-1 mt-0.5">
+                  <ShieldCheck className="w-3 h-3 text-primary" />
                   {user?.role}
                 </span>
               </div>
@@ -208,11 +208,10 @@ export const DashboardLayout: React.FC = () => {
           </div>
           <button
             onClick={logout}
-            title={isDesktopCollapsed ? 'Sign Out' : undefined}
-            className={`w-full py-2.5 ${isDesktopCollapsed ? 'px-0 justify-center' : 'px-4'} bg-slate-100 hover:bg-red-500/10 hover:text-red-500 text-slate-600 dark:bg-slate-800/40 dark:text-slate-400 dark:hover:bg-red-500/10 dark:hover:text-red-400 font-semibold text-xs rounded-xl flex items-center gap-2 btn-animate cursor-pointer border border-transparent hover:border-red-500/20`}
+            title="Sign Out"
+            className={`p-2 text-slate-400 hover:text-red-500 hover:bg-red-500/10 dark:hover:bg-red-500/10 rounded-xl flex items-center justify-center btn-animate cursor-pointer transition-colors ${isDesktopCollapsed ? 'w-full bg-slate-50 dark:bg-bg-dark' : ''}`}
           >
             <LogOut className="w-4 h-4 shrink-0" />
-            {!isDesktopCollapsed && <span>Sign Out</span>}
           </button>
         </div>
       </aside>
