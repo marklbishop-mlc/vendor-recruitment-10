@@ -4,7 +4,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { StatusConfig, VendorProfile, LanguageConfig, StageSlaNudgeConfig, WorkflowStageConfig } from '../types';
-import { normalizeLanguageList, FULL_DEFAULT_LANGUAGES, DEFAULT_SERVICES_LIST, FULL_DEFAULT_STAGES } from '../types';
+import { normalizeLanguageList, FULL_DEFAULT_LANGUAGES, DEFAULT_SERVICES_LIST, FULL_DEFAULT_STAGES, sanitizePayload } from '../types';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
@@ -639,7 +639,7 @@ export const Settings: React.FC = () => {
             confirmedRate: rateAgreed,
             stage: stageRaw as any,
             status: statusRaw,
-            stageStatus: stageProgressRaw ? stageProgressRaw : undefined,
+            stageStatus: stageProgressRaw ? stageProgressRaw : 'started',
             hasSignedNda: ndaRaw,
             source: 'external',
             category: 'outreach',
@@ -663,7 +663,7 @@ export const Settings: React.FC = () => {
 
     try {
       for (const vendor of importedRows) {
-        await setDoc(doc(db, 'vendors', vendor.id), vendor, { merge: true });
+        await setDoc(doc(db, 'vendors', vendor.id), sanitizePayload(vendor), { merge: true });
       }
 
       setImportSuccessMsg(`Successfully imported ${importedRows.length} linguist records into Cloud Firestore!`);

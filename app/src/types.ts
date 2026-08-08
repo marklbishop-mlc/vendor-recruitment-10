@@ -463,6 +463,17 @@ export interface TestRecord {
   completedAt?: string;
 }
 
+export function sanitizePayload<T extends Record<string, any>>(obj: T): Record<string, any> {
+  const clean: Record<string, any> = {};
+  Object.keys(obj).forEach((key) => {
+    const val = obj[key];
+    if (val !== undefined) {
+      clean[key] = val;
+    }
+  });
+  return clean;
+}
+
 export interface AuditLog {
   id: string;
   actorId: string;
