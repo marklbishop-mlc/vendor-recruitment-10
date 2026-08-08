@@ -615,16 +615,16 @@ export const VendorDirectory: React.FC = () => {
         <div className="bg-white dark:bg-card-dark rounded-3xl border border-slate-200/50 dark:border-border-dark shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-sm">
-              <thead>
+              <thead className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark shadow-sm">
                 <tr className="bg-slate-50 dark:bg-bg-dark text-slate-500 dark:text-slate-400 font-bold border-b border-slate-200/50 dark:border-border-dark">
-                  <th className="p-4 pl-6">Contact Name</th>
-                  <th className="p-4">Company</th>
-                  <th className="p-4">Campaign</th>
-                  <th className="p-4">Tier</th>
-                  <th className="p-4">Languages</th>
-                  <th className="p-4">Services</th>
-                  <th className="p-4">PM Rate</th>
-                  <th className="p-4 pr-6 text-right">Actions</th>
+                  <th className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark p-4 pl-6">Contact Name</th>
+                  <th className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark p-4">Company</th>
+                  <th className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark p-4">Campaign</th>
+                  <th className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark p-4">Tier</th>
+                  <th className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark p-4">Languages</th>
+                  <th className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark p-4">Services</th>
+                  <th className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark p-4">PM Rate</th>
+                  <th className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark p-4 pr-6 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200/50 dark:divide-white/5">
