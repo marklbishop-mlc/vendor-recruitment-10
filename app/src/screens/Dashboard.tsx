@@ -1705,11 +1705,12 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
           </div>
         ) : (
           /* Default: Table View */
-          <div className="bg-white dark:bg-card-dark rounded-3xl border border-slate-200/50 dark:border-border-dark shadow-sm max-h-[calc(100vh-260px)] min-h-[400px] overflow-auto custom-scrollbar">
-            <table className="w-full text-left text-sm border-collapse">
-                <thead className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark shadow-sm">
+          <div className="bg-white dark:bg-card-dark rounded-3xl border border-slate-200/50 dark:border-border-dark shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm border-collapse">
+                <thead>
                   <tr className="bg-slate-50 dark:bg-bg-dark border-b border-slate-200/50 dark:border-border-dark text-slate-500 dark:text-slate-400 font-bold text-xs select-none">
-                    <th className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark p-4 pl-6 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors w-56 min-w-[200px]" onClick={() => toggleSort('contactName')}>
+                    <th className="p-4 pl-6 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors w-56 min-w-[200px]" onClick={() => toggleSort('contactName')}>
                       <div className="flex items-center gap-1.5">
                         Candidate Name
                         <ArrowUpDown className="w-3.5 h-3.5" />
@@ -1718,40 +1719,40 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
 
                     {presetView === 'standard' && (
                       <>
-                        <th className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors w-36 min-w-[130px]" onClick={() => toggleSort('companyName')}>Company Name</th>
-                        <th className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark p-4 w-44 min-w-[140px]">Languages</th>
-                        <th className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark p-4 w-36 min-w-[120px]">Services</th>
-                        <th className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors w-32 min-w-[110px]" onClick={() => toggleSort('status')}>Linguist Status</th>
-                        <th className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors w-36 min-w-[130px]" onClick={() => toggleSort('stage')}>Workflow Stage</th>
-                        <th className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark p-4 w-36 min-w-[130px]">Stage Progress</th>
-                        <th className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark p-4 text-center w-20 min-w-[70px]">Hours</th>
-                        <th className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark p-4 w-24 min-w-[90px]">NDA</th>
-                        <th className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark p-4 text-right pr-6 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors w-28 min-w-[100px]" onClick={() => toggleSort('confirmedRate')}>Agreed Rate</th>
+                        <th className="p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors w-36 min-w-[130px]" onClick={() => toggleSort('companyName')}>Company Name</th>
+                        <th className="p-4 w-44 min-w-[140px]">Languages</th>
+                        <th className="p-4 w-36 min-w-[120px]">Services</th>
+                        <th className="p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors w-32 min-w-[110px]" onClick={() => toggleSort('status')}>Linguist Status</th>
+                        <th className="p-4 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors w-36 min-w-[130px]" onClick={() => toggleSort('stage')}>Workflow Stage</th>
+                        <th className="p-4 w-36 min-w-[130px]">Stage Progress</th>
+                        <th className="p-4 text-center w-20 min-w-[70px]">Hours</th>
+                        <th className="p-4 w-24 min-w-[90px]">NDA</th>
+                        <th className="p-4 text-right pr-6 cursor-pointer hover:bg-slate-100 dark:hover:bg-white/5 transition-colors w-28 min-w-[100px]" onClick={() => toggleSort('confirmedRate')}>Agreed Rate</th>
                       </>
                     )}
 
                     {presetView === 'all_fields' && (
                       <>
-                        <th className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark p-4">Company</th>
-                        <th className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark p-4">Email Addresses</th>
-                        <th className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark p-4">Campaign</th>
-                        <th className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark p-4">Country & Timezone</th>
-                        <th className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark p-4">Working Languages</th>
-                        <th className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark p-4">Other Languages</th>
-                        <th className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark p-4">Services</th>
-                        <th className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark p-4">Status</th>
-                        <th className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark p-4">Workflow Stage</th>
-                        <th className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark p-4">Stage Progress</th>
-                        <th className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark p-4">Available Start Date</th>
-                        <th className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark p-4">Weekly Capacity</th>
-                        <th className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark p-4">MTQA Exp Years</th>
-                        <th className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark p-4">Hands-On Domain Badges</th>
-                        <th className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark p-4">Taxonomy Exp</th>
-                        <th className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark p-4">Agility Ratings (QA/Grammar/Tags/Policy)</th>
-                        <th className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark p-4">Portfolio Links</th>
-                        <th className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark p-4">NDA Verification</th>
-                        <th className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark p-4">Agreed Rate</th>
-                        <th className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark p-4 text-right pr-6">Full Profile</th>
+                        <th className="p-4">Company</th>
+                        <th className="p-4">Email Addresses</th>
+                        <th className="p-4">Campaign</th>
+                        <th className="p-4">Country & Timezone</th>
+                        <th className="p-4">Working Languages</th>
+                        <th className="p-4">Other Languages</th>
+                        <th className="p-4">Services</th>
+                        <th className="p-4">Status</th>
+                        <th className="p-4">Workflow Stage</th>
+                        <th className="p-4">Stage Progress</th>
+                        <th className="p-4">Available Start Date</th>
+                        <th className="p-4">Weekly Capacity</th>
+                        <th className="p-4">MTQA Exp Years</th>
+                        <th className="p-4">Hands-On Domain Badges</th>
+                        <th className="p-4">Taxonomy Exp</th>
+                        <th className="p-4">Agility Ratings (QA/Grammar/Tags/Policy)</th>
+                        <th className="p-4">Portfolio Links</th>
+                        <th className="p-4">NDA Verification</th>
+                        <th className="p-4">Agreed Rate</th>
+                        <th className="p-4 text-right pr-6">Full Profile</th>
                       </>
                     )}
                   </tr>
@@ -1998,6 +1999,7 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                   })}
                 </tbody>
               </table>
+            </div>
           </div>
         )}
       </section>
