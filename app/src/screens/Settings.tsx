@@ -609,8 +609,46 @@ export const Settings: React.FC = () => {
           const rateClient = (idxRateClient >= 0 && row[idxRateClient]) ? parseFloat(row[idxRateClient]) : 45;
           const rateOffer = (idxRateOffer >= 0 && row[idxRateOffer]) ? parseFloat(row[idxRateOffer]) : 40;
           const rateAgreed = (idxRateAgreed >= 0 && row[idxRateAgreed]) ? parseFloat(row[idxRateAgreed]) : 45;
-          const stageRaw = (idxStage >= 0 && row[idxStage]) ? row[idxStage].toLowerCase() : 'outreach';
-          const statusRaw = (idxStatus >= 0 && row[idxStatus]) ? row[idxStatus].toLowerCase() : 'pending';
+          const stageInput = (idxStage >= 0 && row[idxStage]) ? row[idxStage] : '';
+          
+          // Resolve internal stage ID against configured stages
+          const resolveStageId = (inputRaw: string, availableStages: WorkflowStageConfig[]): string => {
+            if (!inputRaw) return availableStages[0]?.id || 'outreach';
+            const cleanInput = inputRaw.toLowerCase().trim().replace(/[^a-z0-9]/g, '');
+
+            for (const stg of availableStages) {
+              const cleanId = stg.id.toLowerCase().replace(/[^a-z0-9]/g, '');
+              const cleanName = stg.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+              if (cleanInput === cleanId || cleanInput === cleanName) {
+                return stg.id;
+              }
+            }
+
+            for (const stg of availableStages) {
+              const cleanId = stg.id.toLowerCase().replace(/[^a-z0-9]/g, '');
+              const cleanName = stg.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+              if (cleanId.includes(cleanInput) || cleanInput.includes(cleanId) || cleanName.includes(cleanInput) || cleanInput.includes(cleanName)) {
+                return stg.id;
+              }
+            }
+
+            if (cleanInput.includes('xtrf')) return 'xtrf_onboarding';
+            if (cleanInput.includes('test')) return 'in_testing';
+            if (cleanInput.includes('nda')) return 'nda';
+            if (cleanInput.includes('pm')) return 'ready_for_pm';
+            if (cleanInput.includes('dnu')) return 'dnu';
+            if (cleanInput.includes('outreach') || cleanInput.includes('new')) return 'outreach';
+
+            return availableStages[0]?.id || 'outreach';
+          };
+
+          const finalStage = resolveStageId(stageInput, stages);
+          const matchedStageObj = stages.find(s => s.id === finalStage);
+
+          const statusRaw = (idxStatus >= 0 && row[idxStatus]) 
+            ? row[idxStatus].toLowerCase().trim().replace(/\s+/g, '_') 
+            : (matchedStageObj?.mappedStatus || 'pending');
+
           const stageProgressRaw = (idxStageProgress >= 0 && row[idxStageProgress]) ? row[idxStageProgress].toLowerCase() : '';
           const ndaRaw = (idxNda >= 0 && row[idxNda]) ? row[idxNda].toLowerCase() === 'true' : false;
 
@@ -637,7 +675,7 @@ export const Settings: React.FC = () => {
             mlcHourlyRate: rateClient,
             adjustedRate: rateOffer,
             confirmedRate: rateAgreed,
-            stage: stageRaw as any,
+            stage: finalStage as any,
             status: statusRaw,
             stageStatus: stageProgressRaw ? stageProgressRaw : 'started',
             hasSignedNda: ndaRaw,
