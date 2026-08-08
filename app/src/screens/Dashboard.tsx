@@ -11,7 +11,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { collection, getDocs, doc, setDoc, getDoc, onSnapshot, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../AuthContext';
-import { seed10DummyVendors, SEEDED_DUMMY_VENDORS } from '../seedVendors';
 
 const DEFAULT_STAGES: WorkflowStageConfig[] = [
   { id: 'outreach', name: 'Outreach', description: 'Initial contact and profile submission', order: 1 },
@@ -339,16 +338,7 @@ export const Dashboard: React.FC = () => {
         vendorSnap.forEach((doc) => {
           vendorList.push(doc.data() as VendorProfile);
         });
-        if (vendorList.length > 0) {
-          setVendors(vendorList);
-        } else {
-          // Seed 10 rich dummy vendors into Cloud Firestore
-          await seed10DummyVendors();
-          const newSnap = await getDocs(collection(db, 'vendors'));
-          const seededList: VendorProfile[] = [];
-          newSnap.forEach((doc) => seededList.push(doc.data() as VendorProfile));
-          setVendors(seededList.length > 0 ? seededList : SEEDED_DUMMY_VENDORS);
-        }
+        setVendors(vendorList);
 
         // 3. Fetch Trigger Rules
         const actionSnap = await getDocs(collection(db, 'workflow_actions'));
