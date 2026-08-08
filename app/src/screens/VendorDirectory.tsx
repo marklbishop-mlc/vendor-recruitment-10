@@ -612,9 +612,8 @@ export const VendorDirectory: React.FC = () => {
         </section>
       ) : (
         /* Table List View */
-        <div className="bg-white dark:bg-card-dark rounded-3xl border border-slate-200/50 dark:border-border-dark shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-sm">
+        <div className="bg-white dark:bg-card-dark rounded-3xl border border-slate-200/50 dark:border-border-dark shadow-sm max-h-[calc(100vh-260px)] min-h-[400px] overflow-auto custom-scrollbar">
+          <table className="w-full text-left border-collapse text-sm">
               <thead className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark shadow-sm">
                 <tr className="bg-slate-50 dark:bg-bg-dark text-slate-500 dark:text-slate-400 font-bold border-b border-slate-200/50 dark:border-border-dark">
                   <th className="sticky top-0 z-20 bg-slate-50 dark:bg-bg-dark p-4 pl-6">Contact Name</th>
@@ -691,7 +690,6 @@ export const VendorDirectory: React.FC = () => {
                 )}
               </tbody>
             </table>
-          </div>
         </div>
       )}
 
