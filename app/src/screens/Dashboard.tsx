@@ -1354,6 +1354,7 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                     <button
                       type="button"
                       onClick={() => setSelectedAppFilters([])}
+                      className="text-rose-500 hover:underline text-[10px]"
                     >
                       Clear
                     </button>
