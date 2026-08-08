@@ -450,13 +450,14 @@ export interface TestRecord {
   id: string;
   vendorId: string;
   vendorName?: string;
+  vendorEmail?: string;
   language?: string; // Specific language pair tested e.g. "Spanish"
   service?: string;
   assignmentLink: string;
   projectNumber: string;
   deadline: string;
   status: 'assigned' | 'in_progress' | 'completed';
-  graderId: string;
+  graderId?: string;
   score?: number; // Numerical score
   grade?: TestGrade; // Pass, Fail, Pass with Caution
   internalNotes?: string;
