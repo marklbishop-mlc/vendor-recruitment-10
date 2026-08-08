@@ -81,7 +81,7 @@ export const DashboardLayout: React.FC = () => {
     <div className="min-h-screen flex bg-slate-50 dark:bg-bg-dark text-slate-800 dark:text-slate-100 transition-colors duration-300">
       
       {/* Sidebar - Desktop Layout */}
-      <aside className={`hidden lg:flex flex-col border-r border-slate-200/50 dark:border-border-dark bg-white dark:bg-card-dark transition-all duration-300 relative ${isDesktopCollapsed ? 'w-20' : 'w-64'}`}>
+      <aside className={`hidden lg:flex flex-col h-screen sticky top-0 border-r border-slate-200/50 dark:border-border-dark bg-white dark:bg-card-dark transition-all duration-300 relative ${isDesktopCollapsed ? 'w-20' : 'w-64'}`}>
         
         {/* Toggle Button */}
         <button

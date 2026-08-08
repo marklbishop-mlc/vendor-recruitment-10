@@ -1354,7 +1354,11 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
                     <button
                       type="button"
                       onClick={() => setSelectedAppFilters([])}
-                      className="text-rose-500 hover:underline text-[10px]"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
                 <div className="max-h-48 overflow-y-auto space-y-1.5 custom-scrollbar pr-1">
                   <div className="space-y-1 mt-2">
                     {Array.from(new Set(['General Intake', ...campaignsList.map(c => c.name), ...applicationsList.map(a => a.name), ...vendors.map(v => v.campaignName || v.applicationName || 'General Intake')])).sort().map((appName) => {
