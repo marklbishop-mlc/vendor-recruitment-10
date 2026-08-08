@@ -929,7 +929,9 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
         })) ||
         (Array.isArray(v.services) && (v.services as any[]).some((s: any) => s && String(s).toLowerCase().includes(query)));
       
-      const matchesStage = selectedStageFilters.length === 0 || (v.stage && selectedStageFilters.includes(v.stage));
+      const matchesStage = selectedStageFilters.length === 0 
+        ? v.stage !== 'ready_for_pm'
+        : (v.stage && selectedStageFilters.includes(v.stage));
       
       const matchesLang = selectedLanguageFilters.length === 0 || (Array.isArray(v.workingLanguages) && (v.workingLanguages as any[]).some((l: any) => {
         if (!l) return false;
@@ -1106,7 +1108,7 @@ const sanitizePayload = <T extends Record<string, any>>(obj: T): T => {
         <div className="flex items-center justify-between mb-5">
           <h4 className="font-extrabold text-xs text-slate-400 uppercase tracking-wider flex items-center gap-2">
             <FileText className="w-4 h-4 text-primary" />
-            Workflow Stages Filter ({selectedStageFilters.length === 0 ? 'Showing All Stages' : `${selectedStageFilters.length} Selected`})
+            Workflow Stages Filter ({selectedStageFilters.length === 0 ? 'Active Funnel (Excluding Ready Stage)' : `${selectedStageFilters.length} Selected`})
           </h4>
 
           {selectedStageFilters.length > 0 && (
