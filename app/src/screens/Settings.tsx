@@ -508,19 +508,19 @@ export const Settings: React.FC = () => {
     const headers = [
       'Company Name', 'Contact Name', 'Email', 'Secondary Email', 'Phone',
       'Services', 'Languages', 'Tier', 'Hourly Rate (Client)', 'Adjusted Rate (Offer)',
-      'Confirmed Rate (Negotiated)', 'Stage', 'Stage Progress', 'Signed NDA', 'ProZ Link', 'LinkedIn Link'
+      'Confirmed Rate (Negotiated)', 'Stage', 'Status', 'Stage Progress', 'Signed NDA', 'ProZ Link', 'LinkedIn Link'
     ];
 
     const sampleRow1 = [
       'Tokyo Language Partners', 'Hiroshi Tanaka', 'hiroshi@tokyolang.jp', 'hiroshi.tanaka.mlc@gmail.com', '+81 3 1234 5678',
       'Translation; Editing; MTPE', 'Japanese:native; English:professional', '1', '55', '50', '52',
-      'outreach', 'pending', 'false', 'https://proz.com/profile/hiroshi', 'https://linkedin.com/in/hiroshi'
+      'outreach', 'active', 'completed', 'false', 'https://proz.com/profile/hiroshi', 'https://linkedin.com/in/hiroshi'
     ];
 
     const sampleRow2 = [
       'Iberian Words S.L.', 'Elena Fernandez', 'elena@iberianwords.es', '', '+34 91 555 6789',
       'Translation; Proofreading', 'Spanish:native; French:working', '2', '45', '40', '45',
-      'nda', 'approved', 'true', 'https://proz.com/profile/elena', ''
+      'nda', 'pending', 'started', 'true', 'https://proz.com/profile/elena', ''
     ];
 
     const csvContent = [
@@ -572,7 +572,8 @@ export const Settings: React.FC = () => {
           const rateAgreed = parseFloat(row[10]) || 45;
           const stageRaw = (row[11] || 'outreach').toLowerCase();
           const statusRaw = (row[12] || 'pending').toLowerCase();
-          const ndaRaw = (row[13] || 'false').toLowerCase() === 'true';
+          const stageProgressRaw = (row[13] || '').toLowerCase();
+          const ndaRaw = (row[14] || 'false').toLowerCase() === 'true';
 
           const services = servicesRaw.split(';').map(s => s.trim()).filter(Boolean);
           const workingLanguages = langsRaw.split(';').map(lStr => {
@@ -598,7 +599,8 @@ export const Settings: React.FC = () => {
             adjustedRate: rateOffer,
             confirmedRate: rateAgreed,
             stage: stageRaw as any,
-            status: statusRaw as any,
+            status: statusRaw,
+            stageStatus: stageProgressRaw ? stageProgressRaw : undefined,
             hasSignedNda: ndaRaw,
             source: 'external',
             category: 'outreach',
@@ -645,7 +647,7 @@ export const Settings: React.FC = () => {
       const headers = [
         'Company Name', 'Contact Name', 'Email', 'Secondary Email', 'Phone',
         'Services', 'Languages', 'Tier', 'Hourly Rate (Client)', 'Adjusted Rate (Offer)',
-        'Confirmed Rate (Negotiated)', 'Stage', 'Stage Progress', 'Signed NDA', 'Submitted At'
+        'Confirmed Rate (Negotiated)', 'Stage', 'Status', 'Stage Progress', 'Signed NDA', 'Submitted At'
       ];
       
       const rows = vendorsSnap.docs.map(doc => {
@@ -663,7 +665,8 @@ export const Settings: React.FC = () => {
           v.adjustedRate || 0,
           v.confirmedRate || 0,
           v.stage || 'outreach',
-          v.status || 'pending', // This is the stage progress mapped field
+          v.status || 'pending',
+          v.stageStatus || '',
           v.hasSignedNda ? 'true' : 'false',
           v.submittedAt || ''
         ];
@@ -1229,8 +1232,9 @@ export const Settings: React.FC = () => {
                 <ul className="space-y-1 list-disc pl-4 text-slate-500">
                   <li><strong className="text-slate-700 dark:text-slate-200">Languages:</strong> Semicolon-separated pairs with proficiency (e.g. <code className="bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded">Japanese:native; English:professional</code>)</li>
                   <li><strong className="text-slate-700 dark:text-slate-200">Tier:</strong> Candidate tier rating (<code className="bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded">1</code>, <code className="bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded">2</code>, or <code className="bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded">3</code>)</li>
-                  <li><strong className="text-slate-700 dark:text-slate-200">Stage:</strong> Stage ID (<code className="bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded">outreach, nda, ready_for_testing, in_testing, ready_for_pm</code>)</li>
-                  <li><strong className="text-slate-700 dark:text-slate-200">Stage Progress:</strong> Status ID (<code className="bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded">pending, outreach, started, completed, failed</code>)</li>
+                  <li><strong className="text-slate-700 dark:text-slate-200">Stage:</strong> Workflow stage (<code className="bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded">outreach, nda, ready_for_testing, in_testing...</code>)</li>
+                  <li><strong className="text-slate-700 dark:text-slate-200">Status:</strong> Vendor status (<code className="bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded">pending, active, approved, rejected</code>)</li>
+                  <li><strong className="text-slate-700 dark:text-slate-200">Stage Progress:</strong> Stage progress (<code className="bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded">started, completed, failed</code>)</li>
                   <li><strong className="text-slate-700 dark:text-slate-200">Signed NDA:</strong> NDA status (<code className="bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded">true</code> or <code className="bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded">false</code>)</li>
                 </ul>
               </div>
